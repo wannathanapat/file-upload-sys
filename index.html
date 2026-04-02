@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="th">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบส่งงาน AS INS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Prompt:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Sarabun', 'Prompt', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .main-container {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border-radius: 28px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+      max-width: 800px;
+      width: 100%;
+      padding: 50px 45px;
+      position: relative;
+    }
+
+    .login-container {
+      max-width: 450px;
+    }
+
+    .header-section {
+      text-align: center;
+      margin-bottom: 35px;
+      position: relative;
+    }
+
+    .logout-btn {
+      position: absolute;
+      top: -20px;
+      right: 0px;
+      background: #f1f5f9;
+      color: #ef4444;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: inherit;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .logout-btn:hover {
+      background: #fee2e2;
+      transform: translateY(-2px);
+    }
+
+    .logo-wrapper {
+      width: 90px;
+      height: 90px;
+      margin: 0 auto 25px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+    }
+
+    .logo-wrapper svg {
+      width: 50px;
+      height: 50px;
+      fill: white;
+    }
+
+    .main-title {
+      font-size: 32px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .sub-title {
+      font-size: 16px;
+      color: #64748b;
+      font-weight: 400;
+    }
+
+    .tab-navigation {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 30px;
+      justify-content: center;
+      padding: 8px;
+      background: #f1f5f9;
+      border-radius: 16px;
+      flex-wrap: wrap;
+    }
+
+    .tab-button {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.3s;
+      position: relative;
+      z-index: 1;
+    }
+
+    .tab-button::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 12px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: -1;
+    }
+
+    .tab-button:hover:not(.active) {
+      color: #667eea;
+      background: rgba(102, 126, 234, 0.08);
+    }
+
+    .tab-button.active {
+      color: white;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+    }
+
+    .tab-button.active::before {
+      opacity: 1;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .form-field {
+      margin-bottom: 25px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 10px;
+    }
+
+    .required-mark {
+      color: #ef4444;
+      margin-left: 4px;
+      font-weight: 700;
+    }
+
+    .input-field,
+    .select-field {
+      width: 100%;
+      padding: 14px 18px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      background: #ffffff;
+      color: #1e293b;
+      transition: all 0.3s;
+    }
+
+    .input-field:hover:not([readonly]),
+    .select-field:hover {
+      border-color: #cbd5e1;
+    }
+
+    .input-field:focus:not([readonly]),
+    .select-field:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+    }
+
+    .input-field[readonly] {
+      background: #f8fafc;
+      color: #64748b;
+      cursor: not-allowed;
+      border-color: #e2e8f0;
+    }
+
+    .textarea-field {
+      width: 100%;
+      padding: 14px 18px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      background: #ffffff;
+      color: #1e293b;
+      transition: all 0.3s;
+      resize: vertical;
+      min-height: 100px;
+    }
+
+    .textarea-field:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.12);
+    }
+
+    .submit-button {
+      width: 100%;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .submit-button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 25px rgba(102, 126, 234, 0.45);
+    }
+
+    .submit-button:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* File Upload Area */
+    .file-upload-zone {
+      position: relative;
+    }
+
+    .file-upload-zone input[type="file"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .file-upload-label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 20px;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .file-upload-label:hover {
+      border-color: #667eea;
+      background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+      transform: translateY(-2px);
+    }
+
+    .upload-icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+    }
+
+    .upload-text {
+      font-size: 15px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 4px;
+    }
+
+    .upload-subtext {
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .video-section {
+      display: none;
+    }
+
+    .video-section.show {
+      display: block;
+    }
+
+    .file-info-box {
+      margin-top: 15px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+      border: 1px solid #86efac;
+      border-radius: 12px;
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .file-info-box.show {
+      display: flex;
+    }
+
+    .file-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name-text {
+      font-weight: 600;
+      color: #065f46;
+      font-size: 14px;
+      word-break: break-all;
+      margin-bottom: 2px;
+    }
+
+    .file-size-text {
+      font-size: 12px;
+      color: #047857;
+    }
+
+    /* Table Styles */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      white-space: nowrap;
+    }
+
+    .history-table thead {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .history-table th {
+      padding: 14px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .history-table td {
+      padding: 14px;
+      font-size: 14px;
+      color: #1e293b;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .history-table tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-badge.pending {
+      color: #d97706;
+      background: #fef3c7;
+    }
+
+    .status-badge.approved {
+      color: #047857;
+      background: #d1fae5;
+    }
+
+    .status-badge.rejected {
+      color: #dc2626;
+      background: #fee2e2;
+    }
+
+    .file-link {
+      display: inline-block;
+      padding: 6px 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 12px;
+      box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+    }
+
+    .file-link.video-link {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    /* Admin Action Buttons */
+    .btn-edit {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+    }
+
+    .btn-delete {
+      background: #ef4444;
+      color: white;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      margin-left: 5px;
+    }
+
+    /* Utilities */
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      opacity: 0.5;
+      margin-bottom: 15px;
+    }
+
+    .empty-text {
+      font-size: 16px;
+      color: #64748b;
+    }
+
+    /* Loading overlay inside UI */
+    .section-loading {
+      text-align: center;
+      padding: 40px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 15px;
+      border: 3px solid #e2e8f0;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    /* Full Page Loading Overlay */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      z-index: 9998;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-overlay.show {
+      display: flex;
+    }
+
+    .loading-content {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Toast Notification */
+    .toast-overlay {
+      position: fixed;
+      top: 30px;
+      right: 30px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 18px 24px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1), 0 5px 15px rgba(0, 0, 0, 0.05);
+      z-index: 10000;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-20px) scale(0.95);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      min-width: 300px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-left: 6px solid #667eea;
+    }
+
+    .toast-overlay.show {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .toast-overlay.success {
+      border-left-color: #10b981;
+    }
+
+    .toast-overlay.error {
+      border-left-color: #ef4444;
+    }
+
+    .toast-icon-wrapper {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .toast-overlay.success .toast-icon-wrapper {
+      background: #d1fae5;
+      color: #10b981;
+    }
+
+    .toast-overlay.error .toast-icon-wrapper {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .toast-content {
+      text-align: left;
+      flex: 1;
+    }
+
+    .toast-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 4px;
+    }
+
+    .toast-desc {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.4;
+    }
+
+    /* Layouts */
+    #loginUI {
+      display: block;
+    }
+
+    #mainAppUI {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Full Page Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+      <div class="spinner" style="width:50px;height:50px;border-width:4px;"></div>
+      <div id="loadingStatusText" style="font-weight:600;font-size:16px;">กำลังดำเนินการ...</div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-overlay" id="toastMessage">
+    <div class="toast-icon-wrapper" id="toastIconWrap"></div>
+    <div class="toast-content">
+      <div class="toast-title" id="toastTitle">สำเร็จ</div>
+      <div class="toast-desc" id="toastDesc">ทำรายการเรียบร้อย</div>
+    </div>
+  </div>
+
+  <!-- ======================== LOGIN UI ======================== -->
+  <main class="main-container login-container" id="loginUI">
+    <header class="header-section" style="margin-bottom:25px;">
+      <div class="logo-wrapper">
+        <svg viewbox="0 0 24 24">
+          <path
+            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+      <h1 class="main-title">เข้าสู่ระบบ</h1>
+      <p class="sub-title">AS INS Storage System</p>
+    </header>
+    <form id="loginForm">
+      <div class="form-field">
+        <label class="field-label">รหัสพนักงาน (Username)</label>
+        <input type="text" id="loginUsername" class="input-field" required placeholder="กรอกรหัสพนักงาน">
+      </div>
+      <div class="form-field">
+        <label class="field-label">รหัสผ่าน (Password)</label>
+        <input type="password" id="loginPassword" class="input-field" required placeholder="กรอกรหัสผ่าน">
+      </div>
+      <button type="submit" class="submit-button">เข้าสู่ระบบ</button>
+    </form>
+  </main>
+
+  <!-- ======================== MAIN APP UI ======================== -->
+  <main class="main-container" id="mainAppUI">
+    <header class="header-section">
+      <button class="logout-btn" onclick="handleLogout()">🚪 ออกจากระบบ</button>
+      <div class="logo-wrapper" style="width:70px; height:70px; margin-bottom:15px;">
+        <svg viewbox="0 0 24 24" style="width:35px;height:35px;">
+          <path
+            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </div>
+      <h1 class="main-title" style="font-size:26px;">AS INS Storage System</h1>
+      <p class="sub-title" id="welcomeUserText">ยินดีต้อนรับ</p>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-navigation">
+      <button class="tab-button active" data-tab="submit">ส่งงาน</button>
+      <button class="tab-button" data-tab="history">ประวัติงาน</button>
+      <button class="tab-button" id="adminTabBtn" data-tab="admin" style="display:none; color:#dc2626;">จัดการผู้ใช้งาน
+        (Admin)</button>
+    </nav>
+
+    <!-- Tab 1: Submit Work -->
+    <div class="tab-content active" id="submitTab">
+      <form id="workSubmissionForm">
+        <div class="form-field">
+          <label class="field-label"> ชื่อผู้ส่งงาน <span class="required-mark">*</span> </label>
+          <input type="text" id="submitterName" class="input-field" readonly>
+        </div>
+        <div class="form-field">
+          <label class="field-label"> ประเภทงาน <span class="required-mark">*</span> </label>
+          <select id="workCategory" class="select-field" required>
+            <option value="">เลือกประเภทงาน</option>
+            <option value="งานติดตั้ง (INS)">งานติดตั้ง (INS)</option>
+            <option value="งานซ่อม (AS)">งานซ่อม (AS)</option>
+            <option value="งานถอดติดตั้ง (AS)">งานถอดติดตั้ง (AS)</option>
+            <option value="งานรีเทิร์น (Return)">งานรีเทิร์น (Return)</option>
+            <option value="งานเฟล (Fail)">งานเฟล (Fail)</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label"> ไฟล์งาน (PDF เท่านั้น) <span class="required-mark">*</span> </label>
+          <div class="file-upload-zone">
+            <input type="file" id="pdfUpload" accept="application/pdf" required>
+            <label for="pdfUpload" class="file-upload-label">
+              <div class="upload-icon">📄</div>
+              <div class="upload-text">คลิกเพื่อเลือกไฟล์ PDF</div>
+              <div class="upload-subtext">รองรับเฉพาะไฟล์ .pdf เท่านั้น</div>
+            </label>
+          </div>
+          <div class="file-info-box" id="pdfFileInfo">
+            <div class="file-details">
+              <div class="file-name-text" id="pdfFileName"></div>
+              <div class="file-size-text" id="pdfFileSize"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-field video-section" id="videoUploadSection">
+          <label class="field-label"> ไฟล์วิดีโอ (เฉพาะงานติดตั้งและถอดติดตั้ง) </label>
+          <div class="file-upload-zone">
+            <input type="file" id="videoUpload" accept="video/*">
+            <label for="videoUpload" class="file-upload-label">
+              <div class="upload-icon">🎥</div>
+              <div class="upload-text">คลิกเพื่อเลือกไฟล์วิดีโอ</div>
+              <div class="upload-subtext">mp4, mov, avi, mkv</div>
+            </label>
+          </div>
+          <div class="file-info-box" id="videoFileInfo">
+            <div class="file-details">
+              <div class="file-name-text" id="videoFileName"></div>
+              <div class="file-size-text" id="videoFileSize"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">หมายเหตุ (ถ้ามี)</label>
+          <textarea id="noteText" class="textarea-field" placeholder="กรอกรายละเอียดเพิ่มเติม..."></textarea>
+        </div>
+
+        <button type="submit" class="submit-button" id="submitBtn"> ส่งงาน </button>
+      </form>
+    </div>
+
+    <!-- Tab 2: History -->
+    <div class="tab-content" id="historyTab">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:20px;font-weight:700;">ประวัติการส่งงาน</h2>
+        <button onclick="loadHistory()"
+          style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:8px;font-family:inherit;cursor:pointer;">รีเฟรช</button>
+      </div>
+      <div id="historyContent">
+        <div class="section-loading">
+          <div class="spinner"></div>
+          <p>กำลังโหลดข้อมูล...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Admin User Management -->
+    <div class="tab-content" id="adminTab">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:20px;font-weight:700;">จัดการผู้ใช้งาน</h2>
+        <button onclick="loadUsers()"
+          style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:8px;font-family:inherit;cursor:pointer;">รีเฟรช</button>
+      </div>
+
+      <!-- Add User Form -->
+      <div style="background:#f8fafc; padding:20px; border-radius:14px; margin-bottom:20px; border:1px solid #e2e8f0;">
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:15px;" id="userFormTitle">เพิ่มผู้ใช้งานใหม่</h3>
+        <form id="userAdminForm" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+          <input type="text" id="adminU_username" class="input-field" placeholder="Username" required>
+          <input type="text" id="adminU_password" class="input-field" placeholder="Password" required>
+          <input type="text" id="adminU_name" class="input-field" placeholder="ชื่อ-สกุล" required>
+          <select id="adminU_role" class="select-field" required>
+            <option value="staff">Staff</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div style="grid-column: span 2; display:flex; gap:10px;">
+            <button type="submit" class="submit-button"
+              style="padding:12px; font-size:15px; border-radius:8px;">บันทึกผู้ใช้</button>
+            <button type="button" onclick="resetUserForm()" class="submit-button"
+              style="padding:12px; font-size:15px; border-radius:8px; background:#94a3b8; box-shadow:none;">ยกเลิก</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="usersTableContent">
+        <div class="section-loading">
+          <div class="spinner"></div>
+          <p>กำลังโหลดผู้ใช้งาน...</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // การตั้งค่าระบบ
+    // ==========================================
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx-ouwnPXuyJFKvqS2C1qi83bEzLHA-HkDip5O5SACGC6lf34Hn4nOkfp5n7ZL3SFbUiQ/exec';
+
+    // User Session
+    let currentUser = null;
+    let editUsernameTarget = null; // สำหรับโหมดแก้ไขพนักงาน
+
+    // ตั้งค่า LIFF ID ของคุณที่ได้จาก LINE Developers
+    const LIFF_ID = "YOUR_LIFF_ID_HERE";
+    let currentLineId = null;
+
+    // ==========================================
+    // Authentication & Core Logic
+    // ==========================================
+    document.addEventListener("DOMContentLoaded", () => {
+      initLiffAndSession();
+      setupTabs();
+      setupFileInputs();
+    });
+
+    async function initLiffAndSession() {
+      // ถ้าไม่ได้ใส่ LIFF ID หรือเปิดบนคอมฯ จะมาใช้ Session ปกติ
+      if (!LIFF_ID || LIFF_ID === "YOUR_LIFF_ID_HERE") {
+        checkSession();
+        return;
+      }
+
+      showGlobalLoading("กำลังเชื่อมต่อแอป LINE...");
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        // ถ้าเปิดมาแล้ว login ค้างอยู่ (ในแอป LINE ปกติจะ login อยู่แล้ว)
+        if (liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          currentLineId = profile.userId;
+
+          // เช็คว่าเคยผูกบัญชีในระบบ Google Sheet หรือยัง
+          const res = await apiCall('checkLineId', { lineId: currentLineId });
+          if (res.success && res.user) {
+            localStorage.setItem('appUserSession', JSON.stringify(res.user));
+            currentUser = res.user;
+            showMainApp();
+            showToast("ล็อกอินอัตโนมัติ 🚀");
+            hideGlobalLoading();
+            return; // หยุดทำงานที่นี่ ระบบเข้าใช้งานได้เลย!
+          }
+        }
+        // ถ้าอยู่ในแอป LINE แต่ไม่รู้ทำไมถึงหลุด login
+        else if (liff.isInClient()) {
+          liff.login();
+          return;
+        }
+      } catch (err) {
+        console.error('LIFF Error:', err);
+      }
+
+      // กรณีไม่สำเร็จ (ไม่เคยผูกมัด) ให้เข้าสู่หน้าเว็บปกติเพื่อ Login ด้วยรหัสผ่านก่อน
+      hideGlobalLoading();
+      checkSession();
+    }
+
+    function checkSession() {
+      const savedUser = localStorage.getItem('appUserSession');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        showMainApp();
+      } else {
+        showLogin();
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('loginUI').style.display = 'block';
+      document.getElementById('mainAppUI').style.display = 'none';
+    }
+
+    function showMainApp() {
+      document.getElementById('loginUI').style.display = 'none';
+      document.getElementById('mainAppUI').style.display = 'block';
+      document.getElementById('welcomeUserText').textContent = 'ชื่อผู้ใช้: ' + currentUser.name + ' (' + currentUser.role + ')';
+      document.getElementById('submitterName').value = currentUser.name;
+
+      // จัดการเมนู Admin
+      if (currentUser.role === 'admin') {
+        document.getElementById('adminTabBtn').style.display = 'inline-block';
+      } else {
+        document.getElementById('adminTabBtn').style.display = 'none';
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('appUserSession');
+      currentUser = null;
+      document.getElementById('loginForm').reset();
+      showLogin();
+      // Reset tabs
+      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(cont => cont.classList.remove('active'));
+      document.querySelector('[data-tab="submit"]').classList.add('active');
+      document.getElementById('submitTab').classList.add('active');
+    }
+
+    // ==========================================
+    // API Helper
+    // ==========================================
+    async function apiCall(action, payload = {}) {
+      if (!WEB_APP_URL || WEB_APP_URL.includes('ใส่')) {
+        throw new Error("ยังไม่ได้ตั้งค่า WEB_APP_URL ของ Google Apps Script");
+      }
+      payload.action = action;
+      try {
+        const response = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        return result;
+      } catch (err) {
+        throw new Error("การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+      }
+    }
+
+    // ==========================================
+    // Event: Login Form Submit
+    // ==========================================
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = document.getElementById('loginUsername').value;
+      const pass = document.getElementById('loginPassword').value;
+
+      showGlobalLoading("กำลังตรวจสอบข้อมูล...");
+      try {
+        const res = await apiCall('login', { username: user, password: pass, lineId: currentLineId });
+        if (res.success) {
+          localStorage.setItem('appUserSession', JSON.stringify(res.user));
+          currentUser = res.user;
+          showMainApp();
+          showToast("เข้าสู่ระบบสำเร็จ");
+        } else {
+          showToast(res.message, "error");
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        hideGlobalLoading();
+      }
+    });
+
+    // ==========================================
+    // UI Helpers (Tabs, Toast, Loading)
+    // ==========================================
+    function setupTabs() {
+      document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', function () {
+          const targetTab = this.dataset.tab;
+          document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+          this.classList.add('active');
+          document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+          document.getElementById(targetTab + 'Tab').classList.add('active');
+
+          if (targetTab === 'history') loadHistory();
+          if (targetTab === 'admin') loadUsers();
+        });
+      });
+    }
+
+    function showGlobalLoading(text) {
+      document.getElementById('loadingStatusText').textContent = text;
+      document.getElementById('loadingOverlay').classList.add('show');
+    }
+    function hideGlobalLoading() {
+      document.getElementById('loadingOverlay').classList.remove('show');
+    }
+    function showToast(msg, type = 'success') {
+      const toast = document.getElementById('toastMessage');
+      const iconWrap = document.getElementById('toastIconWrap');
+
+      if (type === 'success') {
+        toast.className = 'toast-overlay success show';
+        iconWrap.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        document.getElementById('toastTitle').textContent = 'สำเร็จ';
+      } else {
+        toast.className = 'toast-overlay error show';
+        iconWrap.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        document.getElementById('toastTitle').textContent = 'ข้อผิดพลาด';
+      }
+
+      document.getElementById('toastDesc').textContent = msg;
+
+      setTimeout(() => toast.classList.remove('show'), 3500);
+    }
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024; const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ==========================================
+    // File Inputs Setup
+    // ==========================================
+    function setupFileInputs() {
+      document.getElementById('workCategory').addEventListener('change', function () {
+        const vSec = document.getElementById('videoUploadSection');
+        if (this.value.includes('ติดตั้ง')) vSec.classList.add('show');
+        else vSec.classList.remove('show');
+      });
+
+      document.getElementById('pdfUpload').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        const info = document.getElementById('pdfFileInfo');
+        if (file && file.type === 'application/pdf') {
+          document.getElementById('pdfFileName').textContent = file.name;
+          document.getElementById('pdfFileSize').textContent = formatFileSize(file.size);
+          info.classList.add('show');
+        } else if (file) {
+          showToast('กรุณาเลือกไฟล์ PDF', 'error'); this.value = ''; info.classList.remove('show');
+        }
+      });
+
+      document.getElementById('videoUpload').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        const info = document.getElementById('videoFileInfo');
+        if (file && file.type.startsWith('video/')) {
+          document.getElementById('videoFileName').textContent = file.name;
+          document.getElementById('videoFileSize').textContent = formatFileSize(file.size);
+          info.classList.add('show');
+        } else if (file) {
+          showToast('กรุณาเลือกไฟล์วิดีโอ', 'error'); this.value = ''; info.classList.remove('show');
+        }
+      });
+    }
+
+    // ==========================================
+    // Upload & Form Submission
+    // ==========================================
+    document.getElementById('workSubmissionForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const workCat = document.getElementById('workCategory').value;
+      const pdfFile = document.getElementById('pdfUpload').files[0];
+      const vidFile = document.getElementById('videoUpload').files[0];
+      const note = document.getElementById('noteText').value;
+
+      showGlobalLoading("กำลังอัปโหลดไฟล์ PDF...");
+      try {
+        const pdfBase64 = await fileToBase64(pdfFile);
+        const pdfRes = await apiCall('uploadFile', { fileName: pdfFile.name, fileData: pdfBase64, workType: workCat });
+        if (!pdfRes.success) throw new Error("อัปโหลด PDF ไม่สำเร็จ");
+
+        let vidRes = null;
+        if (vidFile) {
+          showGlobalLoading("กำลังอัปโหลดวิดีโอ...");
+          const vidBase64 = await fileToBase64(vidFile);
+          vidRes = await apiCall('uploadFile', { fileName: vidFile.name, fileData: vidBase64, workType: workCat, subFolderId: pdfRes.folderId });
+          if (!vidRes.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ");
+        }
+
+        showGlobalLoading("กำลังบันทึกข้อมูล...");
+        const saveRes = await apiCall('saveData', {
+          submission_date: new Date().toISOString(),
+          name: currentUser.name,
+          work_type: workCat,
+          file_name: pdfFile.name,
+          file_url: pdfRes.fileUrl,
+          video_name: vidFile ? vidFile.name : '-',
+          video_url: vidRes ? vidRes.fileUrl : '-',
+          description: note || '-',
+          status: 'รอตรวจ'
+        });
+
+        if (!saveRes.success) throw new Error("บันทึกข้อมูลล้มเหลว");
+
+        showToast("ส่งงานเรียบร้อยแล้ว!");
+        this.reset();
+        document.getElementById('submitterName').value = currentUser.name;
+        document.getElementById('pdfFileInfo').classList.remove('show');
+        document.getElementById('videoFileInfo').classList.remove('show');
+        document.getElementById('videoUploadSection').classList.remove('show');
+
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        hideGlobalLoading();
+      }
+    });
+
+    // ==========================================
+    // Load History
+    // ==========================================
+    async function loadHistory() {
+      const container = document.getElementById('historyContent');
+      container.innerHTML = '<div class="section-loading"><div class="spinner"></div><p>กำลังโหลด...</p></div>';
+      try {
+        const response = await fetch(WEB_APP_URL + '?action=getData');
+        const res = await response.json();
+
+        if (res.success && res.data.length > 0) {
+          let html = `<div class="table-container"><table class="history-table">
+            <thead><tr><th>วันเวลา</th><th>ผู้ส่ง</th><th>ประเภท</th><th>เอกสาร</th><th>วิดีโอ</th><th>สถานะ</th></tr></thead><tbody>`;
+
+          res.data.forEach(item => {
+            // ถ้ายูสเซอร์เป็น staff ให้โชว์แค่งานของตัวเอง
+            if (currentUser.role !== 'admin' && item.name !== currentUser.name) return;
+
+            const d = new Date(item.submission_date);
+            const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')} ${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
+            const fLink = item.file_url !== '-' ? `<a href="${item.file_url}" target="_blank" class="file-link">📄 PDF</a>` : '-';
+            const vLink = item.video_url !== '-' ? `<a href="${item.video_url}" target="_blank" class="file-link video-link">🎥 Video</a>` : '-';
+
+            let badge = 'pending';
+            if (item.status === 'ตรวจแล้ว') badge = 'approved';
+            else if (item.status === 'แก้ไข') badge = 'rejected';
+
+            html += `<tr><td>${dateStr}</td><td>${item.name}</td><td>${item.work_type}</td><td>${fLink}</td><td>${vLink}</td>
+            <td><span class="status-badge ${badge}">${item.status || 'รอตรวจ'}</span></td></tr>`;
+          });
+          html += '</tbody></table></div>';
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p class="empty-text">ไม่มีข้อมูล</p></div>';
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state" style="color:red;">ดึงข้อมูลล้มเหลว</div>`;
+      }
+    }
+
+    // ==========================================
+    // Admin Module (Manage Users)
+    // ==========================================
+    async function loadUsers() {
+      const container = document.getElementById('usersTableContent');
+      container.innerHTML = '<div class="section-loading"><div class="spinner"></div><p>กำลังโหลดผู้ใช้งาน...</p></div>';
+
+      try {
+        const response = await fetch(WEB_APP_URL + '?action=getUsers');
+        const res = await response.json();
+        if (res.success && res.data.length > 0) {
+          let html = `<div class="table-container"><table class="history-table">
+            <thead><tr><th>Username</th><th>Password</th><th>Name</th><th>Role</th><th>Status</th><th>จัดการ</th></tr></thead><tbody>`;
+
+          res.data.forEach(u => {
+            html += `<tr>
+              <td>${u.username}</td>
+              <td>${u.password}</td>
+              <td>${u.name}</td>
+              <td>${u.role}</td>
+              <td><span class="status-badge ${u.status === 'active' ? 'approved' : 'rejected'}">${u.status}</span></td>
+              <td>
+                <button onclick="editUser('${u.username}','${u.password}','${u.name}','${u.role}')" class="btn-edit">แก้ไข</button>
+                <button onclick="deleteUser('${u.username}')" class="btn-delete">ลบ</button>
+              </td>
+            </tr>`;
+          });
+          html += '</tbody></table></div>';
+          container.innerHTML = html;
+        } else {
+          container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p class="empty-text">ไม่มีข้อมูลผู้ใช้</p></div>';
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state" style="color:red;">ดึงข้อมูลล้มเหลว</div>`;
+      }
+    }
+
+    function editUser(user, pass, name, role) {
+      editUsernameTarget = user;
+      document.getElementById('userFormTitle').textContent = "บันทึกการแก้ไขบัญชี : " + user;
+      document.getElementById('adminU_username').value = user;
+      document.getElementById('adminU_username').setAttribute('readonly', true);
+      document.getElementById('adminU_password').value = pass;
+      document.getElementById('adminU_name').value = name;
+      document.getElementById('adminU_role').value = role;
+    }
+
+    function resetUserForm() {
+      editUsernameTarget = null;
+      document.getElementById('userFormTitle').textContent = "เพิ่มผู้ใช้งานใหม่";
+      document.getElementById('adminU_username').removeAttribute('readonly');
+      document.getElementById('userAdminForm').reset();
+    }
+
+    document.getElementById('userAdminForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const userData = {
+        username: document.getElementById('adminU_username').value,
+        password: document.getElementById('adminU_password').value,
+        name: document.getElementById('adminU_name').value,
+        role: document.getElementById('adminU_role').value,
+        status: 'active'
+      };
+
+      const action = editUsernameTarget ? 'updateUser' : 'addUser';
+
+      showGlobalLoading("กำลังบันทึกข้อมูล...");
+      try {
+        const res = await apiCall(action, { userData });
+        if (res.success) {
+          showToast(res.message);
+          resetUserForm();
+          loadUsers();
+        } else {
+          showToast(res.message, "error");
+        }
+      } catch (err) {
+        showToast("เกิดข้อผิดพลาด", "error");
+      } finally {
+        hideGlobalLoading();
+      }
+    });
+
+    async function deleteUser(username) {
+      if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้: ${username} ?`)) return;
+
+      showGlobalLoading("กำลังลบ...");
+      try {
+        const res = await apiCall('deleteUser', { username });
+        if (res.success) {
+          showToast(res.message);
+          loadUsers();
+        } else {
+          showToast(res.message, "error");
+        }
+      } catch (err) {
+        showToast("เกิดข้อผิดพลาด", "error");
+      } finally {
+        hideGlobalLoading();
+      }
+    }
+  </script>
+</body>
+
+</html>
