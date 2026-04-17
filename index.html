@@ -2377,7 +2377,6 @@
             localStorage.setItem('appUserSession', JSON.stringify(res.user));
             currentUser = res.user;
             await showMainApp();
-            showToast("ล็อกอินอัตโนมัติ 🚀");
             hideGlobalLoading();
             return;
           }
@@ -2567,7 +2566,6 @@
           localStorage.setItem('appUserSession', JSON.stringify(res.user));
           currentUser = res.user;
           await showMainApp();
-          showToast("เข้าสู่ระบบสำเร็จ");
         } else {
           showToast(res.message, "error");
         }
