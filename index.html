@@ -565,8 +565,7 @@
     }
 
     /* Full Page Loading Overlay */
-    .loading-overlay {
-      display: none;
+        .loading-overlay {
       position: fixed;
       top: 0;
       left: 0;
@@ -574,13 +573,18 @@
       height: 100%;
       background: #0b1222; /* Premium Dark Navy */
       z-index: 30000;
+      display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
     }
 
     .loading-overlay.show {
-      display: flex;
+      opacity: 1;
+      pointer-events: all;
     }
 
     .loading-content {
@@ -711,118 +715,227 @@
       100% { transform: scale(1.2) translate(50px, 50px); opacity: 0.25; }
     }
 
-    /* Premium Toast Notification */
-    .toast-overlay {
+    /* Progress Modal */
+    .progress-modal {
       position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(-120px);
-      background: white;
-      border-radius: 18px;
-      padding: 0;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0,0,0,0.03);
-      z-index: 25000;
-      opacity: 0;
-      pointer-events: none;
-      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-      display: flex;
-      align-items: stretch;
-      min-width: 320px;
-      max-width: 420px;
-      overflow: hidden;
-    }
-
-    .toast-overlay.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-      pointer-events: auto;
-    }
-
-    .toast-accent {
-      width: 6px;
-      flex-shrink: 0;
-    }
-
-    .toast-overlay.success .toast-accent {
-      background: linear-gradient(180deg, #10b981, #059669);
-    }
-
-    .toast-overlay.error .toast-accent {
-      background: linear-gradient(180deg, #ef4444, #dc2626);
-    }
-
-    .toast-body {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 16px 20px;
-      flex: 1;
-    }
-
-    .toast-icon-wrapper {
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 40000;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s ease;
     }
 
-    .toast-overlay.success .toast-icon-wrapper {
-      background: #ecfdf5;
-      color: #10b981;
+    .progress-modal.show {
+      opacity: 1;
+      pointer-events: all;
     }
 
-    .toast-overlay.error .toast-icon-wrapper {
-      background: #fef2f2;
-      color: #ef4444;
+    .progress-modal-content {
+      width: 90%;
+      max-width: 400px;
+      background: white;
+      border-radius: 24px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      transform: scale(0.9);
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
-    .toast-content {
-      flex: 1;
-      min-width: 0;
+    .progress-modal.show .progress-modal-content {
+      transform: scale(1);
     }
 
-    .toast-title {
-      font-size: 15px;
+    .progress-modal-icon {
+      font-size: 40px;
+      margin-bottom: 20px;
+      display: block;
+    }
+
+    .progress-modal-title {
+      font-size: 20px;
       font-weight: 800;
       color: #0f172a;
-      margin-bottom: 2px;
+      margin-bottom: 8px;
     }
 
+    .progress-modal-subtitle {
+      font-size: 14px;
+      color: #64748b;
+      margin-bottom: 25px;
+      word-break: break-all;
+    }
+
+    .progress-modal-bar-container {
+      width: 100%;
+      height: 12px;
+      background: #f1f5f9;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .progress-modal-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+      border-radius: 20px;
+      transition: width 0.3s ease;
+    }
+
+    .progress-modal-percent {
+      font-size: 18px;
+      font-weight: 800;
+      color: #6366f1;
+    }
+
+    /* Premium Toast Notification — Centered Dark Glass */
+    .toast-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 25000;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 60px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .toast-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .toast-overlay.hiding {
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .toast-card {
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(30px) saturate(200%);
+      -webkit-backdrop-filter: blur(30px) saturate(200%);
+      border-radius: 24px;
+      padding: 28px 32px 22px;
+      min-width: 240px;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.35),
+        0 0 0 1px rgba(255, 255, 255, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      transform: scale(0.7) translateY(-30px);
+      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .toast-overlay.show .toast-card {
+      transform: scale(1) translateY(0);
+    }
+    .toast-overlay.hiding .toast-card {
+      transform: scale(0.9) translateY(-15px);
+    }
+
+    .toast-icon-circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .toast-overlay.success .toast-icon-circle {
+      background: linear-gradient(135deg, #10b981, #34d399);
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+    }
+    .toast-overlay.error .toast-icon-circle {
+      background: linear-gradient(135deg, #ef4444, #fb7185);
+      box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+    }
+
+    .toast-icon-circle svg {
+      color: white;
+      animation: toastIconBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+    }
+    @keyframes toastIconBounce {
+      0% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Animated ring around icon */
+    .toast-icon-circle::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      animation: toastRing 0.6s ease-out 0.15s both;
+    }
+    .toast-overlay.success .toast-icon-circle::after {
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+    .toast-overlay.error .toast-icon-circle::after {
+      border-color: rgba(251, 113, 133, 0.3);
+    }
+    @keyframes toastRing {
+      0% { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .toast-text-group {
+      text-align: center;
+    }
+    .toast-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 4px;
+      letter-spacing: -0.3px;
+    }
     .toast-desc {
       font-size: 13px;
-      color: #64748b;
+      color: rgba(255, 255, 255, 0.55);
       line-height: 1.4;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-weight: 500;
+      max-width: 260px;
+      word-break: break-word;
     }
 
-    .toast-progress {
-      position: absolute;
-      bottom: 0;
-      left: 6px;
-      right: 0;
+    .toast-timer-bar {
+      width: 100%;
       height: 3px;
-      background: rgba(0,0,0,0.04);
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 2px;
     }
-
-    .toast-progress-bar {
+    .toast-timer-fill {
       height: 100%;
-      border-radius: 0 0 18px 0;
-      animation: toastCountdown 3s linear forwards;
+      border-radius: 3px;
+      animation: toastCountdown 1.5s linear forwards;
     }
-
-    .toast-overlay.success .toast-progress-bar {
-      background: linear-gradient(90deg, #10b981, #34d399);
+    .toast-overlay.success .toast-timer-fill {
+      background: linear-gradient(90deg, #10b981, #6ee7b7);
     }
-
-    .toast-overlay.error .toast-progress-bar {
-      background: linear-gradient(90deg, #ef4444, #f87171);
+    .toast-overlay.error .toast-timer-fill {
+      background: linear-gradient(90deg, #ef4444, #fca5a5);
     }
-
     @keyframes toastCountdown {
       from { width: 100%; }
       to { width: 0%; }
@@ -1846,7 +1959,168 @@
         opacity: 1;
       }
     }
+
+    /* ==========================================
+       Desktop Responsive Layout
+       ========================================== */
+    @media (min-width: 1024px) {
+      body {
+        background-color: #f8fafc;
+      }
+      
+      #mainAppUI {
+        max-width: 1200px;
+        padding-left: 260px; /* Space for left sidebar */
+        padding-right: 20px;
+        padding-top: 40px;
+        margin: 0 auto;
+        align-items: center;
+      }
+      
+      .tab-content {
+        max-width: 100%;
+      }
+
+      /* Transform Bottom Navigation to Left Sidebar */
+      .bottom-nav {
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: auto;
+        width: 240px;
+        height: 100vh;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding-top: 40px;
+        padding-bottom: 30px;
+        gap: 15px;
+        border-top: none;
+        border-right: 1px solid rgba(255, 255, 255, 0.4);
+        border-left: none;
+        border-radius: 0;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.03);
+        transform: translateX(-100%);
+      }
+      
+      body.main-active .bottom-nav {
+        transform: translateX(0);
+      }
+
+      .nav-item {
+        flex: 0 0 auto;
+        width: calc(100% - 40px);
+        height: auto;
+        margin: 0 20px;
+        padding: 12px 20px;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        border-radius: 16px;
+        gap: 15px;
+      }
+      .nav-item svg {
+        width: 22px;
+        height: 22px;
+        margin-bottom: 0;
+      }
+      .nav-item .nav-label {
+        display: block;
+        margin-top: 0;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      .nav-item .nav-dot {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%) scale(0);
+        margin: 0;
+      }
+      .nav-item.active .nav-dot {
+        transform: translateY(-50%) scale(1);
+      }
+
+      .nav-fab-wrapper {
+        margin-top: 0;
+        margin-bottom: 0;
+        width: calc(100% - 40px);
+        margin-left: 20px;
+        margin-right: 20px;
+        border-radius: 16px;
+        background: transparent;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 12px 20px;
+        gap: 15px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .nav-fab-wrapper:hover {
+        background: transparent;
+      }
+      .fab-button {
+        width: 22px;
+        height: 22px;
+        box-shadow: none;
+        border: none;
+        margin-right: 0;
+        background: transparent;
+        color: #94a3b8;
+      }
+      .fab-button svg {
+        width: 22px;
+        height: 22px;
+      }
+      .nav-fab-wrapper .nav-label {
+        display: block;
+        margin-top: 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: #94a3b8;
+      }
+      .nav-fab-wrapper.active .nav-label, .nav-fab-wrapper.active .fab-button {
+        color: #6366f1;
+      }
+
+      /* Adjust form and card widths */
+      .form-container, .profile-card, #recordDetailModal .detail-content {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        max-width: 800px;
+        margin: 0 auto 30px auto;
+      }
+      
+      .history-table {
+        min-width: 100%;
+      }
+    }
+    /* Mobile nav adjustments (matches exact layout requested) */
+    @media (max-width: 767px) {
+      .bottom-nav .nav-label {
+        display: none !important;
+      }
+      .bottom-nav .desktop-logout-icon {
+        display: none !important;
+      }
+      .bottom-nav .nav-item svg {
+        margin-bottom: 0 !important;
+      }
+    }
+    @media (min-width: 768px) {
+      .bottom-nav .mobile-menu-icon {
+        display: none !important;
+      }
+    }
   </style>
+
 </head>
 
 <body>
@@ -1868,22 +2142,33 @@
         <div class="loading-progress-bar"></div>
       </div>
     </div>
-    <div class="loading-footer">
-      © BY WANNA THANAPATCHOKSAKUL
+  </div>
+
+  <!-- Progress Modal -->
+  <div class="progress-modal" id="progressModal">
+    <div class="progress-modal-content">
+      <span class="progress-modal-icon" id="progressIcon">📤</span>
+      <div class="progress-modal-title" id="progressTitle">กำลังอัปโหลดไฟล์</div>
+      <div class="progress-modal-subtitle" id="progressSubtitle">กรุณารอสักครู่...</div>
+      
+      <div class="progress-modal-bar-container">
+        <div class="progress-modal-bar-fill" id="progressBarFill"></div>
+      </div>
+      
+      <div class="progress-modal-percent" id="progressPercent">0%</div>
     </div>
   </div>
 
   <!-- Toast Notification -->
   <div class="toast-overlay" id="toastMessage">
-    <div class="toast-accent"></div>
-    <div class="toast-body">
-      <div class="toast-icon-wrapper" id="toastIconWrap"></div>
-      <div class="toast-content">
+    <div class="toast-card">
+      <div class="toast-icon-circle" id="toastIconCircle"></div>
+      <div class="toast-text-group">
         <div class="toast-title" id="toastTitle">สำเร็จ</div>
         <div class="toast-desc" id="toastDesc">ทำรายการเรียบร้อย</div>
       </div>
+      <div class="toast-timer-bar"><div class="toast-timer-fill"></div></div>
     </div>
-    <div class="toast-progress"><div class="toast-progress-bar"></div></div>
   </div>
 
   <!-- Menu Modal (Hamburger Drawer) -->
@@ -2272,8 +2557,7 @@
         </div>
       </div>
     </div>
-
-  </main>
+    </main>
 
   <!-- Premium Bottom Navigation Bar -->
   <nav class="bottom-nav" id="bottomNav">
@@ -2285,6 +2569,7 @@
         <rect x="14" y="14" width="7" height="7"></rect>
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>
+      <span class="nav-label">ภาพรวม</span>
       <div class="nav-dot"></div>
     </div>
 
@@ -2294,35 +2579,54 @@
         <circle cx="12" cy="12" r="10"></circle>
         <polyline points="12 6 12 12 16 14"></polyline>
       </svg>
+      <span class="nav-label">ประวัติ</span>
       <div class="nav-dot"></div>
     </div>
 
-    <div class="nav-fab-wrapper">
-      <div class="fab-button" onclick="switchTab('submit')" id="nav-submit-fab">
+    <div class="nav-fab-wrapper" id="nav-submit" onclick="switchTab('submit')">
+      <div class="fab-button" id="nav-submit-fab">
         <svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" stroke-width="3" fill="none"
           stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
       </div>
+      <div class="nav-label" style="text-align: center; margin-top: 5px;">ส่งงาน</div>
     </div>
 
+    
     <div class="nav-item" id="nav-user" onclick="switchTab('user')">
       <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
         stroke-linecap="round" stroke-linejoin="round">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
       </svg>
+      <span class="nav-label">จัดการผู้ใช้</span>
       <div class="nav-dot"></div>
     </div>
 
-    <div class="nav-item" onclick="toggleMenuModal()">
+    
+    <!-- Hamburger Menu (Mobile Only) -->
+    <div class="nav-item mobile-menu-icon" onclick="toggleMenuModal()">
       <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
         stroke-linecap="round" stroke-linejoin="round">
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
+        <line x1="4" y1="12" x2="20" y2="12"></line>
+        <line x1="4" y1="6" x2="20" y2="6"></line>
+        <line x1="4" y1="18" x2="20" y2="18"></line>
       </svg>
+      <span class="nav-label">เมนู</span>
+      <div class="nav-dot"></div>
+    </div>
+
+    <!-- Logout (Desktop Only) -->
+    <div class="nav-item desktop-logout-icon" style="margin-top: auto; margin-bottom: 20px; color: #ef4444;" onclick="handleLogout()">
+      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+      <span class="nav-label" style="color: #ef4444;">ออกจากระบบ</span>
       <div class="nav-dot"></div>
     </div>
   </nav>
@@ -2346,6 +2650,7 @@
     // Authentication & Core Logic
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
+      showGlobalLoading("กำลังเริ่มต้นระบบ...");
       initLiffAndSession();
       // setupTabs จะไม่ได้ใช้งานแบบเดิมแล้ว แต่จะคงไว้เพื่อความสมบูรณ์
       setupTabs();
@@ -2356,14 +2661,9 @@
       // ซ่อน Bottom Nav ตอนเริ่มต้น
       document.body.classList.remove('main-active');
 
-      if (!LIFF_ID || LIFF_ID === "2009682051-EZTCTb4z") {
-        // ถ้าเปิดบนคอมฯ หรือยังไม่ได้ใส่ ID ให้เช็ค Session ปกติ
+      if (!LIFF_ID) {
         await checkSession();
-        // ถ้าใส่ ID แล้วแต่เปิดบนคอมฯ อาจจะต้องหยุดตรงนี้ถ้าไม่ใช่ใน LINE
-        if (!liff.isInClient() && LIFF_ID !== "2009682051-EZTCTb4z") {
-          hideGlobalLoading();
-          return;
-        }
+        return;
       }
 
       showGlobalLoading("กำลังเชื่อมต่อแอป LINE...");
@@ -2389,7 +2689,6 @@
         console.error('LIFF Error:', err);
       }
 
-      hideGlobalLoading();
       await checkSession();
     }
 
@@ -2397,12 +2696,10 @@
       const savedUser = localStorage.getItem('appUserSession');
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
-        showGlobalLoading("กำลังกู้คืนเซสชัน...");
         await showMainApp();
-        hideGlobalLoading();
       } else {
         showLogin();
-        hideGlobalLoading();
+        setTimeout(hideGlobalLoading, 500);
       }
     }
 
@@ -2439,11 +2736,20 @@
       // Setup Initial Tab
       switchTab('dashboard');
       
-      showGlobalLoading("กำลังโหลดข้อมูลประวัติและผู้ใช้งาน...");
-      const tasks = [loadHistory()];
-      if (currentUser.role === 'admin') tasks.push(loadUsers());
-      
-      await Promise.all(tasks);
+      try {
+        showGlobalLoading("กำลังโหลดข้อมูลประวัติงาน...");
+        await loadHistory();
+        
+        if (currentUser.role === 'admin') {
+          showGlobalLoading("กำลังโหลดรายชื่อผู้ใช้งาน...");
+          await loadUsers();
+        }
+
+        showGlobalLoading("กำลังเตรียมข้อมูลหน้าแดชบอร์ด...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } finally {
+        hideGlobalLoading();
+      }
     }
 
     function handleLogout() {
@@ -2473,13 +2779,16 @@
       }, 500);
     }
 
+    
+
+
     function switchTab(tabId) {
       console.log("Switching to tab:", tabId);
       // 1. ซ่อนทุกหน้า Content
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
 
       // 2. ลบสถานะ Active จากไอคอนทั้งหมดใน Bottom Nav
-      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.nav-item, .nav-fab-wrapper').forEach(item => item.classList.remove('active'));
       document.querySelectorAll('.fab-button').forEach(item => item.classList.remove('active'));
 
       // 3. แสดงหน้า Content ที่เลือก
@@ -2496,10 +2805,10 @@
         fabBtn.classList.add('active');
       }
 
-      // 5. โหลดข้อมูลเมื่อสลับไปหน้าประวัติ
-      if (tabId === 'history') {
-        loadHistory();
-      }
+      // 5. ไม่ต้องโหลดซ้ำตอนสลับแท็บ ข้อมูลจะได้โผล่มาทันที
+      // if (tabId === 'history') {
+      //   loadHistory();
+      // }
 
       // 6. จัดการเนื้อหาตาม Role สำหรับหน้า user
       if (tabId === 'user') {
@@ -2508,7 +2817,8 @@
           title.textContent = "จัดการผู้ใช้ (Admin)";
           document.getElementById('adminUserView').style.display = 'block';
           document.getElementById('staffProfileView').style.display = 'none';
-          loadUsers();
+          // โหลดเฉพาะถ้ายังไม่มีข้อมูล
+          if (!allUsersData || allUsersData.length === 0) loadUsers();
         } else {
           title.textContent = "โปรไฟล์ของฉัน";
           document.getElementById('adminUserView').style.display = 'none';
@@ -2602,30 +2912,94 @@
     function hideGlobalLoading() {
       document.getElementById('loadingOverlay').classList.remove('show');
     }
+
+    // Progress Modal Helpers
+    function showProgressModal(title, subtitle, icon = '📤') {
+      document.getElementById('progressTitle').textContent = title;
+      document.getElementById('progressSubtitle').textContent = subtitle;
+      document.getElementById('progressIcon').textContent = icon;
+      document.getElementById('progressBarFill').style.width = '0%';
+      document.getElementById('progressPercent').textContent = '0%';
+      document.getElementById('progressModal').classList.add('show');
+    }
+
+    function updateProgress(percent) {
+      document.getElementById('progressBarFill').style.width = percent + '%';
+      document.getElementById('progressPercent').textContent = percent + '%';
+    }
+
+    function hideProgressModal() {
+      document.getElementById('progressModal').classList.remove('show');
+    }
+
+    function apiCallWithProgress(action, payload = {}, onProgress) {
+      return new Promise(async (resolve, reject) => {
+        if (!WEB_APP_URL || WEB_APP_URL.includes('ใส่')) {
+          return reject(new Error("ยังไม่ได้ตั้งค่า WEB_APP_URL ของ Google Apps Script"));
+        }
+        payload.action = action;
+        
+        // เราใช้ Fake Progress แทน XMLHttpRequest.upload.onprogress 
+        // เพราะ Google Apps Script จะมีปัญหา CORS Preflight เมื่อมีการแนบ XHR Upload Listener (ทำให้เกิด Error: การเชื่อมต่อล้มเหลว)
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress += Math.random() * 15; // ค่อยๆ เพิ่มทีละนิด
+          if (progress > 90) progress = 90; // หยุดที่ 90% จนกว่าจะอัปโหลดเสร็จจริง
+          if (onProgress) onProgress(Math.round(progress));
+        }, 500);
+
+        try {
+          // ใช้ fetch() ซึ่งเป็น Simple Request แบบเดียวกับฟังก์ชัน apiCall ปกติเพื่อเลี่ยง CORS
+          const response = await fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          
+          clearInterval(progressInterval);
+          if (onProgress) onProgress(100);
+          resolve(result);
+        } catch (err) {
+          clearInterval(progressInterval);
+          reject(new Error("การเชื่อมต่อล้มเหลว"));
+        }
+      });
+    }
+
     function showToast(msg, type = 'success') {
       const toast = document.getElementById('toastMessage');
-      const iconWrap = document.getElementById('toastIconWrap');
+      const iconCircle = document.getElementById('toastIconCircle');
+
+      // Clear any pending timers
+      clearTimeout(window._toastTimer);
+      clearTimeout(window._toastHideTimer);
+      toast.classList.remove('hiding');
 
       if (type === 'success') {
         toast.className = 'toast-overlay success show';
-        iconWrap.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        iconCircle.innerHTML = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
         document.getElementById('toastTitle').textContent = 'สำเร็จ';
       } else {
         toast.className = 'toast-overlay error show';
-        iconWrap.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        iconCircle.innerHTML = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
         document.getElementById('toastTitle').textContent = 'ข้อผิดพลาด';
       }
 
       document.getElementById('toastDesc').textContent = msg;
 
-      // Reset progress animation
-      const bar = toast.querySelector('.toast-progress-bar');
+      // Reset timer bar animation (1.5s)
+      const bar = toast.querySelector('.toast-timer-fill');
       bar.style.animation = 'none';
-      bar.offsetHeight; // trigger reflow
-      bar.style.animation = 'toastCountdown 3s linear forwards';
+      bar.offsetHeight;
+      bar.style.animation = 'toastCountdown 1.5s linear forwards';
 
-      clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+      // Auto-hide with smooth fade
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add('hiding');
+        window._toastHideTimer = setTimeout(() => {
+          toast.classList.remove('show', 'hiding');
+        }, 300);
+      }, 1500);
     }
     function formatFileSize(bytes) {
       if (bytes === 0) return '0 Bytes';
@@ -2687,21 +3061,32 @@
       const vidFile = document.getElementById('videoUpload').files[0];
       const note = document.getElementById('noteText').value;
 
-      showGlobalLoading("กำลังอัปโหลดไฟล์ PDF...");
       try {
+        // 1. Upload PDF
+        showProgressModal("กำลังอัปโหลดไฟล์ PDF", pdfFile.name, "📄");
         const pdfBase64 = await fileToBase64(pdfFile);
-        const pdfRes = await apiCall('uploadFile', { fileName: pdfFile.name, fileData: pdfBase64, workType: workCat });
+        const pdfRes = await apiCallWithProgress('uploadFile', 
+          { fileName: pdfFile.name, fileData: pdfBase64, workType: workCat },
+          (percent) => updateProgress(percent)
+        );
+        
         if (!pdfRes.success) throw new Error("อัปโหลด PDF ไม่สำเร็จ");
 
+        // 2. Upload Video (if any)
         let vidRes = null;
         if (vidFile) {
-          showGlobalLoading("กำลังอัปโหลดวิดีโอ...");
+          showProgressModal("กำลังอัปโหลดไฟล์วิดีโอ", vidFile.name, "🎥");
           const vidBase64 = await fileToBase64(vidFile);
-          vidRes = await apiCall('uploadFile', { fileName: vidFile.name, fileData: vidBase64, workType: workCat, subFolderId: pdfRes.folderId });
+          vidRes = await apiCallWithProgress('uploadFile', 
+            { fileName: vidFile.name, fileData: vidBase64, workType: workCat, subFolderId: pdfRes.folderId },
+            (percent) => updateProgress(percent)
+          );
           if (!vidRes.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ");
         }
 
-        showGlobalLoading("กำลังบันทึกข้อมูล...");
+        // 3. Save Data
+        showProgressModal("กำลังบันทึกข้อมูล", "กรุณารอสักครู่...", "💾");
+        updateProgress(50);
         const saveRes = await apiCall('saveData', {
           submission_date: new Date().toISOString(),
           name: currentUser.name,
@@ -2714,6 +3099,7 @@
           status: 'รอตรวจ'
         });
 
+        updateProgress(100);
         if (!saveRes.success) throw new Error("บันทึกข้อมูลล้มเหลว");
 
         showToast("ส่งงานเรียบร้อยแล้ว!");
@@ -2722,11 +3108,14 @@
         document.getElementById('pdfFileInfo').classList.remove('show');
         document.getElementById('videoFileInfo').classList.remove('show');
         document.getElementById('videoUploadSection').classList.remove('show');
+        
+        // โหลดข้อมูลประวัติใหม่ในพื้นหลัง เพื่อให้เวลาสลับแท็บกลับไปเห็นงานใหม่ทันที
+        loadHistory();
 
       } catch (err) {
         showToast(err.message, "error");
       } finally {
-        hideGlobalLoading();
+        hideProgressModal();
       }
     });
 
@@ -2957,9 +3346,12 @@
 
         // 1. Upload PDF if changed
         if (newPdfFile) {
-          showGlobalLoading("กำลังอัปโหลด PDF ใหม่...");
+          showProgressModal("กำลังอัปโหลด PDF ใหม่", newPdfFile.name, "📄");
           const base64 = await fileToBase64(newPdfFile);
-          const res = await apiCall('uploadFile', { fileName: newPdfFile.name, fileData: base64, workType: newType });
+          const res = await apiCallWithProgress('uploadFile', 
+            { fileName: newPdfFile.name, fileData: base64, workType: newType },
+            (percent) => updateProgress(percent)
+          );
           if (!res.success) throw new Error("อัปโหลด PDF ไม่สำเร็จ: " + res.message);
           updatedFileName = newPdfFile.name;
           updatedFileUrl = res.fileUrl;
@@ -2967,16 +3359,19 @@
 
         // 2. Upload Video if changed
         if (newVidFile) {
-          showGlobalLoading("กำลังอัปโหลดวิดีโอใหม่...");
+          showProgressModal("กำลังอัปโหลดวิดีโอใหม่", newVidFile.name, "🎥");
           const base64 = await fileToBase64(newVidFile);
-          // หากอัปโหลด PDF ใหม่ ให้พยายามเก็บไว้ในโฟลเดอร์เดียวกันเพื่อให้เป็นระเบียบ (ถ้าข้อมูลเก่ายังมี ID โฟลเดอร์ใน URL มักจะยาก เลยอิงตาม Type ใหม่)
-          const res = await apiCall('uploadFile', { fileName: newVidFile.name, fileData: base64, workType: newType });
+          const res = await apiCallWithProgress('uploadFile', 
+            { fileName: newVidFile.name, fileData: base64, workType: newType },
+            (percent) => updateProgress(percent)
+          );
           if (!res.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ: " + res.message);
           updatedVideoName = newVidFile.name;
           updatedVideoUrl = res.fileUrl;
         }
 
-        showGlobalLoading("กำลังบันทึกการเปลี่ยนแปลง...");
+        showProgressModal("กำลังบันทึกการเปลี่ยนแปลง", "กรุณารอสักครู่...", "💾");
+        updateProgress(50);
         const payload = {
           submission_date: originalItem.submission_date,
           name: originalItem.name,
@@ -2992,6 +3387,7 @@
         };
 
         const res = await apiCall('updateData', payload);
+        updateProgress(100);
         if (res.success) {
           showToast("อัปเดตข้อมูลและไฟล์เรียบร้อยแล้ว");
           // Local update
@@ -3004,11 +3400,8 @@
         } else {
           showToast(res.message, "error");
         }
-      } catch (err) {
-        console.error("SaveEdits error:", err);
-        showToast(err.message, "error");
       } finally {
-        hideGlobalLoading();
+        hideProgressModal();
       }
     }
 
@@ -3019,13 +3412,15 @@
       const confirmDelete = confirm("⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้? การกระทำนี้ไม่สามารถย้อนคืนได้");
       if (!confirmDelete) return;
 
-      showGlobalLoading("กำลังลบข้อมูล...");
       try {
+        showProgressModal("กำลังลบข้อมูล", item.file_name, "🗑️");
+        updateProgress(50);
         // ใช้ apiCall ที่มีอยู่ในการส่งคำสั่งไปที่ Script
         const res = await apiCall('deleteData', { 
           timestamp: item.submission_date 
         });
 
+        updateProgress(100);
         if (res.success) {
           showToast("ลบข้อมูลเรียบร้อยแล้ว");
           closeRecordDetail();
@@ -3036,7 +3431,7 @@
       } catch (err) {
         showToast("เกิดข้อผิดพลาด: " + err.message, "error");
       } finally {
-        hideGlobalLoading();
+        hideProgressModal();
       }
     }
 
@@ -3048,10 +3443,9 @@
     // ==========================================
     // Admin Module (Manage Users)
     // ==========================================
-    async function loadUsers() {
+        async function loadUsers() {
       const container = document.getElementById('usersTableContent');
       container.innerHTML = '<div class="section-loading"><div class="spinner"></div><p>กำลังโหลดผู้ใช้งาน...</p></div>';
-
       try {
         console.log("Fetching users from:", WEB_APP_URL);
         const response = await fetch(WEB_APP_URL + '?action=getUsers');
@@ -3388,7 +3782,8 @@
                 <option value="งานติดตั้ง (INS)">งานติดตั้ง (INS)</option>
                 <option value="งานซ่อม (AS)">งานซ่อม (AS)</option>
                 <option value="งานถอดติดตั้ง (AS)">งานถอดติดตั้ง (AS)</option>
-                <option value="งานรีเทิร์น (Return)">งานรีเทิร์น (Return)</option>
+                <option value="งานคืน (Return)">งานคืน (Return)</option>
+                <option value="งานเฟล (Fail)">งานเฟล (Fail)</option>
               </select>
             </div>
           </div>
