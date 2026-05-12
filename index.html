@@ -2441,13 +2441,15 @@
             <option value="">ทุกช่าง (ทั้งหมด)</option>
           </select>
 
-          <input type="date" id="historyDateFrom" class="input-field" title="ตั้งแต่วันที่"
-            style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
-            onchange="filterHistory()">
-            
-          <input type="date" id="historyDateTo" class="input-field" title="ถึงวันที่"
-            style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
-            onchange="filterHistory()">
+          <div style="flex:2; min-width:280px; display:flex; gap:12px;">
+            <input type="date" id="historyDateFrom" class="input-field" title="ตั้งแต่วันที่"
+              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
+              onchange="filterHistory()">
+              
+            <input type="date" id="historyDateTo" class="input-field" title="ถึงวันที่"
+              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
+              onchange="filterHistory()">
+          </div>
 
           <select id="historyCatFilter" class="select-field"
             style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
