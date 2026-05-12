@@ -2442,12 +2442,12 @@
           </select>
 
           <div style="flex:2; min-width:280px; display:flex; gap:12px;">
-            <input type="date" id="historyDateFrom" class="input-field" title="ตั้งแต่วันที่"
-              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
+            <input type="text" placeholder="ตั้งแต่วันที่" onfocus="(this.type='date')" onblur="(this.type=this.value?'date':'text')" id="historyDateFrom" class="input-field" title="ตั้งแต่วันที่"
+              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 12px 16px;"
               onchange="filterHistory()">
               
-            <input type="date" id="historyDateTo" class="input-field" title="ถึงวันที่"
-              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
+            <input type="text" placeholder="ถึงวันที่" onfocus="(this.type='date')" onblur="(this.type=this.value?'date':'text')" id="historyDateTo" class="input-field" title="ถึงวันที่"
+              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 12px 16px;"
               onchange="filterHistory()">
           </div>
 
