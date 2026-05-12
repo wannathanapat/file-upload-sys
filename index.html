@@ -12,6 +12,8 @@
     rel="stylesheet">
   <link rel="icon" type="image/png" href="/coway-logo-new.png">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <style>
     body {
       box-sizing: border-box;
@@ -1970,9 +1972,9 @@
       
       #mainAppUI {
         max-width: 1200px;
-        padding-left: 260px; /* Space for left sidebar */
-        padding-right: 20px;
-        padding-top: 40px;
+        padding-left: 260px !important; /* Space for left sidebar */
+        padding-right: 20px !important;
+        padding-top: 40px !important;
         margin: 0 auto;
         align-items: center;
       }
@@ -2429,13 +2431,23 @@
       <div class="dashboard-section" style="padding: 25px;">
         <!-- Filter Controls -->
         <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 25px; align-items:center;">
-          <input type="text" id="historySearch" placeholder="🔍 ค้นหาชื่อช่าง, งาน..." class="input-field"
+          <input type="text" id="historySearch" placeholder="🔍 ค้นหางาน, ชื่อไฟล์..." class="input-field"
             style="flex:2; min-width:180px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
             oninput="filterHistory()">
 
-          <input type="text" id="historyDateFilter" placeholder="📅 วันที่" class="input-field"
-            style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
-            onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'" onchange="filterHistory()">
+          <select id="historyTechFilter" class="select-field"
+            style="flex:1; min-width:140px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
+            onchange="filterHistory()">
+            <option value="">ทุกช่าง (ทั้งหมด)</option>
+          </select>
+
+          <input type="date" id="historyDateFrom" class="input-field" title="ตั้งแต่วันที่"
+            style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
+            onchange="filterHistory()">
+            
+          <input type="date" id="historyDateTo" class="input-field" title="ถึงวันที่"
+            style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 10px;"
+            onchange="filterHistory()">
 
           <select id="historyCatFilter" class="select-field"
             style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
@@ -2461,6 +2473,11 @@
             style="padding:12px 20px;background:linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);color:white;border:none;border-radius:18px;font-family:inherit;cursor:pointer;font-size:14px;font-weight:800; transition: all 0.3s; box-shadow: 0 4px 15px rgba(99,102,241,0.3); display: flex; align-items:center; justify-content:center;">
             🔄 รีเฟรช
           </button>
+          
+          <div style="display:flex; gap: 8px;">
+            <button onclick="exportHistoryPDF()" class="chart-filter-btn" style="background:#ef4444; color:white; border:none; padding:10px 16px;">📄 PDF</button>
+            <button onclick="exportHistoryExcel()" class="chart-filter-btn" style="background:#10b981; color:white; border:none; padding:10px 16px;">📊 Excel</button>
+          </div>
         </div>
 
         <div id="historyContent">
@@ -3123,17 +3140,33 @@
     // Load & Filter History
     // ==========================================
     let currentHistoryData = [];
+    let currentFilteredHistory = [];
     let showAllState = false;
 
     function resetAndLoadHistory() {
       document.getElementById('historySearch').value = '';
-      const dateFilter = document.getElementById('historyDateFilter');
-      dateFilter.value = '';
-      dateFilter.type = 'text';
+      document.getElementById('historyTechFilter').value = '';
+      document.getElementById('historyDateFrom').value = '';
+      document.getElementById('historyDateTo').value = '';
       document.getElementById('historyCatFilter').value = '';
       document.getElementById('historyStatusFilter').value = '';
       showAllState = false;
       loadHistory();
+    }
+
+    function updateTechDropdown(data) {
+      const techFilter = document.getElementById('historyTechFilter');
+      const currentVal = techFilter.value;
+      const techs = new Set();
+      data.forEach(item => { if (item.name) techs.add(item.name); });
+      
+      techFilter.innerHTML = '<option value="">ทุกช่าง (ทั้งหมด)</option>';
+      Array.from(techs).sort().forEach(tech => {
+        techFilter.innerHTML += `<option value="${tech}">${tech}</option>`;
+      });
+      if (Array.from(techs).includes(currentVal)) {
+        techFilter.value = currentVal;
+      }
     }
 
     async function loadHistory() {
@@ -3152,6 +3185,7 @@
           });
 
           updateDashboardStats(currentHistoryData);
+          updateTechDropdown(currentHistoryData);
           filterHistory(); // เรียกใช้ filter เพื่อให้คงค่าค้นหาเดิมไว้
         } else {
           container.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><p class="empty-text">เกิดข้อผิดพลาด: ' + (res.message || 'ไม่สามารถดึงข้อมูลได้') + '</p></div>';
@@ -3169,36 +3203,40 @@
 
     function filterHistory() {
       const query = document.getElementById('historySearch').value.toLowerCase();
-      const dateVal = document.getElementById('historyDateFilter').value;
+      const tech = document.getElementById('historyTechFilter').value;
+      const dateFrom = document.getElementById('historyDateFrom').value;
+      const dateTo = document.getElementById('historyDateTo').value;
       const cat = document.getElementById('historyCatFilter').value;
       const status = document.getElementById('historyStatusFilter').value;
 
       const filtered = currentHistoryData.filter(item => {
-        const matchQ = (item.name && item.name.toLowerCase().includes(query)) ||
-          (item.description && item.description.toLowerCase().includes(query)) ||
+        const matchQ = (item.description && item.description.toLowerCase().includes(query)) ||
           (item.work_type && item.work_type.toLowerCase().includes(query)) ||
           (item.file_name && item.file_name.toLowerCase().includes(query));
+        
+        const matchTech = tech === '' || (item.name && item.name === tech);
         const matchCat = cat === '' || item.work_type === cat;
         const statusText = item.status || 'รอตรวจ';
         const matchStatus = status === '' || statusText === status;
 
         let matchDate = true;
-        if (dateVal) {
+        if (dateFrom || dateTo) {
           try {
-            const itemDate = new Date(item.submission_date);
-            const itemDateLocal = itemDate.toLocaleDateString('en-CA');
-            matchDate = itemDateLocal === dateVal;
+            const itemDateStr = new Date(item.submission_date).toLocaleDateString('en-CA');
+            if (dateFrom && itemDateStr < dateFrom) matchDate = false;
+            if (dateTo && itemDateStr > dateTo) matchDate = false;
           } catch (e) { matchDate = false; }
         }
 
-        return matchQ && matchCat && matchStatus && matchDate;
+        return matchQ && matchTech && matchCat && matchStatus && matchDate;
       });
+      currentFilteredHistory = filtered;
       renderHistory(filtered);
     }
 
     function renderHistory(data) {
       const container = document.getElementById('historyContent');
-      if (data.length === 0) {
+      if (!data || data.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-icon" style="font-size:50px;">🔍</div><p class="empty-text" style="font-weight:700;">ไม่พบข้อมูล</p></div>';
         return;
       }
@@ -3741,6 +3779,238 @@
         hideGlobalLoading();
       }
     });
+    let progressIntervals = {};
+
+    function showProgressModal(titleText, modalId) {
+      let progressModal = document.getElementById(modalId);
+      if (!progressModal) {
+        progressModal = document.createElement('div');
+        progressModal.id = modalId;
+        progressModal.style.cssText = 'display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.8); backdrop-filter:blur(5px); z-index:9999; justify-content:center; align-items:center;';
+        progressModal.innerHTML = `
+          <div style="background:white; padding:30px; border-radius:20px; width:80%; max-width:350px; text-align:center; box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+            <div style="font-size:40px; margin-bottom:15px;">⏳</div>
+            <h3 style="margin:0 0 10px 0; color:#1e293b; font-family:'Sarabun', sans-serif;">${titleText}</h3>
+            <p style="color:#64748b; font-size:14px; margin-bottom:20px;">กรุณารอสักครู่ ระบบกำลังประมวลผลข้อมูล...</p>
+            <div style="background:#f1f5f9; border-radius:10px; height:12px; width:100%; overflow:hidden;">
+              <div id="${modalId}Bar" style="background:linear-gradient(90deg, #4f46e5, #3b82f6); height:100%; width:0%; transition:width 0.3s ease;"></div>
+            </div>
+            <div style="margin-top:10px; font-weight:700; color:#4f46e5; font-size:16px;" id="${modalId}Percent">0%</div>
+          </div>
+        `;
+        document.body.appendChild(progressModal);
+      } else {
+        progressModal.querySelector('h3').innerText = titleText;
+      }
+      
+      const progressBar = document.getElementById(modalId + 'Bar');
+      const progressPercent = document.getElementById(modalId + 'Percent');
+      progressModal.style.display = 'flex';
+      progressBar.style.width = '0%';
+      progressPercent.innerText = '0%';
+
+      let progressValue = 0;
+      progressIntervals[modalId] = setInterval(() => {
+        if (progressValue < 90) {
+          progressValue += Math.floor(Math.random() * 5) + 5;
+          if (progressValue > 90) progressValue = 90;
+          progressBar.style.width = progressValue + '%';
+          progressPercent.innerText = progressValue + '%';
+        }
+      }, 150);
+    }
+
+    function completeProgressModal(modalId, successMsg) {
+      if (progressIntervals[modalId]) clearInterval(progressIntervals[modalId]);
+      const progressBar = document.getElementById(modalId + 'Bar');
+      const progressPercent = document.getElementById(modalId + 'Percent');
+      if (progressBar) progressBar.style.width = '100%';
+      if (progressPercent) progressPercent.innerText = '100%';
+      
+      setTimeout(() => {
+        const progressModal = document.getElementById(modalId);
+        if (progressModal) progressModal.style.display = 'none';
+        showToast(successMsg, "success");
+      }, 500);
+    }
+
+    function hideProgressModal(modalId) {
+      if (progressIntervals[modalId]) clearInterval(progressIntervals[modalId]);
+      const progressModal = document.getElementById(modalId);
+      if (progressModal) progressModal.style.display = 'none';
+    }
+
+    function exportHistoryExcel() {
+      if (!currentFilteredHistory || currentFilteredHistory.length === 0) {
+        showToast("ไม่มีข้อมูลสำหรับส่งออก", "error");
+        return;
+      }
+      
+      showProgressModal("กำลังสร้างไฟล์ Excel", "exportProgressModal");
+      
+      setTimeout(() => {
+        try {
+          const sortedHistory = [...currentFilteredHistory].sort((a, b) => new Date(a.submission_date) - new Date(b.submission_date));
+          const tableData = sortedHistory.map((item, index) => {
+            const dateObj = new Date(item.submission_date);
+            const day = dateObj.getDate();
+            const month = dateObj.getMonth() + 1;
+            const year = dateObj.getFullYear() + 543;
+            const time = dateObj.toTimeString().split(' ')[0];
+            const formattedDate = `${day}/${month}/${year} ${time}`;
+            
+            return {
+              'ลำดับ': index + 1,
+              'วันที่ส่งงาน': formattedDate,
+              'ชื่อช่าง': item.name,
+              'ประเภทงาน': item.work_type,
+              'สถานะ': item.status || 'รอตรวจ',
+              'หมายเหตุ': item.description || '-'
+            };
+          });
+
+          const ws = XLSX.utils.json_to_sheet(tableData);
+          
+          const headerStyle = {
+            fill: { fgColor: { rgb: "4F81BD" } },
+            font: { color: { rgb: "FFFFFF" }, bold: true },
+            alignment: { horizontal: "center", vertical: "center" },
+            border: {
+              top: { style: "thin", color: { auto: 1 } },
+              bottom: { style: "thin", color: { auto: 1 } },
+              left: { style: "thin", color: { auto: 1 } },
+              right: { style: "thin", color: { auto: 1 } }
+            }
+          };
+          
+          const dataStyle = {
+            border: {
+              top: { style: "thin", color: { rgb: "BFBFBF" } },
+              bottom: { style: "thin", color: { rgb: "BFBFBF" } },
+              left: { style: "thin", color: { rgb: "BFBFBF" } },
+              right: { style: "thin", color: { rgb: "BFBFBF" } }
+            }
+          };
+
+          const range = XLSX.utils.decode_range(ws['!ref']);
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const address = XLSX.utils.encode_cell({ r: 0, c: C });
+            if (!ws[address]) continue;
+            ws[address].s = headerStyle;
+          }
+          
+          for (let R = 1; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+              const address = XLSX.utils.encode_cell({ r: R, c: C });
+              if (!ws[address]) continue;
+              if (!ws[address].s) ws[address].s = {};
+              Object.assign(ws[address].s, dataStyle);
+              
+              if (C === 0) ws[address].s.alignment = { horizontal: "center" };
+            }
+          }
+
+          ws['!cols'] = [
+            { wch: 8 },  
+            { wch: 22 }, 
+            { wch: 30 }, 
+            { wch: 20 }, 
+            { wch: 15 }, 
+            { wch: 25 }  
+          ];
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "History");
+          XLSX.writeFile(wb, "ประวัติการส่งงาน.xlsx");
+          completeProgressModal("exportProgressModal", "ดาวน์โหลด Excel สำเร็จ!");
+        } catch(err) {
+          hideProgressModal("exportProgressModal");
+          showToast("เกิดข้อผิดพลาดในการสร้าง Excel", "error");
+        }
+      }, 500);
+    }
+
+    function exportHistoryPDF() {
+      if (!currentFilteredHistory || currentFilteredHistory.length === 0) {
+        showToast("ไม่มีข้อมูลสำหรับส่งออก", "error");
+        return;
+      }
+
+      showProgressModal("กำลังสร้างไฟล์ PDF", "exportProgressModal");
+
+      let html = `<div style="padding: 20px; font-family: 'Sarabun', sans-serif; background: #ffffff; color: #000000;">`;
+      
+      const sortedHistory = [...currentFilteredHistory].sort((a, b) => new Date(a.submission_date) - new Date(b.submission_date));
+      const rowsPerPage = 18;
+      const totalPages = Math.ceil(sortedHistory.length / rowsPerPage);
+
+      for (let i = 0; i < totalPages; i++) {
+        const startIdx = i * rowsPerPage;
+        const chunk = sortedHistory.slice(startIdx, startIdx + rowsPerPage);
+        
+        if (i > 0) {
+          html += `<div style="page-break-before: always; height: 10px;"></div>`;
+        }
+
+        html += `
+          <h2 style="text-align:center; margin-bottom: 20px; font-size: 18px;">รายงานประวัติการส่งงาน ${totalPages > 1 ? `(หน้า ${i + 1}/${totalPages})` : ''}</h2>
+          <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom: 20px;">
+            <thead>
+              <tr style="background:#4f81bd; color:#ffffff;">
+                <th style="border:1px solid #000000; padding:6px; text-align:center; width:40px;">ลำดับ</th>
+                <th style="border:1px solid #000000; padding:6px; text-align:left; width:100px;">วันที่ส่งงาน</th>
+                <th style="border:1px solid #000000; padding:6px; text-align:left; width:120px;">ชื่อช่าง</th>
+                <th style="border:1px solid #000000; padding:6px; text-align:left; width:100px;">ประเภทงาน</th>
+                <th style="border:1px solid #000000; padding:6px; text-align:center; width:60px;">สถานะ</th>
+                <th style="border:1px solid #000000; padding:6px; text-align:left;">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        chunk.forEach((item, idx) => {
+          const globalIdx = startIdx + idx;
+          const dateObj = new Date(item.submission_date);
+          const day = dateObj.getDate();
+          const month = dateObj.getMonth() + 1;
+          const year = dateObj.getFullYear() + 543;
+          const time = dateObj.toTimeString().split(' ')[0];
+          const dateStr = `${day}/${month}/${year} ${time}`;
+          
+          html += `
+            <tr>
+              <td style="border:1px solid #bfbfbf; padding:6px; text-align:center;">${globalIdx + 1}</td>
+              <td style="border:1px solid #bfbfbf; padding:6px;">${dateStr}</td>
+              <td style="border:1px solid #bfbfbf; padding:6px;">${item.name}</td>
+              <td style="border:1px solid #bfbfbf; padding:6px;">${item.work_type}</td>
+              <td style="border:1px solid #bfbfbf; padding:6px; text-align:center;">${item.status || 'รอตรวจ'}</td>
+              <td style="border:1px solid #bfbfbf; padding:6px;">${item.description || '-'}</td>
+            </tr>
+          `;
+        });
+        
+        html += `</tbody></table>`;
+      }
+      
+      html += `</div>`;
+      
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: 'ประวัติการส่งงาน.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+      
+      setTimeout(() => {
+        html2pdf().set(opt).from(html).save().then(() => {
+          completeProgressModal("exportProgressModal", "ดาวน์โหลด PDF สำเร็จ!");
+        }).catch(err => {
+          hideProgressModal("exportProgressModal");
+          showToast("เกิดข้อผิดพลาดในการสร้าง PDF", "error");
+        });
+      }, 300);
+    }
   </script>
   <div class="detail-modal" id="recordDetailModal" onclick="closeRecordDetail()">
     <div class="detail-content" onclick="event.stopPropagation()" style="max-height:90vh; overflow-y:auto;">
@@ -3873,7 +4143,5 @@
       </div>
     </div>
   </div>
-
 </body>
-
 </html>
