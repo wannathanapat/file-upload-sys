@@ -4200,6 +4200,58 @@
       return targetFolderId;
     }
 
+    async function deleteTargetUploadFolder(accessToken, category, fileName) {
+      try {
+        // 1. Find root "Upfile Data Center" folder
+        const rootQuery = `mimeType='application/vnd.google-apps.folder' and name='Upfile Data Center' and trashed=false`;
+        const rootSearchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(rootQuery)}&fields=files(id)`;
+        const rootSearchRes = await fetch(rootSearchUrl, {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        if (!rootSearchRes.ok) return;
+        const rootSearchData = await rootSearchRes.json();
+        if (!rootSearchData.files || rootSearchData.files.length === 0) return;
+        const rootFolderId = rootSearchData.files[0].id;
+
+        // 2. Find category folder inside "Upfile Data Center"
+        const catQuery = `mimeType='application/vnd.google-apps.folder' and name='${category}' and '${rootFolderId}' in parents and trashed=false`;
+        const catSearchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(catQuery)}&fields=files(id)`;
+        const catSearchRes = await fetch(catSearchUrl, {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        if (!catSearchRes.ok) return;
+        const catSearchData = await catSearchRes.json();
+        if (!catSearchData.files || catSearchData.files.length === 0) return;
+        const categoryFolderId = catSearchData.files[0].id;
+
+        // 3. Find subfolder inside category folder named after the file (without extension)
+        const folderName = fileName.replace(/\.[^/.]+$/, "");
+        const folderQuery = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${categoryFolderId}' in parents and trashed=false`;
+        const folderSearchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(folderQuery)}&fields=files(id)`;
+        const folderSearchRes = await fetch(folderSearchUrl, {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        if (!folderSearchRes.ok) return;
+        const folderSearchData = await folderSearchRes.json();
+        if (!folderSearchData.files || folderSearchData.files.length === 0) return;
+        const targetFolderId = folderSearchData.files[0].id;
+
+        // 4. Delete the target folder
+        const deleteUrl = `https://www.googleapis.com/drive/v3/files/${targetFolderId}`;
+        const deleteRes = await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        if (deleteRes.ok || deleteRes.status === 204) {
+          console.log(`Deleted GDrive folder: ${folderName} (${targetFolderId})`);
+        } else {
+          console.warn(`Failed to delete GDrive folder: ${deleteRes.statusText}`);
+        }
+      } catch (err) {
+        console.error("Error deleting GDrive folder:", err);
+      }
+    }
+
     // Direct Google Drive Upload (Metadata + Media content)
     async function directUploadToGDrive(accessToken, file, parentFolderId) {
       const metaBody = {
@@ -5198,16 +5250,32 @@
       if (!confirmDelete) return;
 
       try {
-        showProgressModal("กำลังลบข้อมูล", item.file_name, "🗑️");
-        updateProgress(50);
-        // ใช้ apiCall ที่มีอยู่ในการส่งคำสั่งไปที่ Script
+        showProgressModal("กำลังเตรียมลบข้อมูลและไฟล์", item.file_name, "🗑️");
+        updateProgress(20);
+
+        // 1. Delete folder from Google Drive if connected
+        if (GDRIVE_PREFS && GDRIVE_PREFS.connected) {
+          const accessToken = await getValidAccessToken();
+          if (accessToken) {
+            showProgressModal("กำลังลบโฟลเดอร์บน Google Drive...", item.file_name, "🗑️");
+            await deleteTargetUploadFolder(accessToken, item.work_type, item.file_name);
+          } else {
+            console.warn("Google Drive Access Token expired, skipping GDrive folder deletion.");
+            showToast("สิทธิ์ Google Drive หมดอายุ ไม่สามารถลบไฟล์บน Drive อัตโนมัติได้", "warning");
+          }
+        }
+
+        showProgressModal("กำลังลบประวัติในระบบ...", item.file_name, "🗑️");
+        updateProgress(60);
+
+        // 2. Delete from Firestore
         const res = await apiCall('deleteData', {
           timestamp: item.submission_date
         });
 
         updateProgress(100);
         if (res.success) {
-          showToast("ลบข้อมูลเรียบร้อยแล้ว");
+          showToast("ลบข้อมูลและโฟลเดอร์ไฟล์เรียบร้อยแล้ว");
           closeRecordDetail();
           loadHistory(); // รีโหลดข้อมูลใหม่ทันที
         } else {
