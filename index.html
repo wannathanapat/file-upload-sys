@@ -2410,7 +2410,7 @@
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 9999;
+      z-index: 25000;
       opacity: 0;
       transition: opacity 0.3s ease;
     }
@@ -4080,7 +4080,7 @@
       const confirmDisconnect = await showCustomConfirm(
         "🔌 ยืนยันการตัดการเชื่อมต่อ Google Drive",
         "คุณต้องการตัดการเชื่อมต่อบัญชี Google Drive หรือไม่? ข้อมูลสำรองจะยังคงอยู่ในระบบ Drive ของคุณ แต่แอปจะไม่สามารถอัปโหลดชิ้นงานใหม่หรือสำรองข้อมูลคลาวด์ได้อีกจนกว่าจะลงทะเบียนเชื่อมต่อใหม่",
-        { danger: true, okText: "ตัดการเชื่อมต่อ", cancelText: "ยกเลิก" }
+        { danger: true, icon: "🔌", okText: "ตัดการเชื่อมต่อ", cancelText: "ยกเลิก" }
       );
       if (!confirmDisconnect) {
         return;
@@ -4457,7 +4457,7 @@
       const confirmRestore = await showCustomConfirm(
         "📥 ยืนยันการกู้คืนข้อมูลจากคลาวด์",
         `คุณต้องการกู้คืนข้อมูลจากไฟล์สำรอง "${fileName}" ใช่หรือไม่? ข้อมูลประวัติงานส่งและบัญชีช่างเทคนิคปัจจุบันทั้งหมดจะถูกเขียนทับด้วยข้อมูลสำรองตัวนี้ และจะไม่สามารถกู้กลับคืนได้`,
-        { danger: true, okText: "กู้คืนระบบ", cancelText: "ยกเลิก" }
+        { danger: true, icon: "📥", okText: "กู้คืนระบบ", cancelText: "ยกเลิก" }
       );
       if (!confirmRestore) {
         return;
@@ -4553,22 +4553,29 @@
         const messageEl = document.getElementById('customConfirmMessage');
         const btnOk = document.getElementById('btnCustomConfirmOk');
         const btnCancel = document.getElementById('btnCustomConfirmCancel');
+        const iconEl = modal.querySelector('.modal-card > div:first-child');
 
         titleEl.textContent = title || "คุณแน่ใจหรือไม่?";
         messageEl.textContent = message || "การกระทำนี้ไม่สามารถย้อนคืนได้";
         
-        if (options.okText) btnOk.textContent = options.okText;
-        else btnOk.textContent = "ตกลง";
-        
-        if (options.cancelText) btnCancel.textContent = options.cancelText;
-        else btnCancel.textContent = "ยกเลิก";
+        btnOk.textContent = options.okText || "ตกลง";
+        btnCancel.textContent = options.cancelText || "ยกเลิก";
 
+        // Style customization based on danger
         if (options.danger) {
+          iconEl.style.background = "#fee2e2";
+          iconEl.style.color = "#ef4444";
+          iconEl.textContent = options.icon || "⚠️";
+          
           btnOk.style.background = "#ef4444";
-          btnOk.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.2)";
+          btnOk.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.15)";
         } else {
-          btnOk.style.background = "#3b82f6";
-          btnOk.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.2)";
+          iconEl.style.background = "#e0e7ff";
+          iconEl.style.color = "#4f46e5";
+          iconEl.textContent = options.icon || "ℹ️";
+          
+          btnOk.style.background = "#4f46e5";
+          btnOk.style.boxShadow = "0 4px 12px rgba(79, 70, 229, 0.15)";
         }
 
         const handleOk = () => {
@@ -5307,7 +5314,7 @@
       const confirmDelete = await showCustomConfirm(
         "⚠️ ยืนยันการลบงานส่งนี้",
         `คุณต้องการลบงาน "${item.file_name}" ใช่หรือไม่? โฟลเดอร์และไฟล์งานทั้งหมดบน Google Drive รวมถึงประวัติงานชิ้นนี้จะถูกลบออกแบบถาวรและไม่สามารถกู้คืนกลับมาได้อีก`,
-        { danger: true, okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
+        { danger: true, icon: "🗑️", okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
       );
       if (!confirmDelete) return;
 
@@ -5570,7 +5577,7 @@
           const confirmRestore = await showCustomConfirm(
             "📥 ยืนยันการกู้คืนข้อมูลระบบ",
             `คุณต้องการกู้คืนข้อมูลจากไฟล์สำรองแบบไฟล์โลคอลนี้ใช่หรือไม่?\n\nข้อมูลที่จะนำเข้าประกอบด้วย:\n- บัญชีผู้ใช้: ${data.users.length} รายการ\n- ประวัติงานส่ง: ${data.submissions.length} รายการ\n\n(ระบบจะเขียนทับข้อมูลที่มีค่าคีย์ตรงกันและไม่สามารถยกเลิกได้หลังกู้คืนสำเร็จ)`,
-            { danger: true, okText: "กู้คืนข้อมูล", cancelText: "ยกเลิก" }
+            { danger: true, icon: "📥", okText: "กู้คืนข้อมูล", cancelText: "ยกเลิก" }
           );
           if (!confirmRestore) return;
           
@@ -5807,7 +5814,7 @@
       const confirmDelete = await showCustomConfirm(
         "👤 ยืนยันการลบผู้ใช้",
         `คุณต้องการลบผู้ใช้ "${username}" ใช่หรือไม่? ผู้ใช้รายนี้จะไม่สามารถลงชื่อเข้าใช้งานระบบได้อีก`,
-        { danger: true, okText: "ลบผู้ใช้", cancelText: "ยกเลิก" }
+        { danger: true, icon: "👤", okText: "ลบผู้ใช้", cancelText: "ยกเลิก" }
       );
       if (!confirmDelete) return;
 
@@ -6451,14 +6458,14 @@
 
   <!-- Modal: Custom Confirm Dialog -->
   <div class="modal-overlay" id="customConfirmModal">
-    <div class="modal-card" style="max-width: 420px; text-align: center; padding: 30px 20px;">
-      <div style="font-size: 50px; margin-bottom: 15px;">⚠️</div>
-      <h3 class="modal-title" id="customConfirmTitle" style="font-size: 20px; margin-bottom: 12px; font-weight: 700; width: 100%; justify-content: center; display: flex; color: #1e293b;">คุณแน่ใจหรือไม่?</h3>
-      <p class="modal-desc" id="customConfirmMessage" style="font-size: 14px; color: #64748b; margin-bottom: 25px; line-height: 1.6; padding: 0 10px; text-align: center; word-break: break-word;">การกระทำนี้ไม่สามารถย้อนคืนได้</p>
+    <div class="modal-card" style="max-width: 400px; padding: 32px 24px; border-radius: 24px; border: 1px solid #f1f5f9; text-align: center; box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.1);">
+      <div style="width: 56px; height: 56px; background: #fee2e2; color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 16px;">🗑️</div>
+      <h3 class="modal-title" id="customConfirmTitle" style="font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px; justify-content: center; display: flex; font-family: 'Prompt', sans-serif;">คุณแน่ใจหรือไม่?</h3>
+      <p class="modal-desc" id="customConfirmMessage" style="font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 28px; text-align: center; word-break: break-word; font-family: 'Sarabun', sans-serif; padding: 0 10px; margin-top: 0;">การกระทำนี้ไม่สามารถย้อนคืนได้</p>
       
-      <div style="display: flex; gap: 12px; justify-content: center; width: 100%;">
-        <button type="button" id="btnCustomConfirmCancel" class="submit-button" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; box-shadow: none; width: auto; padding: 10px 24px; font-weight: 600; border-radius: 12px; cursor: pointer; transition: all 0.2s;">ยกเลิก</button>
-        <button type="button" id="btnCustomConfirmOk" class="submit-button" style="background: #ef4444; color: #fff; width: auto; padding: 10px 30px; font-weight: 600; border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);">ยืนยันการลบ</button>
+      <div style="display: flex; gap: 12px; width: 100%;">
+        <button type="button" id="btnCustomConfirmCancel" style="flex: 1; height: 46px; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; font-family: 'Prompt', sans-serif; font-size: 14px; font-weight: 600; border-radius: 14px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center;">ยกเลิก</button>
+        <button type="button" id="btnCustomConfirmOk" style="flex: 1; height: 46px; background: #ef4444; color: #ffffff; border: none; font-family: 'Prompt', sans-serif; font-size: 14px; font-weight: 600; border-radius: 14px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);">ตกลง</button>
       </div>
     </div>
   </div>
