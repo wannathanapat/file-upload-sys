@@ -3661,16 +3661,14 @@
       switchTab('dashboard');
 
       try {
-        showGlobalLoading("กำลังโหลดข้อมูลประวัติงาน...");
-        await loadHistory();
-
-        if (currentUser.role === 'admin') {
-          showGlobalLoading("กำลังโหลดรายชื่อผู้ใช้งาน...");
-          await loadUsers();
+        showGlobalLoading("กำลังโหลดข้อมูลระบบ...");
+        const promises = [loadHistory()];
+        if (currentUser && currentUser.role === 'admin') {
+          promises.push(loadUsers());
         }
-
-        showGlobalLoading("กำลังเตรียมข้อมูลหน้าแดชบอร์ด...");
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await Promise.all(promises);
+      } catch (err) {
+        console.error("Initialization error:", err);
       } finally {
         hideGlobalLoading();
       }
@@ -5052,17 +5050,21 @@
         if (!firebaseDb) {
           throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
         }
-        const q = await firebaseDb.collection('submissions').get();
+        
+        let queryRef = firebaseDb.collection('submissions');
+        // Optimization: Staff only fetch their own submissions, Admin/Auditor fetch all
+        if (currentUser && currentUser.role !== 'admin' && currentUser.role !== 'auditor') {
+          queryRef = queryRef.where('name', '==', currentUser.name.trim());
+        }
+        
+        const q = await queryRef.get();
         q.forEach(doc => {
           historyData.push(doc.data());
         });
         // เรียงวันที่ล่าสุดขึ้นก่อน
         historyData.sort((a, b) => new Date(b.submission_date) - new Date(a.submission_date));
 
-        currentHistoryData = historyData.filter(item => {
-          if (currentUser.role === 'admin' || currentUser.role === 'auditor') return true;
-          return item.name && item.name.trim() === currentUser.name.trim();
-        });
+        currentHistoryData = historyData;
 
         updateDashboardStats(currentHistoryData);
         updateTechDropdown(currentHistoryData);
