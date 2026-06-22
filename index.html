@@ -3341,6 +3341,45 @@
 
   <script>
     // ==========================================
+    // ฟังก์ชันช่วยเหลือประสิทธิภาพและหมดเวลา (Performance & Timeout Helpers)
+    // ==========================================
+    function withTimeout(promise, timeoutMs, defaultValue = null) {
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          console.warn(`Promise timed out after ${timeoutMs}ms`);
+          resolve(defaultValue);
+        }, timeoutMs);
+        promise.then(
+          (res) => {
+            clearTimeout(timer);
+            resolve(res);
+          },
+          (err) => {
+            clearTimeout(timer);
+            reject(err);
+          }
+        );
+      });
+    }
+
+    async function fetchWithTimeout(resource, options = {}) {
+      const { timeout = 8000 } = options;
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
+      try {
+        const response = await fetch(resource, {
+          ...options,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    }
+
+    // ==========================================
     // การตั้งค่าระบบ
     // ==========================================
     let DB_TYPE = 'firebase';
@@ -3382,6 +3421,22 @@
             firebase.initializeApp(FIREBASE_CONFIG);
           }
           firebaseDb = firebase.firestore();
+          
+          // เปิดใช้งาน offline persistence
+          firebaseDb.enablePersistence({ synchronizeTabs: true })
+            .then(() => {
+              console.log("Firestore offline persistence enabled.");
+            })
+            .catch((err) => {
+              if (err.code == 'failed-precondition') {
+                console.warn("Firestore persistence failed-precondition: multiple tabs open.");
+              } else if (err.code == 'unimplemented') {
+                console.warn("Firestore persistence unimplemented in this browser.");
+              } else {
+                console.warn("Firestore persistence error:", err.code);
+              }
+            });
+            
           console.log("Firebase initialized successfully.");
         } catch (e) {
           console.error("Firebase init error:", e);
@@ -3393,8 +3448,12 @@
     async function loadSystemSettingsFromFirestore() {
       if (!firebaseDb) return;
       try {
-        const docSnap = await firebaseDb.collection('app_config').doc('system_settings').get();
-        if (docSnap.exists) {
+        const docSnap = await withTimeout(
+          firebaseDb.collection('app_config').doc('system_settings').get(),
+          5000,
+          null
+        );
+        if (docSnap && docSnap.exists) {
           const data = docSnap.data();
           if (data.telegram_status !== undefined) CFG_TELEGRAM_STATUS = data.telegram_status;
           if (data.telegram_bot_token !== undefined) CFG_TELEGRAM_BOT_TOKEN = data.telegram_bot_token;
@@ -3410,11 +3469,43 @@
           if (data.app_theme !== undefined) CFG_APP_THEME = data.app_theme;
 
           console.log("System settings loaded from Firestore.");
+          // บันทึกลงแคชเครื่อง
+          localStorage.setItem('cfg_system_settings_cache', JSON.stringify(data));
+
+          applyAppTheme(CFG_APP_THEME);
+          applyBrandingToUI();
+        } else {
+          loadSystemSettingsFromCache();
+        }
+      } catch (e) {
+        console.error("Failed to load system settings from Firestore, using cache:", e);
+        loadSystemSettingsFromCache();
+      }
+    }
+
+    function loadSystemSettingsFromCache() {
+      try {
+        const cached = localStorage.getItem('cfg_system_settings_cache');
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (data.telegram_status !== undefined) CFG_TELEGRAM_STATUS = data.telegram_status;
+          if (data.telegram_bot_token !== undefined) CFG_TELEGRAM_BOT_TOKEN = data.telegram_bot_token;
+          if (data.telegram_chat_id !== undefined) CFG_TELEGRAM_CHAT_ID = data.telegram_chat_id;
+          if (data.folder_id_ins !== undefined) CFG_FOLDER_ID_INS = data.folder_id_ins;
+          if (data.folder_id_repair !== undefined) CFG_FOLDER_ID_REPAIR = data.folder_id_repair;
+          if (data.folder_id_fail !== undefined) CFG_FOLDER_ID_FAIL = data.folder_id_fail;
+          if (data.folder_id_return !== undefined) CFG_FOLDER_ID_RETURN = data.folder_id_return;
+          if (data.max_size_pdf !== undefined) CFG_MAX_SIZE_PDF = parseInt(data.max_size_pdf, 10) || 20;
+          if (data.max_size_video !== undefined) CFG_MAX_SIZE_VIDEO = parseInt(data.max_size_video, 10) || 50;
+          if (data.company_name !== undefined) CFG_COMPANY_NAME = data.company_name;
+          if (data.company_desc !== undefined) CFG_COMPANY_DESC = data.company_desc;
+          if (data.app_theme !== undefined) CFG_APP_THEME = data.app_theme;
+          console.log("System settings loaded from local storage cache.");
           applyAppTheme(CFG_APP_THEME);
           applyBrandingToUI();
         }
-      } catch (e) {
-        console.error("Failed to load system settings from Firestore:", e);
+      } catch (err) {
+        console.error("Failed to parse cached system settings:", err);
       }
     }
 
@@ -3581,20 +3672,22 @@
 
       showGlobalLoading("กำลังเชื่อมต่อแอป LINE...");
       try {
-        await liff.init({ liffId: LIFF_ID });
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
-          currentLineId = profile.userId;
+        await withTimeout(liff.init({ liffId: LIFF_ID }), 3000);
+        if (typeof liff !== 'undefined' && liff.isLoggedIn && liff.isLoggedIn()) {
+          const profile = await withTimeout(liff.getProfile(), 3000);
+          if (profile) {
+            currentLineId = profile.userId;
 
-          const res = await apiCall('checkLineId', { lineId: currentLineId });
-          if (res.success && res.user) {
-            localStorage.setItem('appUserSession', JSON.stringify(res.user));
-            currentUser = res.user;
-            await showMainApp();
-            hideGlobalLoading();
-            return;
+            const res = await withTimeout(apiCall('checkLineId', { lineId: currentLineId }), 4000);
+            if (res && res.success && res.user) {
+              localStorage.setItem('appUserSession', JSON.stringify(res.user));
+              currentUser = res.user;
+              await showMainApp();
+              hideGlobalLoading();
+              return;
+            }
           }
-        } else if (liff.isInClient()) {
+        } else if (typeof liff !== 'undefined' && liff.isInClient && liff.isInClient()) {
           liff.login();
           return;
         }
@@ -3984,8 +4077,9 @@
               const expiresAt = Date.now() + (tokenResponse.expires_in || 3600) * 1000;
               
               // Get user email
-              const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                headers: { 'Authorization': 'Bearer ' + accessToken }
+              const infoRes = await fetchWithTimeout('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { 'Authorization': 'Bearer ' + accessToken },
+                timeout: 8000
               });
               if (!infoRes.ok) throw new Error("ไม่สามารถเรียกดูข้อมูลโปรไฟล์ได้");
               const userInfo = await infoRes.json();
@@ -4014,13 +4108,33 @@
     async function loadGDrivePrefs() {
       if (!firebaseDb) return;
       try {
-        const snap = await firebaseDb.collection('app_config').doc('gdrive_preferences').get();
-        if (snap.exists) {
+        const snap = await withTimeout(
+          firebaseDb.collection('app_config').doc('gdrive_preferences').get(),
+          4000,
+          null
+        );
+        if (snap && snap.exists) {
           GDRIVE_PREFS = { ...GDRIVE_PREFS, ...snap.data() };
           console.log("Google Drive preferences loaded for:", GDRIVE_PREFS.email);
+          localStorage.setItem('cfg_gdrive_prefs_cache', JSON.stringify(GDRIVE_PREFS));
+        } else {
+          loadGDrivePrefsFromCache();
         }
       } catch (err) {
-        console.error("Failed to load GDrive preferences:", err);
+        console.error("Failed to load GDrive preferences, using cache:", err);
+        loadGDrivePrefsFromCache();
+      }
+    }
+
+    function loadGDrivePrefsFromCache() {
+      try {
+        const cached = localStorage.getItem('cfg_gdrive_prefs_cache');
+        if (cached) {
+          GDRIVE_PREFS = JSON.parse(cached);
+          console.log("Google Drive preferences loaded from local storage cache.");
+        }
+      } catch (err) {
+        console.error("Failed to parse cached GDrive preferences:", err);
       }
     }
 
@@ -4401,8 +4515,9 @@
         const folderId = await getOrCreateFolder(accessToken, GDRIVE_PREFS.folderName);
         const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${folderId}' in parents and trashed=false and mimeType='application/json'`)}&fields=files(id,name,size,createdTime)&orderBy=createdTime+desc`;
         
-        const listRes = await fetch(listUrl, {
-          headers: { 'Authorization': 'Bearer ' + accessToken }
+        const listRes = await fetchWithTimeout(listUrl, {
+          headers: { 'Authorization': 'Bearer ' + accessToken },
+          timeout: 8000
         });
         
         if (!listRes.ok) throw new Error("ไม่สามารถเรียกดูรายการไฟล์ได้");
@@ -5057,21 +5172,47 @@
           queryRef = queryRef.where('name', '==', currentUser.name.trim());
         }
         
-        const q = await queryRef.get();
-        q.forEach(doc => {
-          historyData.push(doc.data());
-        });
-        // เรียงวันที่ล่าสุดขึ้นก่อน
-        historyData.sort((a, b) => new Date(b.submission_date) - new Date(a.submission_date));
+        // Timeout 7 วินาทีสำหรับดึงข้อมูลประวัติงาน
+        const q = await withTimeout(queryRef.get(), 7000, null);
+        if (q) {
+          q.forEach(doc => {
+            historyData.push(doc.data());
+          });
+          // เรียงวันที่ล่าสุดขึ้นก่อน
+          historyData.sort((a, b) => new Date(b.submission_date) - new Date(a.submission_date));
+          currentHistoryData = historyData;
 
+          // บันทึกลงแคชเครื่อง
+          localStorage.setItem('cachedHistoryData', JSON.stringify(historyData));
+
+          updateDashboardStats(currentHistoryData);
+          updateTechDropdown(currentHistoryData);
+          filterHistory(); // เรียกใช้ filter เพื่อให้คงค่าค้นหาเดิมไว้
+        } else {
+          loadHistoryFromCache();
+        }
+      } catch (err) {
+        console.error("LoadHistory error, attempting cache:", err);
+        try {
+          loadHistoryFromCache();
+        } catch (cacheErr) {
+          container.innerHTML = `<div class="empty-state" style="color:red;">การเชื่อมต่อล้มเหลว: ${err.message}</div>`;
+        }
+      }
+    }
+
+    function loadHistoryFromCache() {
+      const container = document.getElementById('historyContent');
+      const cached = localStorage.getItem('cachedHistoryData');
+      if (cached) {
+        const historyData = JSON.parse(cached);
         currentHistoryData = historyData;
-
         updateDashboardStats(currentHistoryData);
         updateTechDropdown(currentHistoryData);
-        filterHistory(); // เรียกใช้ filter เพื่อให้คงค่าค้นหาเดิมไว้
-      } catch (err) {
-        console.error("LoadHistory error:", err);
-        container.innerHTML = `<div class="empty-state" style="color:red;">การเชื่อมต่อล้มเหลว: ${err.message}</div>`;
+        filterHistory();
+        showToast("เชื่อมต่อฐานข้อมูลล้มเหลว กำลังแสดงข้อมูลล่าสุดจากแคชเครื่อง", "warning");
+      } else {
+        throw new Error("หมดเวลาการเชื่อมต่อฐานข้อมูล และไม่มีข้อมูลแคชในเครื่อง");
       }
     }
 
@@ -5549,7 +5690,7 @@
 
     async function sendTelegramDirect(token, chatId, message) {
       const url = `https://api.telegram.org/bot${token}/sendMessage`;
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -5558,7 +5699,8 @@
           chat_id: chatId,
           text: message,
           parse_mode: 'HTML'
-        })
+        }),
+        timeout: 10000
       });
       if (!response.ok) {
         const errorText = await response.text();
@@ -5784,37 +5926,67 @@
         if (!firebaseDb) {
           throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
         }
-        const q = await firebaseDb.collection('users').get();
-        q.forEach(doc => {
-          users.push(doc.data());
-        });
-
-        if (users && users.length > 0) {
-          allUsersData = users; // เก็บไว้ที่ตัวแปรกลาง
-          let html = `<div class="table-container"><table class="history-table">
-            <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th>จัดการ</th></tr></thead><tbody>`;
-
-          allUsersData.forEach((u, index) => {
-            html += `<tr>
-              <td>${u.username}</td>
-              <td>${u.name}</td>
-              <td>${u.role}</td>
-              <td><span class="status-badge ${u.status === 'active' ? 'approved' : 'rejected'}">${u.status}</span></td>
-              <td>
-                <button onclick="editUserByIndex(${index})" class="btn-edit">แก้ไข</button>
-                <button onclick="deleteUser('${u.username}')" class="btn-delete">ลบ</button>
-              </td>
-            </tr>`;
+        
+        // Timeout 5 วินาทีสำหรับดึงข้อมูลพนักงาน
+        const q = await withTimeout(firebaseDb.collection('users').get(), 5000, null);
+        if (q) {
+          q.forEach(doc => {
+            users.push(doc.data());
           });
-          html += '</tbody></table></div>';
-          container.innerHTML = html;
+
+          if (users && users.length > 0) {
+            allUsersData = users; // เก็บไว้ที่ตัวแปรกลาง
+            // บันทึกลงแคชเครื่อง
+            localStorage.setItem('cachedUsersData', JSON.stringify(users));
+            renderUsersTable(users);
+          } else {
+            container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p class="empty-text">ไม่พบข้อมูลผู้ใช้งานหรือคุณไม่มีสิทธิ์เข้าถึง</p></div>';
+          }
         } else {
-          container.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><p class="empty-text">ไม่พบข้อมูลผู้ใช้งานหรือคุณไม่มีสิทธิ์เข้าถึง</p></div>';
+          loadUsersFromCache();
         }
       } catch (err) {
-        console.error("LoadUsers error:", err);
-        container.innerHTML = `<div class="empty-state" style="color:red;">ดึงข้อมูลล้มเหลว: ${err.message}</div>`;
+        console.error("LoadUsers error, attempting cache:", err);
+        try {
+          loadUsersFromCache();
+        } catch (cacheErr) {
+          container.innerHTML = `<div class="empty-state" style="color:red;">ดึงข้อมูลล้มเหลว: ${err.message}</div>`;
+        }
       }
+    }
+
+    function loadUsersFromCache() {
+      const container = document.getElementById('usersTableContent');
+      const cached = localStorage.getItem('cachedUsersData');
+      if (cached) {
+        const users = JSON.parse(cached);
+        allUsersData = users;
+        renderUsersTable(users);
+        showToast("เชื่อมต่อข้อมูลผู้ใช้งานล้มเหลว กำลังแสดงข้อมูลล่าสุดจากแคชเครื่อง", "warning");
+      } else {
+        throw new Error("หมดเวลาการเชื่อมต่อข้อมูลผู้ใช้งาน และไม่มีข้อมูลแคชในเครื่อง");
+      }
+    }
+
+    function renderUsersTable(users) {
+      const container = document.getElementById('usersTableContent');
+      let html = `<div class="table-container"><table class="history-table">
+        <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th>จัดการ</th></tr></thead><tbody>`;
+
+      users.forEach((u, index) => {
+        html += `<tr>
+          <td>${u.username}</td>
+          <td>${u.name}</td>
+          <td>${u.role}</td>
+          <td><span class="status-badge ${u.status === 'active' ? 'approved' : 'rejected'}">${u.status}</span></td>
+          <td>
+            <button onclick="editUserByIndex(${index})" class="btn-edit">แก้ไข</button>
+            <button onclick="deleteUser('${u.username}')" class="btn-delete">ลบ</button>
+          </td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
     }
 
     function editUserByIndex(index) {
