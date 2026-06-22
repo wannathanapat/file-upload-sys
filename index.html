@@ -19,6 +19,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <!-- Google Identity Services (GIS) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     body {
       box-sizing: border-box;
@@ -2352,6 +2354,165 @@
       .bottom-nav .mobile-menu-icon {
         display: none !important;
       }
+    /* Google Drive & Restore Custom Styles */
+    .restore-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+    }
+    @media (min-width: 768px) {
+      .restore-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .drag-drop-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .drag-drop-zone:hover, .drag-drop-zone.dragover {
+      border-color: #6366f1;
+      background: #f0f2ff;
+    }
+    .drag-drop-icon {
+      font-size: 32px;
+      color: #64748b;
+    }
+    .drag-drop-zone.dragover .drag-drop-icon {
+      color: #6366f1;
+    }
+    .drag-drop-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .drag-drop-desc {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.show {
+      display: flex;
+      opacity: 1;
+    }
+    .modal-card {
+      background: #fff;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 500px;
+      padding: 25px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.show .modal-card {
+      transform: scale(1);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    .modal-desc {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .gdrive-backup-list {
+      margin-top: 15px;
+      max-height: 250px;
+      overflow-y: auto;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .backup-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 15px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .backup-item:last-child {
+      border-bottom: none;
+    }
+    .backup-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      text-align: left;
+    }
+    .backup-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+      word-break: break-all;
+    }
+    .backup-meta {
+      font-size: 11px;
+      color: #64748b;
+    }
+    .btn-restore {
+      background: #10b981;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-restore:hover {
+      background: #059669;
+    }
+    .gdrive-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 15px;
+    }
+    .gdrive-status-badge.connected {
+      background: #ecfdf5;
+      color: #059669;
+    }
+    .gdrive-status-badge.disconnected {
+      background: #f1f5f9;
+      color: #64748b;
     }
   </style>
 
@@ -2795,8 +2956,8 @@
               <span class="menu-text">จัดการบัญชีผู้ใช้</span>
             </button>
             <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('notify')" id="setMenu-notify">
-              <span class="menu-icon">💬</span>
-              <span class="menu-text">ระบบแจ้งเตือน (LINE / Telegram)</span>
+              <span class="menu-icon">📢</span>
+              <span class="menu-text">ระบบแจ้งเตือน Telegram</span>
             </button>
             <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('storage')" id="setMenu-storage">
               <span class="menu-icon">📁</span>
@@ -2819,8 +2980,8 @@
           <!-- Panel 1: Connection & Settings -->
           <div class="settings-panel active" id="setPanel-database">
             <div class="settings-card">
-              <h3 class="settings-card-title">🔌 การเชื่อมต่อระบบหลังบ้าน (Firebase & Apps Script)</h3>
-              <p class="settings-card-desc">ระบบนี้ใช้ Firebase Firestore เป็นฐานข้อมูลหลัก และใช้ Google Apps Script Web App เป็นตัวกลางสำหรับอัปโหลดไฟล์ลง Drive และยิงแจ้งเตือน</p>
+              <h3 class="settings-card-title">🔌 การเชื่อมต่อฐานข้อมูลหลัก (Firebase Firestore)</h3>
+              <p class="settings-card-desc">ระบบนี้ใช้ Firebase Firestore เป็นฐานข้อมูลหลักในการจัดการประวัติการส่งงานและรายชื่อผู้ใช้งานทั้งหมด</p>
               <form id="systemSettingsForm">
                 <div class="form-field">
                   <label class="field-label">Firebase Configuration SDK (JSON format)</label>
@@ -2835,13 +2996,8 @@
                   <div style="font-size: 12px; color: #64748b; margin-top: 5px;">* คัดลอกจาก Firebase Console > Project Settings > Web App SDK config</div>
                 </div>
 
-                <div class="form-field">
-                  <label class="field-label">Google Apps Script Web App URL (สำหรับเป็นสะพานอัปโหลดไฟล์ลง Drive & แจ้งเตือน)</label>
-                  <input type="text" id="settingsGasUrl" class="input-field" placeholder="https://script.google.com/macros/s/.../exec" required>
-                </div>
-
                 <div style="display:flex; gap:10px; margin-top:20px;">
-                  <button type="submit" class="submit-button" style="flex:2;">💾 บันทึกการเชื่อมต่อ</button>
+                  <button type="submit" class="submit-button" style="flex:2;">💾 บันทึกการเชื่อมต่อ Firebase</button>
                   <button type="button" id="btnTestConnection" onclick="testConnection()" class="submit-button" style="flex:1; background:#10b981; box-shadow:none;">🔌 ทดสอบเชื่อมต่อ</button>
                 </div>
               </form>
@@ -2900,34 +3056,8 @@
 
           <!-- Panel 3: LINE & Telegram Notifications -->
           <div class="settings-panel" id="setPanel-notify">
-            <!-- LINE Notify Settings Card -->
-            <div class="settings-card">
-              <h3 class="settings-card-title">💬 การแจ้งเตือนผ่านกลุ่ม LINE</h3>
-              <p class="settings-card-desc">ตั้งค่าส่งข้อความแจ้งเตือนอัตโนมัติไปยังกลุ่ม LINE เมื่อมีช่างส่งงานใหม่เข้ามาสำเร็จ</p>
-              <form id="lineNotifySettingsForm" onsubmit="saveLineNotifySettings(event)">
-                <div class="form-field">
-                  <label class="field-label">สถานะการแจ้งเตือน LINE</label>
-                  <select id="settingsLineNotifyStatus" class="select-field" onchange="toggleLineNotifyFields()">
-                    <option value="disabled">ปิดการแจ้งเตือน</option>
-                    <option value="enabled">เปิดการแจ้งเตือน (ผ่าน LINE Notify)</option>
-                  </select>
-                </div>
-
-                <div class="form-field" id="lineTokenField" style="display: none;">
-                  <label class="field-label">LINE Notify Personal Access Token</label>
-                  <input type="text" id="settingsLineNotifyToken" class="input-field" placeholder="กรอก Token ของผู้สร้างห้องแจ้งเตือน">
-                  <div style="font-size: 12px; color: #64748b; margin-top: 5px;">* ขอรับได้จากเว็บไซต์ LINE Notify (https://notify-bot.line.me/) แล้วนำมาใส่ที่นี่</div>
-                </div>
-
-                <div style="display:flex; gap:10px; margin-top:20px;">
-                  <button type="submit" class="submit-button" style="flex:2;">💾 บันทึกการตั้งค่า LINE</button>
-                  <button type="button" onclick="testLineNotification()" id="btnTestLine" class="submit-button" style="flex:1; background:#10b981; box-shadow:none; display:none;">🔔 ทดสอบส่ง</button>
-                </div>
-              </form>
-            </div>
-
             <!-- Telegram Bot Settings Card -->
-            <div class="settings-card" style="margin-top: 25px;">
+            <div class="settings-card">
               <h3 class="settings-card-title">📢 การแจ้งเตือนผ่าน Telegram Bot</h3>
               <p class="settings-card-desc">ตั้งค่าส่งข้อความแจ้งเตือนอัตโนมัติไปยัง Telegram Chat / Group เมื่อมีช่างส่งงานใหม่เข้ามาสำเร็จ</p>
               <form id="telegramSettingsForm" onsubmit="saveTelegramSettings(event)">
@@ -3008,20 +3138,80 @@
 
           <!-- Panel 5: Database Backup & Restore JSON -->
           <div class="settings-panel" id="setPanel-backup">
-            <!-- JSON Backup/Restore -->
             <div class="settings-card">
-              <h3 class="settings-card-title">💾 สำรองและกู้คืนข้อมูลระบบ (Backup & Restore JSON)</h3>
-              <p class="settings-card-desc">ดาวน์โหลดข้อมูลการใช้งานระบบทั้งหมดเก็บเป็นไฟล์สำรอง หรืออัปโหลดเพื่อกู้คืนฐานข้อมูล Firebase Firestore ของคุณ</p>
+              <h3 class="settings-card-title">💾 กู้คืนระบบฐานข้อมูล (Restore Database Options)</h3>
+              <p class="settings-card-desc" style="margin-bottom: 20px;">นำเข้าข้อมูลสแนปชอตเพื่อกู้คืนข้อมูลคงคลังและรายการประวัติ</p>
               
-              <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <button type="button" onclick="exportDatabaseToJson()" class="submit-button" style="background: #4f46e5; flex: 1; min-width: 150px;">
-                  📥 สำรองข้อมูลฐานข้อมูล (.json)
-                </button>
-                <div style="flex: 1; min-width: 150px; position: relative;">
+              <div class="restore-grid">
+                <!-- Left: Local JSON File Import -->
+                <div style="border-right: 1px solid #e2e8f0; padding-right: 20px; text-align: center;">
+                  <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    📂 กู้คืนจากไฟล์เครื่อง (.JSON File Import)
+                  </h4>
+                  <p class="settings-card-desc" style="margin-bottom: 15px;">อัปโหลดไฟล์สำรองข้อมูลสกุล `.json` ที่คุณดาวน์โหลดออกจากระบบไว้ก่อนหน้า ระบบจะทำการตรวจสอบและนำเข้าข้อมูลประวัติทับสต็อกเดิมทั้งหมด</p>
+                  
+                  <div class="drag-drop-zone" id="dragDropArea" onclick="document.getElementById('restoreFileSelector').click()">
+                    <span class="drag-drop-icon">☁️</span>
+                    <span class="drag-drop-title">คลิก หรือลากวางไฟล์สำรองที่นี่</span>
+                    <span class="drag-drop-desc">รองรับไฟล์เฉพาะประเภท .json เท่านั้น</span>
+                  </div>
+                  
                   <input type="file" id="restoreFileSelector" accept=".json" onchange="importDatabaseFromJson(event)" style="display: none;">
-                  <button type="button" onclick="document.getElementById('restoreFileSelector').click()" class="submit-button" style="background: #10b981; width: 100%;">
-                    📤 กู้คืนข้อมูลจากไฟล์สำรอง (.json)
+                  
+                  <button type="button" onclick="exportDatabaseToJson()" class="submit-button" style="background: #fff; color: #1e293b; border: 1px solid #cbd5e1; box-shadow: none; font-size: 13px; font-weight: 700; width: 100%;">
+                    📥 ดาวน์โหลดข้อมูลปัจจุบันสำรองเก็บไว้
                   </button>
+                </div>
+
+                <!-- Right: Google Drive Backups -->
+                <div style="padding-left: 10px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h4 style="font-size: 14px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                      ☁️ ไฟล์สำรองข้อมูลบน Google Drive จริง
+                    </h4>
+                    <button type="button" onclick="loadRealGDriveBackups()" style="background: none; border: none; color: #3b82f6; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                      🔄 รีเฟรช
+                    </button>
+                  </div>
+                  
+                  <div id="gdriveConnectionArea">
+                    <!-- Unconnected state -->
+                    <div id="gdriveUnconnected" style="text-align: center; padding: 30px 20px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc;">
+                      <p class="settings-card-desc" style="margin-bottom: 15px;">เชื่อมต่อบัญชี Google Drive เพื่อบันทึกข้อมูลสำรองขึ้นระบบคลาวด์โดยตรงอย่างปลอดภัย</p>
+                      <button type="button" onclick="showConnectGDriveModal()" class="submit-button" style="background: #3b82f6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2); font-size: 13px; display: inline-flex; align-items: center; gap: 8px; justify-content: center; width: auto; padding: 10px 20px;">
+                        🔑 เชื่อมต่อ Google Drive จริง
+                      </button>
+                    </div>
+                    
+                    <!-- Connected state -->
+                    <div id="gdriveConnected" style="display: none;">
+                      <div class="gdrive-status-badge connected">
+                        <span>🟢 เชื่อมต่ออยู่:</span>
+                        <span id="gdriveConnectedEmail">user@gmail.com</span>
+                      </div>
+                      
+                      <p class="settings-card-desc">รายการไฟล์สำรองข้อมูลจริงในโฟลเดอร์ <strong id="gdriveFolderNameText">Coway_Stock_Backups</strong> บน Google Drive:</p>
+                      
+                      <div class="gdrive-backup-list" id="gdriveBackupListContainer">
+                        <div style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">
+                          ไม่พบไฟล์สำรองข้อมูลบนโฟลเดอร์ Google Drive
+                        </div>
+                      </div>
+                      
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                        <button type="button" onclick="handleBackupNow()" id="btnGDriveBackupNow" class="submit-button" style="grid-column: span 2; font-size: 13px;">
+                          💾 สำรองข้อมูลขึ้น Drive ทันที
+                        </button>
+                        <button type="button" onclick="handleReauthorizeGDrive()" class="submit-button" style="background: #e2e8f0; color: #1e293b; box-shadow: none; font-size: 13px;">
+                          🔑 ต่ออายุสิทธิ์การเชื่อมต่อ
+                        </button>
+                        <button type="button" onclick="handleDisconnectGDrive()" class="submit-button" style="background: #ef4444; box-shadow: none; font-size: 13px;">
+                          🔌 ยกเลิกการเชื่อมต่อ
+                        </button>
+                      </div>
+                      <div id="gdriveBackupStatusText" style="font-size: 12px; font-weight: 700; margin-top: 10px; text-align: center; display: none;"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3153,18 +3343,25 @@
     // ==========================================
     // การตั้งค่าระบบ
     // ==========================================
-    let WEB_APP_URL = localStorage.getItem('cfg_gas_url') || 'https://script.google.com/macros/s/AKfycbx-ouwnPXuyJFKvqS2C1qi83bEzLHA-HkDip5O5SACGC6lf34Hn4nOkfp5n7ZL3SFbUiQ/exec';
     let DB_TYPE = 'firebase';
     let FIREBASE_CONFIG = null;
+    const defaultFirebaseConfig = {
+      apiKey: "AIzaSyCn3Sthueb9jTqYt3xSbZUdsihuKRmSdtk",
+      authDomain: "coway-upload-sys.firebaseapp.com",
+      projectId: "coway-upload-sys",
+      storageBucket: "coway-upload-sys.firebasestorage.app",
+      messagingSenderId: "1033387119671",
+      appId: "1:1033387119671:web:cad71a2ce09102e03d5bb2"
+    };
     try {
-      FIREBASE_CONFIG = JSON.parse(localStorage.getItem('cfg_firebase_config'));
-    } catch(e) {}
+      FIREBASE_CONFIG = JSON.parse(localStorage.getItem('cfg_firebase_config')) || defaultFirebaseConfig;
+    } catch(e) {
+      FIREBASE_CONFIG = defaultFirebaseConfig;
+    }
 
     let firebaseDb = null;
 
     // Advanced features config
-    let CFG_LINE_NOTIFY_STATUS = localStorage.getItem('cfg_line_notify_status') || 'disabled';
-    let CFG_LINE_NOTIFY_TOKEN = localStorage.getItem('cfg_line_notify_token') || '';
     let CFG_TELEGRAM_STATUS = localStorage.getItem('cfg_telegram_status') || 'disabled';
     let CFG_TELEGRAM_BOT_TOKEN = localStorage.getItem('cfg_telegram_bot_token') || '';
     let CFG_TELEGRAM_CHAT_ID = localStorage.getItem('cfg_telegram_chat_id') || '';
@@ -3374,6 +3571,11 @@
       document.getElementById('mainAppUI').style.display = 'block';
       document.body.classList.add('main-active'); // แสดง Bottom Nav
 
+      // Google Drive Setup
+      await loadGDrivePrefs();
+      updateGDriveUI();
+      initTokenClient();
+
       const firstName = currentUser.name.split(' ')[0] || '?';
       const initial = firstName.charAt(0).toUpperCase();
 
@@ -3516,24 +3718,6 @@
     // API Helper
     // ==========================================
     async function apiCall(action, payload = {}) {
-      // Intercept notification actions to route via GAS URL Proxy (bypasses CORS in Firebase mode)
-      if (action === 'sendLineNotification' || action === 'sendTelegramNotification') {
-        if (!WEB_APP_URL || WEB_APP_URL.includes('ใส่')) {
-          throw new Error("ยังไม่ได้ตั้งค่า WEB_APP_URL ของ Google Apps Script");
-        }
-        payload.action = action;
-        try {
-          const response = await fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-          const result = await response.json();
-          return result;
-        } catch (err) {
-          throw new Error("การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
-        }
-      }
-
       // Global bypass for system admin login to ensure setup is always accessible
       if (action === 'login' && payload.username === 'admin' && payload.password === 'admin') {
         const hashedAdminPass = CryptoJS.SHA256('admin').toString();
@@ -3709,38 +3893,544 @@
       document.getElementById('progressModal').classList.remove('show');
     }
 
-    function apiCallWithProgress(action, payload = {}, onProgress) {
-      return new Promise(async (resolve, reject) => {
-        if (!WEB_APP_URL || WEB_APP_URL.includes('ใส่')) {
-          return reject(new Error("ยังไม่ได้ตั้งค่า WEB_APP_URL ของ Google Apps Script"));
+    // ==========================================
+    // Google Drive Direct API Integration
+    // ==========================================
+    let GDRIVE_PREFS = {
+      connected: false,
+      email: '',
+      clientId: '',
+      accessToken: '',
+      tokenExpiresAt: 0,
+      folderName: 'Coway_Stock_Backups'
+    };
+
+    let tokenClient = null;
+
+    function initTokenClient() {
+      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+        console.log("Waiting for Google Identity Services script to load...");
+        setTimeout(initTokenClient, 500);
+        return;
+      }
+      if (GDRIVE_PREFS && GDRIVE_PREFS.clientId) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: GDRIVE_PREFS.clientId,
+          scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+          callback: async (tokenResponse) => {
+            if (tokenResponse.error !== undefined) {
+              console.error("GIS OAuth Error:", tokenResponse.error);
+              showToast("เข้าสู่ระบบล้มเหลว: " + tokenResponse.error, "error");
+              return;
+            }
+            
+            showGlobalLoading("กำลังเชื่อมต่อบัญชี Google Drive...");
+            try {
+              const accessToken = tokenResponse.access_token;
+              const expiresAt = Date.now() + (tokenResponse.expires_in || 3600) * 1000;
+              
+              // Get user email
+              const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: { 'Authorization': 'Bearer ' + accessToken }
+              });
+              if (!infoRes.ok) throw new Error("ไม่สามารถเรียกดูข้อมูลโปรไฟล์ได้");
+              const userInfo = await infoRes.json();
+              
+              await saveGDrivePrefs({
+                connected: true,
+                email: userInfo.email || 'Unspecified Email',
+                accessToken: accessToken,
+                tokenExpiresAt: expiresAt
+              });
+              
+              showToast("เชื่อมต่อบัญชี Google Drive สำเร็จ! 🎉", "success");
+              updateGDriveUI();
+            } catch (err) {
+              console.error("GIS callback error:", err);
+              showToast("เชื่อมต่อบัญชี Google Drive ล้มเหลว: " + err.message, "error");
+            } finally {
+              hideGlobalLoading();
+            }
+          }
+        });
+        console.log("Google Identity Services token client initialized.");
+      }
+    }
+
+    async function loadGDrivePrefs() {
+      if (!firebaseDb) return;
+      try {
+        const snap = await firebaseDb.collection('app_config').doc('gdrive_preferences').get();
+        if (snap.exists) {
+          GDRIVE_PREFS = { ...GDRIVE_PREFS, ...snap.data() };
+          console.log("Google Drive preferences loaded for:", GDRIVE_PREFS.email);
         }
-        payload.action = action;
+      } catch (err) {
+        console.error("Failed to load GDrive preferences:", err);
+      }
+    }
 
-        // เราใช้ Fake Progress แทน XMLHttpRequest.upload.onprogress 
-        // เพราะ Google Apps Script จะมีปัญหา CORS Preflight เมื่อมีการแนบ XHR Upload Listener (ทำให้เกิด Error: การเชื่อมต่อล้มเหลว)
-        let progress = 0;
-        const progressInterval = setInterval(() => {
-          progress += Math.random() * 15; // ค่อยๆ เพิ่มทีละนิด
-          if (progress > 90) progress = 90; // หยุดที่ 90% จนกว่าจะอัปโหลดเสร็จจริง
-          if (onProgress) onProgress(Math.round(progress));
-        }, 500);
+    async function saveGDrivePrefs(updates) {
+      if (!firebaseDb) return;
+      try {
+        GDRIVE_PREFS = { ...GDRIVE_PREFS, ...updates };
+        await firebaseDb.collection('app_config').doc('gdrive_preferences').set(GDRIVE_PREFS, { merge: true });
+        console.log("Google Drive preferences updated in Firestore.");
+      } catch (err) {
+        console.error("Failed to save GDrive preferences:", err);
+        throw err;
+      }
+    }
 
-        try {
-          // ใช้ fetch() ซึ่งเป็น Simple Request แบบเดียวกับฟังก์ชัน apiCall ปกติเพื่อเลี่ยง CORS
-          const response = await fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-          });
-          const result = await response.json();
+    // Retrieve active access token, returning null if expired or missing
+    async function getValidAccessToken() {
+      const { connected, clientId, accessToken, tokenExpiresAt } = GDRIVE_PREFS;
+      if (!connected || !clientId) {
+        return null;
+      }
 
-          clearInterval(progressInterval);
-          if (onProgress) onProgress(100);
-          resolve(result);
-        } catch (err) {
-          clearInterval(progressInterval);
-          reject(new Error("การเชื่อมต่อล้มเหลว"));
+      const now = Date.now();
+      // If still valid (with 1 min buffer), return it
+      if (accessToken && tokenExpiresAt && now < tokenExpiresAt - 60000) {
+        return accessToken;
+      }
+
+      console.log("GDrive Access Token expired or missing.");
+      return null;
+    }
+
+    // OAuth Connection Trigger
+    function showConnectGDriveModal() {
+      const modal = document.getElementById('gdriveConnectModal');
+      document.getElementById('gdriveClientId').value = GDRIVE_PREFS.clientId || '';
+      modal.classList.add('show');
+    }
+
+    function hideConnectGDriveModal() {
+      document.getElementById('gdriveConnectModal').classList.remove('show');
+    }
+
+    async function handleConfirmGDriveConnect() {
+      const clientId = document.getElementById('gdriveClientId').value.trim();
+
+      if (!clientId) {
+        showToast("กรุณากรอก Google Client ID ให้ถูกต้อง", "error");
+        return;
+      }
+
+      showGlobalLoading("กำลังเตรียมการเชื่อมต่อ...");
+      try {
+        // Pre-save client credentials to Firestore
+        await saveGDrivePrefs({
+          clientId: clientId
+        });
+
+        // Initialize Google Token Client with new Client ID
+        initTokenClient();
+        
+        hideConnectGDriveModal();
+        hideGlobalLoading();
+        
+        if (tokenClient) {
+          tokenClient.requestAccessToken({ prompt: 'consent' });
+        } else {
+          showToast("ไม่สามารถสร้าง Google Client ได้ กรุณาตรวจสอบ Client ID", "error");
         }
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("การเชื่อมต่อขัดข้อง: " + err.message, "error");
+      }
+    }
+
+    function handleReauthorizeGDrive() {
+      if (!GDRIVE_PREFS.clientId) {
+        showToast("ไม่พบ Client ID กรุณาเชื่อมต่อใหม่", "error");
+        return;
+      }
+      if (!tokenClient) {
+        initTokenClient();
+      }
+      if (tokenClient) {
+        tokenClient.requestAccessToken();
+      } else {
+        showToast("ไม่สามารถเรียกใช้งาน Google API Client ได้", "error");
+      }
+    }
+
+    // Update the UI state of GDrive Backup Panel
+    function updateGDriveUI() {
+      const unconnectedDiv = document.getElementById('gdriveUnconnected');
+      const connectedDiv = document.getElementById('gdriveConnected');
+      
+      if (GDRIVE_PREFS && GDRIVE_PREFS.connected) {
+        if(unconnectedDiv) unconnectedDiv.style.display = 'none';
+        if(connectedDiv) {
+          connectedDiv.style.display = 'block';
+          document.getElementById('gdriveConnectedEmail').textContent = GDRIVE_PREFS.email || 'ไม่ระบุอีเมล';
+          document.getElementById('gdriveFolderNameText').textContent = GDRIVE_PREFS.folderName || 'Coway_Stock_Backups';
+          loadRealGDriveBackups();
+        }
+      } else {
+        if(unconnectedDiv) unconnectedDiv.style.display = 'block';
+        if(connectedDiv) connectedDiv.style.display = 'none';
+      }
+    }
+
+    async function handleDisconnectGDrive() {
+      if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการตัดการเชื่อมต่อกับ Google Drive?\nข้อมูลสำรองจะยังคงอยู่ในระบบ Drive ของคุณ แต่แอปนี้จะไม่สามารถอัปโหลดข้อมูลเพิ่มได้อีกจนกว่าจะล็อกอินใหม่")) {
+        return;
+      }
+      
+      showGlobalLoading("กำลังตัดการเชื่อมต่อ...");
+      try {
+        await saveGDrivePrefs({
+          connected: false,
+          email: '',
+          accessToken: '',
+          tokenExpiresAt: 0
+        });
+        showToast("ตัดการเชื่อมต่อ Google Drive สำเร็จ");
+      } catch (err) {
+        showToast("เกิดข้อผิดพลาดในการตัดการเชื่อมต่อ: " + err.message, "error");
+      } finally {
+        hideGlobalLoading();
+        updateGDriveUI();
+      }
+    }
+
+    // Google Drive direct API helpers
+    async function getOrCreateFolder(accessToken, folderName) {
+      const query = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`;
+      
+      const searchRes = await fetch(searchUrl, {
+        headers: { 'Authorization': 'Bearer ' + accessToken }
       });
+      
+      if (!searchRes.ok) {
+        const errorText = await searchRes.text();
+        throw new Error(`ค้นหาโฟลเดอร์ล้มเหลว: ${errorText}`);
+      }
+      
+      const searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        return searchData.files[0].id;
+      }
+      
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder'
+        })
+      });
+      
+      if (!createRes.ok) {
+        const errorText = await createRes.text();
+        throw new Error(`สร้างโฟลเดอร์ล้มเหลว: ${errorText}`);
+      }
+      
+      const createData = await createRes.json();
+      return createData.id;
+    }
+
+    async function getOrCreateFolderWithParent(accessToken, folderName, parentId) {
+      let query = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`;
+      if (parentId) {
+        query += ` and '${parentId}' in parents`;
+      }
+      
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name)`;
+      const searchRes = await fetch(searchUrl, {
+        headers: { 'Authorization': 'Bearer ' + accessToken }
+      });
+      
+      if (!searchRes.ok) {
+        const errorText = await searchRes.text();
+        throw new Error(`ค้นหาโฟลเดอร์ลูกล้มเหลว: ${errorText}`);
+      }
+      
+      const searchData = await searchRes.json();
+      if (searchData.files && searchData.files.length > 0) {
+        return searchData.files[0].id;
+      }
+      
+      const body = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder'
+      };
+      if (parentId) {
+        body.parents = [parentId];
+      }
+      
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      
+      if (!createRes.ok) {
+        const errorText = await createRes.text();
+        throw new Error(`สร้างโฟลเดอร์ย่อยล้มเหลว: ${errorText}`);
+      }
+      
+      const createData = await createRes.json();
+      return createData.id;
+    }
+
+    // Direct Google Drive Upload (Metadata + Media content)
+    async function directUploadToGDrive(accessToken, file, parentFolderId) {
+      const metaBody = {
+        name: file.name,
+        mimeType: file.type || getMimeTypeFromExt(file.name)
+      };
+      if (parentFolderId) {
+        metaBody.parents = [parentFolderId];
+      }
+      
+      const createMetaRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(metaBody)
+      });
+      
+      if (!createMetaRes.ok) {
+        const errorText = await createMetaRes.text();
+        throw new Error(`สร้าง Metadata ไฟล์บน Drive ล้มเหลว: ${errorText}`);
+      }
+      
+      const fileData = await createMetaRes.json();
+      const fileId = fileData.id;
+      
+      const uploadContentRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': file.type || getMimeTypeFromExt(file.name)
+        },
+        body: file
+      });
+      
+      if (!uploadContentRes.ok) {
+        const errorText = await uploadContentRes.text();
+        throw new Error(`อัปโหลดเนื้อหาไฟล์ล้มเหลว: ${errorText}`);
+      }
+      
+      try {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            role: 'reader',
+            type: 'anyone'
+          })
+        });
+      } catch (permErr) {
+        console.warn("Failed to set public view permission for GDrive file:", permErr);
+      }
+      
+      return {
+        id: fileId,
+        url: `https://drive.google.com/uc?export=view&id=${fileId}`,
+        webViewLink: fileData.webViewLink
+      };
+    }
+
+    function getMimeTypeFromExt(fileName) {
+      const ext = fileName.split('.').pop().toLowerCase();
+      if (ext === 'pdf') return 'application/pdf';
+      if (ext === 'mp4') return 'video/mp4';
+      if (ext === 'mov') return 'video/quicktime';
+      if (ext === 'avi') return 'video/x-msvideo';
+      if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+      if (ext === 'png') return 'image/png';
+      return 'application/octet-stream';
+    }
+
+    async function loadRealGDriveBackups() {
+      const listContainer = document.getElementById('gdriveBackupListContainer');
+      if(!listContainer) return;
+      listContainer.innerHTML = `<div style="padding: 20px; text-align: center;"><div class="spinner" style="margin: 0 auto 10px;"></div>กำลังโหลดข้อมูลสำรอง...</div>`;
+      
+      try {
+        const accessToken = await getValidAccessToken();
+        if (!accessToken) {
+          listContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444; font-size: 12px;">ไม่ได้เชื่อมต่อ Google Drive หรือสิทธิ์หมดอายุ กรุณาตัดการเชื่อมต่อและเข้าสู่ระบบใหม่</div>`;
+          return;
+        }
+        
+        const folderId = await getOrCreateFolder(accessToken, GDRIVE_PREFS.folderName);
+        const listUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`'${folderId}' in parents and trashed=false and mimeType='application/json'`)}&fields=files(id,name,size,createdTime)&orderBy=createdTime+desc`;
+        
+        const listRes = await fetch(listUrl, {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        
+        if (!listRes.ok) throw new Error("ไม่สามารถเรียกดูรายการไฟล์ได้");
+        
+        const listData = await listRes.json();
+        const files = listData.files || [];
+        
+        if (files.length === 0) {
+          listContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #64748b; font-size: 12px;">ไม่พบไฟล์สำรองข้อมูลบนโฟลเดอร์ Google Drive</div>`;
+          return;
+        }
+        
+        let html = '';
+        files.forEach(f => {
+          const date = new Date(f.createdTime).toLocaleString('th-TH');
+          const size = f.size ? `${(parseInt(f.size) / 1024).toFixed(2)} KB` : 'N/A';
+          html += `
+            <div class="backup-item">
+              <div class="backup-info">
+                <span class="backup-name">${f.name}</span>
+                <span class="backup-meta">ขนาด: ${size} | วันที่สำรอง: ${date}</span>
+              </div>
+              <button type="button" class="btn-restore" onclick="handleRestoreFromGDrive('${f.id}', '${f.name}')">กู้คืน</button>
+            </div>
+          `;
+        });
+        listContainer.innerHTML = html;
+        
+      } catch (err) {
+        console.error("Load GDrive backups failed:", err);
+        listContainer.innerHTML = `<div style="padding: 20px; text-align: center; color: #ef4444; font-size: 12px;">โหลดข้อมูลสำรองล้มเหลว: ${err.message}</div>`;
+      }
+    }
+
+    async function handleBackupNow() {
+      const statusText = document.getElementById('gdriveBackupStatusText');
+      const btn = document.getElementById('btnGDriveBackupNow');
+      
+      if(statusText) {
+        statusText.style.display = 'block';
+        statusText.style.color = '#475569';
+        statusText.textContent = "กำลังรวบรวมข้อมูล...";
+      }
+      if(btn) btn.disabled = true;
+      
+      try {
+        const accessToken = await getValidAccessToken();
+        if (!accessToken) throw new Error("การพิสูจน์สิทธิ์ไม่สำเร็จ โปรดเชื่อมต่อ Google Drive ใหม่อีกครั้ง");
+        
+        let users = [];
+        let submissions = [];
+        
+        if (!firebaseDb) throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
+        
+        if(statusText) statusText.textContent = "กำลังดึงข้อมูลบัญชีผู้ใช้...";
+        const uQ = await firebaseDb.collection('users').get();
+        uQ.forEach(doc => users.push(doc.data()));
+        
+        if(statusText) statusText.textContent = "กำลังดึงข้อมูลใบประวัติงาน...";
+        const sQ = await firebaseDb.collection('submissions').get();
+        sQ.forEach(doc => submissions.push(doc.data()));
+        
+        const backupData = {
+          export_date: new Date().toISOString(),
+          db_type: 'firebase',
+          users: users,
+          submissions: submissions
+        };
+        
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}_${String(now.getMonth()+1).padStart(2,'0')}_${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        const fileName = `backup_database_firebase_${dateStr}.json`;
+        
+        const jsonBlob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const fileObj = new File([jsonBlob], fileName, { type: 'application/json' });
+        
+        if(statusText) statusText.textContent = "กำลังสร้างโฟลเดอร์จัดเก็บบน Google Drive...";
+        const folderId = await getOrCreateFolder(accessToken, GDRIVE_PREFS.folderName);
+        
+        if(statusText) statusText.textContent = "กำลังอัปโหลดไฟล์ข้อมูลสำรองตรงเข้า Google Drive...";
+        const uploadRes = await directUploadToGDrive(accessToken, fileObj, folderId);
+        
+        if(statusText) {
+          statusText.style.color = '#10b981';
+          statusText.textContent = `สำรองข้อมูลสำเร็จ: ${fileName} 🎉`;
+        }
+        showToast("สำรองข้อมูลขึ้นระบบคลาวด์เรียบร้อยแล้ว!", "success");
+        
+        await loadRealGDriveBackups();
+      } catch (err) {
+        console.error("GDrive backup error:", err);
+        if(statusText) {
+          statusText.style.color = '#ef4444';
+          statusText.textContent = `การสำรองข้อมูลล้มเหลว: ${err.message} ❌`;
+        }
+        showToast("สำรองข้อมูลล้มเหลว: " + err.message, "error");
+      } finally {
+        if(btn) btn.disabled = false;
+        setTimeout(() => {
+          if(statusText) statusText.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    async function handleRestoreFromGDrive(fileId, fileName) {
+      if (!confirm(`⚠️ ยืนยันการกู้คืนข้อมูลระบบคลาวด์!\nคุณต้องการกู้คืนข้อมูลจากไฟล์สำรอง "${fileName}" ใช่หรือไม่?\nข้อมูลคลังและประวัติงานปัจจุบันทั้งหมดจะถูกเขียนทับด้วยข้อมูลจากคลาวด์ตัวนี้และกู้คืนกลับไม่ได้อีก!`)) {
+        return;
+      }
+      
+      showGlobalLoading("กำลังดึงไฟล์สำรองข้อมูล...");
+      try {
+        const accessToken = await getValidAccessToken();
+        if (!accessToken) throw new Error("ไม่ได้ล็อกอิน Google Drive หรือสิทธิ์หมดอายุ");
+        
+        const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+        const dlRes = await fetch(downloadUrl, {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        });
+        
+        if (!dlRes.ok) throw new Error("ไม่สามารถดาวน์โหลดไฟล์ข้อมูลสำรองได้");
+        
+        const data = await dlRes.json();
+        if (!data.users || !data.submissions) {
+          throw new Error("รูปแบบไฟล์ข้อมูลสำรองไม่ถูกต้อง");
+        }
+        
+        showGlobalLoading("กำลังนำเข้าข้อมูลลงระบบ...");
+        let importUsersCount = 0;
+        let importSubmissionsCount = 0;
+        
+        for (const u of data.users) {
+          if (u.username) {
+            await firebaseDb.collection('users').doc(u.username).set(u, { merge: true });
+            importUsersCount++;
+          }
+        }
+        
+        for (const sub of data.submissions) {
+          if (sub.submission_date) {
+            await firebaseDb.collection('submissions').doc(sub.submission_date).set(sub, { merge: true });
+            importSubmissionsCount++;
+          }
+        }
+        
+        hideGlobalLoading();
+        showToast(`🎉 กู้คืนสำเร็จ! นำเข้าบัญชี ${importUsersCount} รายการ และประวัติ ${importSubmissionsCount} รายการเรียบร้อยครับ 😊`, "success");
+        
+        loadHistory();
+        if (currentUser && currentUser.role === 'admin') loadUsers();
+      } catch (err) {
+        hideGlobalLoading();
+        console.error("GDrive restore error:", err);
+        showToast("การกู้คืนล้มเหลว: " + err.message, "error");
+      }
     }
 
     function showToast(msg, type = 'success') {
@@ -3909,6 +4599,44 @@
       // Setup Drag & Drop for Submit upload zones
       setupDragAndDrop('pdfUpload', 'application/pdf');
       setupDragAndDrop('videoUpload', 'video/');
+      
+      // Setup Drag & Drop for Restore JSON local import
+      setupRestoreDragAndDrop();
+    }
+
+    function setupRestoreDragAndDrop() {
+      const area = document.getElementById('dragDropArea');
+      const input = document.getElementById('restoreFileSelector');
+      if (!area || !input) return;
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        area.addEventListener(eventName, e => {
+          e.preventDefault();
+          e.stopPropagation();
+        }, false);
+      });
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        area.addEventListener(eventName, () => area.classList.add('dragover'), false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        area.addEventListener(eventName, () => area.classList.remove('dragover'), false);
+      });
+
+      area.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          const file = files[0];
+          if (file.name.endsWith('.json')) {
+            input.files = files;
+            const event = { target: { files: files } };
+            importDatabaseFromJson(event);
+          } else {
+            showToast("รองรับเฉพาะไฟล์สกุล .json เท่านั้นครับ ⚠️", "error");
+          }
+        }
+      });
     }
 
     function setupDragAndDrop(inputId, allowedTypePrefix) {
@@ -4007,41 +4735,57 @@
       }
 
       try {
-        const parentFolderId = getParentFolderId(workCat);
-
-        // 1. Upload PDF
-        showProgressModal("กำลังอัปโหลดไฟล์ PDF", pdfFile.name, "📄");
-        const pdfBase64 = await fileToBase64(pdfFile);
-        const pdfRes = await apiCallWithProgress('uploadFile',
-          { fileName: pdfFile.name, fileData: pdfBase64, workType: workCat, parentFolderId: parentFolderId },
-          (percent) => updateProgress(percent)
-        );
-
-        if (!pdfRes.success) throw new Error("อัปโหลด PDF ไม่สำเร็จ");
-
-        // 2. Upload Video (if any)
-        let vidRes = null;
-        if (vidFile) {
-          showProgressModal("กำลังอัปโหลดไฟล์วิดีโอ", vidFile.name, "🎥");
-          const vidBase64 = await fileToBase64(vidFile);
-          vidRes = await apiCallWithProgress('uploadFile',
-            { fileName: vidFile.name, fileData: vidBase64, workType: workCat, parentFolderId: parentFolderId, subFolderId: pdfRes.folderId },
-            (percent) => updateProgress(percent)
-          );
-          if (!vidRes.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ");
+        let pdfUrl = '';
+        let vidUrl = '';
+        
+        if (!GDRIVE_PREFS || !GDRIVE_PREFS.connected) {
+          throw new Error("ระบบนี้ไม่ได้เชื่อมต่อกับ Google Drive กรุณาแจ้งผู้ดูแลระบบให้ทำการเชื่อมต่อที่เมนูตั้งค่าก่อนส่งงาน");
         }
 
-        // 3. Save Data
-        showProgressModal("กำลังบันทึกข้อมูล", "กรุณารอสักครู่...", "💾");
+        const accessToken = await getValidAccessToken();
+        if (!accessToken) {
+          throw new Error("สิทธิ์การเชื่อมต่อ Google Drive หมดอายุ กรุณาแจ้งผู้ดูแลระบบให้ต่ออายุการเชื่อมต่อ (Re-authorize) ที่เมนูตั้งค่าระบบ");
+        }
+
+        let parentFolderId = getParentFolderId(workCat);
+        if (!parentFolderId) {
+          // Create folder dynamically by category name if not configured
+          parentFolderId = await getOrCreateFolder(accessToken, workCat);
+        }
+
+        // Create a subfolder for this submission using timestamp
+        const now = new Date();
+        const timestampFolderName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+        
+        showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", timestampFolderName, "📂");
+        updateProgress(20);
+        const targetFolderId = await getOrCreateFolderWithParent(accessToken, timestampFolderName, parentFolderId);
+        
+        // 1. Upload PDF
+        showProgressModal("กำลังอัปโหลดไฟล์ PDF ตรงไปยัง Google Drive", pdfFile.name, "📄");
         updateProgress(50);
+        const pdfRes = await directUploadToGDrive(accessToken, pdfFile, targetFolderId);
+        pdfUrl = pdfRes.url;
+
+        // 2. Upload Video (if any)
+        if (vidFile) {
+          showProgressModal("กำลังอัปโหลดไฟล์วิดีโอตรงไปยัง Google Drive", vidFile.name, "🎥");
+          updateProgress(80);
+          const vidRes = await directUploadToGDrive(accessToken, vidFile, targetFolderId);
+          vidUrl = vidRes.url;
+        }
+
+        // 3. Save Data in Firestore
+        showProgressModal("กำลังบันทึกข้อมูล", "กรุณารอสักครู่...", "💾");
+        updateProgress(90);
         const saveRes = await apiCall('saveData', {
           submission_date: new Date().toISOString(),
           name: currentUser.name,
           work_type: workCat,
           file_name: pdfFile.name,
-          file_url: pdfRes.fileUrl,
+          file_url: pdfUrl,
           video_name: vidFile ? vidFile.name : '-',
-          video_url: vidRes ? vidRes.fileUrl : '-',
+          video_url: vidUrl || '-',
           description: note || '-',
           status: 'รอตรวจ'
         });
@@ -4051,40 +4795,22 @@
 
         showToast("ส่งงานเรียบร้อยแล้ว!");
 
-        // Trigger LINE Notify notification if enabled
-        if (CFG_LINE_NOTIFY_STATUS === 'enabled' && CFG_LINE_NOTIFY_TOKEN) {
-          const lineMessage = `\n📢 มีงานส่งใหม่เข้ามาครับ!\n👤 ช่าง: ${currentUser.name}\n📂 ประเภทงาน: ${workCat}\n📄 ไฟล์งาน: ${pdfFile.name}\n🎥 ไฟล์วิดีโอ: ${vidFile ? vidFile.name : '-'}\n📝 หมายเหตุ: ${note || '-'}\n🔗 ลิงก์ PDF: ${pdfRes.fileUrl}\n🔗 ลิงก์ Video: ${vidRes ? vidRes.fileUrl : '-'}`;
-          
-          apiCall('sendLineNotification', {
-            token: CFG_LINE_NOTIFY_TOKEN,
-            message: lineMessage
-          }).then(lineRes => {
-            console.log("LINE Notify response:", lineRes);
-          }).catch(lineErr => {
-            console.warn("LINE Notify failed:", lineErr);
-          });
-        }
-
         // Trigger Telegram notification if enabled
         if (CFG_TELEGRAM_STATUS === 'enabled' && CFG_TELEGRAM_BOT_TOKEN && CFG_TELEGRAM_CHAT_ID) {
           let telegramMsg = `<b>📢 มีงานส่งใหม่เข้ามาครับ!</b>\n` +
                             `👤 <b>ช่าง:</b> ${currentUser.name}\n` +
                             `📂 <b>ประเภทงาน:</b> ${workCat}\n` +
                             `📄 <b>ไฟล์งาน:</b> ${pdfFile.name}\n`;
-          if (vidFile && vidRes) {
+          if (vidFile) {
             telegramMsg += `🎥 <b>ไฟล์วิดีโอ:</b> ${vidFile.name}\n`;
           }
           telegramMsg += `📝 <b>หมายเหตุ:</b> ${note || '-'}\n` +
-                         `🔗 <a href="${pdfRes.fileUrl}">ลิงก์ PDF</a>`;
-          if (vidFile && vidRes) {
-            telegramMsg += `\n🔗 <a href="${vidRes.fileUrl}">ลิงก์ Video</a>`;
+                         `🔗 <a href="${pdfUrl}">ลิงก์ PDF</a>`;
+          if (vidFile && vidUrl) {
+            telegramMsg += `\n🔗 <a href="${vidUrl}">ลิงก์ Video</a>`;
           }
           
-          apiCall('sendTelegramNotification', {
-            token: CFG_TELEGRAM_BOT_TOKEN,
-            chatId: CFG_TELEGRAM_CHAT_ID,
-            message: telegramMsg
-          }).then(tgRes => {
+          sendTelegramDirect(CFG_TELEGRAM_BOT_TOKEN, CFG_TELEGRAM_CHAT_ID, telegramMsg).then(tgRes => {
             console.log("Telegram response:", tgRes);
           }).catch(tgErr => {
             console.warn("Telegram alert failed:", tgErr);
@@ -4389,32 +5115,45 @@
         let updatedVideoName = originalItem.video_name;
         let updatedVideoUrl = originalItem.video_url;
 
-        const parentFolderId = getParentFolderId(newType);
+        if (newPdfFile || newVidFile) {
+          if (!GDRIVE_PREFS || !GDRIVE_PREFS.connected) {
+            throw new Error("ระบบนี้ไม่ได้เชื่อมต่อกับ Google Drive กรุณาเชื่อมต่อที่เมนูตั้งค่าก่อนอัปโหลดไฟล์ใหม่");
+          }
+          const accessToken = await getValidAccessToken();
+          if (!accessToken) {
+            throw new Error("สิทธิ์การเชื่อมต่อ Google Drive หมดอายุ กรุณาต่ออายุสิทธิ์ใหม่ที่เมนูตั้งค่า");
+          }
 
-        // 1. Upload PDF if changed
-        if (newPdfFile) {
-          showProgressModal("กำลังอัปโหลด PDF ใหม่", newPdfFile.name, "📄");
-          const base64 = await fileToBase64(newPdfFile);
-          const res = await apiCallWithProgress('uploadFile',
-            { fileName: newPdfFile.name, fileData: base64, workType: newType, parentFolderId: parentFolderId },
-            (percent) => updateProgress(percent)
-          );
-          if (!res.success) throw new Error("อัปโหลด PDF ไม่สำเร็จ: " + res.message);
-          updatedFileName = newPdfFile.name;
-          updatedFileUrl = res.fileUrl;
-        }
+          let parentFolderId = getParentFolderId(newType);
+          if (!parentFolderId) {
+            parentFolderId = await getOrCreateFolder(accessToken, newType);
+          }
 
-        // 2. Upload Video if changed
-        if (newVidFile) {
-          showProgressModal("กำลังอัปโหลดวิดีโอใหม่", newVidFile.name, "🎥");
-          const base64 = await fileToBase64(newVidFile);
-          const res = await apiCallWithProgress('uploadFile',
-            { fileName: newVidFile.name, fileData: base64, workType: newType, parentFolderId: parentFolderId },
-            (percent) => updateProgress(percent)
-          );
-          if (!res.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ: " + res.message);
-          updatedVideoName = newVidFile.name;
-          updatedVideoUrl = res.fileUrl;
+          // Create a subfolder for this edited submission's new files using timestamp
+          const now = new Date();
+          const timestampFolderName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+          
+          showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", timestampFolderName, "📂");
+          updateProgress(20);
+          const targetFolderId = await getOrCreateFolderWithParent(accessToken, timestampFolderName, parentFolderId);
+
+          // 1. Upload PDF if changed
+          if (newPdfFile) {
+            showProgressModal("กำลังอัปโหลด PDF ใหม่ตรงไปยัง Google Drive", newPdfFile.name, "📄");
+            updateProgress(50);
+            const pdfRes = await directUploadToGDrive(accessToken, newPdfFile, targetFolderId);
+            updatedFileName = newPdfFile.name;
+            updatedFileUrl = pdfRes.url;
+          }
+
+          // 2. Upload Video if changed
+          if (newVidFile) {
+            showProgressModal("กำลังอัปโหลดวิดีโอใหม่ตรงไปยัง Google Drive", newVidFile.name, "🎥");
+            updateProgress(80);
+            const vidRes = await directUploadToGDrive(accessToken, newVidFile, targetFolderId);
+            updatedVideoName = newVidFile.name;
+            updatedVideoUrl = vidRes.url;
+          }
         }
 
         showProgressModal("กำลังบันทึกการเปลี่ยนแปลง", "กรุณารอสักครู่...", "💾");
@@ -4512,38 +5251,10 @@
       if (selectedPanel) {
         selectedPanel.classList.add('active');
       }
-    }
 
-    function toggleLineNotifyFields() {
-      const status = document.getElementById('settingsLineNotifyStatus').value;
-      const tokenField = document.getElementById('lineTokenField');
-      const testBtn = document.getElementById('btnTestLine');
-      if (status === 'enabled') {
-        tokenField.style.display = 'block';
-        testBtn.style.display = 'block';
-      } else {
-        tokenField.style.display = 'none';
-        testBtn.style.display = 'none';
+      if (panelId === 'backup') {
+        updateGDriveUI();
       }
-    }
-
-    function saveLineNotifySettings(e) {
-      e.preventDefault();
-      const status = document.getElementById('settingsLineNotifyStatus').value;
-      const token = document.getElementById('settingsLineNotifyToken').value.trim();
-      
-      if (status === 'enabled' && !token) {
-        showToast("กรุณากรอก LINE Notify Personal Access Token", "error");
-        return;
-      }
-      
-      localStorage.setItem('cfg_line_notify_status', status);
-      localStorage.setItem('cfg_line_notify_token', token);
-      
-      CFG_LINE_NOTIFY_STATUS = status;
-      CFG_LINE_NOTIFY_TOKEN = token;
-      
-      showToast("บันทึกการตั้งค่า LINE สำเร็จเรียบร้อย! 😊");
     }
 
     function saveStorageSettings(e) {
@@ -4598,32 +5309,6 @@
       showToast("บันทึกข้อมูลแบรนด์สำเร็จเรียบร้อย! 😊");
     }
 
-    async function testLineNotification() {
-      const token = document.getElementById('settingsLineNotifyToken').value.trim();
-      if (!token) {
-        showToast("กรุณากรอก LINE Notify Personal Access Token ก่อนทดสอบ", "error");
-        return;
-      }
-      
-      showGlobalLoading("กำลังส่งข้อความทดสอบ...");
-      try {
-        const res = await apiCall('sendLineNotification', {
-          token: token,
-          message: "🔔 ทดสอบระบบแจ้งเตือน LINE Notify จากระบบส่งงาน AS INS: การเชื่อมต่อระบบสำเร็จเรียบร้อยแล้วครับ! 🎉"
-        });
-        
-        hideGlobalLoading();
-        if (res.success) {
-          showToast("🟢 ส่งข้อความแจ้งเตือนทดสอบเข้ากลุ่ม LINE สำเร็จแล้ว! กรุณาตรวจสอบกลุ่มไลน์ของคุณ", "success");
-        } else {
-          throw new Error(res.message || "การส่งข้อความแจ้งเตือนล้มเหลว");
-        }
-      } catch (err) {
-        hideGlobalLoading();
-        showToast("🔴 แจ้งเตือนล้มเหลว: " + err.message, "error");
-      }
-    }
-
     function toggleTelegramFields() {
       const status = document.getElementById('settingsTelegramStatus').value;
       const telegramFields = document.getElementById('telegramFields');
@@ -4659,6 +5344,26 @@
       showToast("บันทึกการตั้งค่า Telegram สำเร็จเรียบร้อย! 😊");
     }
 
+    async function sendTelegramDirect(token, chatId, message) {
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Telegram API error: ${errorText}`);
+      }
+      return await response.json();
+    }
+
     async function testTelegramNotification() {
       const token = document.getElementById('settingsTelegramBotToken').value.trim();
       const chatId = document.getElementById('settingsTelegramChatId').value.trim();
@@ -4669,17 +5374,13 @@
       
       showGlobalLoading("กำลังส่งข้อความทดสอบ...");
       try {
-        const res = await apiCall('sendTelegramNotification', {
-          token: token,
-          chatId: chatId,
-          message: "<b>🔔 ทดสอบระบบแจ้งเตือน Telegram Bot</b>\nการเชื่อมต่อระบบส่งงาน AS INS สำเร็จเรียบร้อยแล้วครับ! 🎉"
-        });
+        const res = await sendTelegramDirect(token, chatId, "<b>🔔 ทดสอบระบบแจ้งเตือน Telegram Bot</b>\nการเชื่อมต่อระบบส่งงาน AS INS สำเร็จเรียบร้อยแล้วครับ! 🎉");
         
         hideGlobalLoading();
-        if (res.success) {
+        if (res.ok) {
           showToast("🟢 ส่งข้อความทดสอบสำเร็จแล้ว! กรุณาตรวจสอบ Telegram แชท/กลุ่มของคุณ", "success");
         } else {
-          throw new Error(res.message || "การส่งข้อความแจ้งเตือนล้มเหลว");
+          throw new Error("การส่งข้อความแจ้งเตือนล้มเหลว");
         }
       } catch (err) {
         hideGlobalLoading();
@@ -4777,12 +5478,7 @@
     }
 
     function loadSettingsToForm() {
-      document.getElementById('settingsGasUrl').value = WEB_APP_URL;
       document.getElementById('settingsFirebaseConfig').value = FIREBASE_CONFIG ? JSON.stringify(FIREBASE_CONFIG, null, 2) : '';
-      
-      document.getElementById('settingsLineNotifyStatus').value = CFG_LINE_NOTIFY_STATUS;
-      document.getElementById('settingsLineNotifyToken').value = CFG_LINE_NOTIFY_TOKEN;
-      toggleLineNotifyFields();
       
       document.getElementById('settingsTelegramStatus').value = CFG_TELEGRAM_STATUS;
       document.getElementById('settingsTelegramBotToken').value = CFG_TELEGRAM_BOT_TOKEN;
@@ -4808,7 +5504,6 @@
       if (settingsForm) {
         settingsForm.addEventListener('submit', function(e) {
           e.preventDefault();
-          const gasUrl = document.getElementById('settingsGasUrl').value.trim();
           const fbConfigStr = document.getElementById('settingsFirebaseConfig').value.trim();
 
           if (!fbConfigStr) {
@@ -4823,10 +5518,8 @@
             return;
           }
 
-          localStorage.setItem('cfg_gas_url', gasUrl);
           localStorage.setItem('cfg_firebase_config', JSON.stringify(fbConfig));
 
-          WEB_APP_URL = gasUrl;
           FIREBASE_CONFIG = fbConfig;
 
           initializeDatabase();
@@ -4841,21 +5534,11 @@
     });
 
     async function testConnection() {
-      const gasUrl = document.getElementById('settingsGasUrl').value.trim();
       const fbConfigStr = document.getElementById('settingsFirebaseConfig').value.trim();
 
       showGlobalLoading("กำลังทดสอบการเชื่อมต่อ...");
       try {
-        // 1. Test GAS
-        if (gasUrl) {
-          try {
-            await fetch(gasUrl + '?action=test', { mode: 'no-cors' });
-          } catch(e) {
-            console.warn("GAS connectivity check warning:", e);
-          }
-        }
-
-        // 2. Test Firebase
+        // Test Firebase
         if (!fbConfigStr) {
           throw new Error("กรุณากรอก Firebase Configuration JSON");
         }
@@ -5595,6 +6278,35 @@
       <div class="action-row edit-mode-only">
         <button onclick="saveRecordEdits()" class="btn-action btn-save-record">บันทึก</button>
         <button onclick="toggleEditRecord(false)" class="btn-action btn-cancel-edit">ยกเลิก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Connect Google Drive (OAuth Credentials Setup) -->
+  <!-- Modal: Connect Google Drive (OAuth Credentials Setup) -->
+  <div class="modal-overlay" id="gdriveConnectModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span style="font-size: 24px;">🔑</span>
+        <h3 class="modal-title">เชื่อมต่อ Google Drive จริง</h3>
+      </div>
+      <p class="modal-desc">กรอก Google Client ID จาก Google Cloud Console เพื่อเชื่อมโยงระบบอัปโหลดไฟล์/วิดีโอ และข้อมูลสำรองกับ Google Drive ของคุณโดยตรง (ไม่ต้องใช้ Client Secret และจะไม่มีการส่งข้อมูลรหัสผ่านใดๆ)</p>
+      
+      <div class="form-field" style="margin-bottom: 15px;">
+        <label class="field-label">GOOGLE CLIENT ID</label>
+        <input type="text" id="gdriveClientId" class="input-field" placeholder="xxxxxxxxx-xxxxxxxxx.apps.googleusercontent.com" required>
+      </div>
+      
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px 15px; margin-bottom: 20px; font-size: 12px; line-height: 1.5; color: #475569;">
+        <strong style="color: #1e293b; display: block; margin-bottom: 5px;">🛡️ สิทธิ์ที่ระบบจะขออนุมัติ:</strong>
+        • สร้างและจัดการไฟล์ส่งงานและข้อมูลสำรองบน Google Drive ของคุณเท่านั้น<br>
+        • ดึงรายชื่อไฟล์สำรองเพื่อแสดงผลในแอป<br>
+        • อ่านอีเมลบัญชีที่เชื่อมต่อ (userinfo.email)
+      </div>
+      
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button type="button" onclick="hideConnectGDriveModal()" class="submit-button" style="background: #94a3b8; box-shadow: none; width: auto; padding: 10px 20px;">ยกเลิก</button>
+        <button type="button" onclick="handleConfirmGDriveConnect()" class="submit-button" style="background: #3b82f6; width: auto; padding: 10px 25px;">เชื่อมต่อด้วย Google Sign-In</button>
       </div>
     </div>
   </div>
