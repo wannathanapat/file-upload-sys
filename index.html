@@ -4185,6 +4185,21 @@
       return createData.id;
     }
 
+    async function getOrCreateTargetUploadFolder(accessToken, category, fileName) {
+      // 1. Get or create root "Upfile Data Center" folder
+      const rootFolderName = 'Upfile Data Center';
+      const rootFolderId = await getOrCreateFolder(accessToken, rootFolderName);
+      
+      // 2. Get or create category folder inside "Upfile Data Center"
+      const categoryFolderId = await getOrCreateFolderWithParent(accessToken, category, rootFolderId);
+      
+      // 3. Get or create subfolder inside category folder named after the file (without extension)
+      const folderName = fileName.replace(/\.[^/.]+$/, "");
+      const targetFolderId = await getOrCreateFolderWithParent(accessToken, folderName, categoryFolderId);
+      
+      return targetFolderId;
+    }
+
     // Direct Google Drive Upload (Metadata + Media content)
     async function directUploadToGDrive(accessToken, file, parentFolderId) {
       const metaBody = {
@@ -4747,19 +4762,10 @@
           throw new Error("สิทธิ์การเชื่อมต่อ Google Drive หมดอายุ กรุณาแจ้งผู้ดูแลระบบให้ต่ออายุการเชื่อมต่อ (Re-authorize) ที่เมนูตั้งค่าระบบ");
         }
 
-        let parentFolderId = getParentFolderId(workCat);
-        if (!parentFolderId) {
-          // Create folder dynamically by category name if not configured
-          parentFolderId = await getOrCreateFolder(accessToken, workCat);
-        }
-
-        // Create a subfolder for this submission using timestamp
-        const now = new Date();
-        const timestampFolderName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
-        
-        showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", timestampFolderName, "📂");
+        const folderNameForUpload = pdfFile.name.replace(/\.[^/.]+$/, "");
+        showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", folderNameForUpload, "📂");
         updateProgress(20);
-        const targetFolderId = await getOrCreateFolderWithParent(accessToken, timestampFolderName, parentFolderId);
+        const targetFolderId = await getOrCreateTargetUploadFolder(accessToken, workCat, pdfFile.name);
         
         // 1. Upload PDF
         showProgressModal("กำลังอัปโหลดไฟล์ PDF ตรงไปยัง Google Drive", pdfFile.name, "📄");
@@ -5124,18 +5130,11 @@
             throw new Error("สิทธิ์การเชื่อมต่อ Google Drive หมดอายุ กรุณาต่ออายุสิทธิ์ใหม่ที่เมนูตั้งค่า");
           }
 
-          let parentFolderId = getParentFolderId(newType);
-          if (!parentFolderId) {
-            parentFolderId = await getOrCreateFolder(accessToken, newType);
-          }
-
-          // Create a subfolder for this edited submission's new files using timestamp
-          const now = new Date();
-          const timestampFolderName = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
-          
-          showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", timestampFolderName, "📂");
+          const uploadFileName = newPdfFile ? newPdfFile.name : (originalItem.file_name || 'No_PDF_Name');
+          const folderNameForUpload = uploadFileName.replace(/\.[^/.]+$/, "");
+          showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", folderNameForUpload, "📂");
           updateProgress(20);
-          const targetFolderId = await getOrCreateFolderWithParent(accessToken, timestampFolderName, parentFolderId);
+          const targetFolderId = await getOrCreateTargetUploadFolder(accessToken, newType, uploadFileName);
 
           // 1. Upload PDF if changed
           if (newPdfFile) {
