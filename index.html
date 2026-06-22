@@ -14,6 +14,11 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <!-- Firebase SDK Compat -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <style>
     body {
       box-sizing: border-box;
@@ -226,6 +231,125 @@
       display: block;
     }
 
+    /* ==========================================
+       New Split Settings Layout Styles
+       ========================================== */
+    .settings-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 30px;
+      margin-top: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1023px) {
+      .settings-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .settings-menu-card {
+        position: static !important;
+      }
+    }
+
+    .settings-menu-card {
+      background: white;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+      border-radius: 24px;
+      padding: 20px;
+      position: sticky;
+      top: 20px;
+      z-index: 10;
+    }
+
+    .settings-menu-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 15px;
+      padding-left: 10px;
+    }
+
+    .settings-menu-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: transparent;
+      border: none;
+      padding: 12px 16px;
+      border-radius: 16px;
+      color: #64748b;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .settings-menu-item:hover {
+      background: #f8fafc;
+      color: #4f46e5;
+    }
+
+    .settings-menu-item.active {
+      background: #eef2ff;
+      color: #4f46e5;
+      box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.1);
+    }
+
+    .settings-content-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .settings-panel {
+      display: none;
+    }
+
+    .settings-panel.active {
+      display: block;
+      animation: fadeInPanel 0.3s ease;
+    }
+
+    @keyframes fadeInPanel {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .settings-card {
+      background: white;
+      border: 1px solid #f1f5f9;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+      border-radius: 28px;
+      padding: 25px;
+    }
+
+    .settings-card-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 8px;
+    }
+
+    .settings-card-desc {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
     .form-field {
       margin-bottom: 25px;
     }
@@ -357,6 +481,13 @@
       border-color: #667eea;
       background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
       transform: translateY(-2px);
+    }
+
+    .file-upload-label.drag-over {
+      border-color: #6366f1;
+      background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+      transform: scale(0.98);
     }
 
     .upload-icon {
@@ -2289,7 +2420,7 @@
 
       <div class="menu-header">
         <h2>COWAY</h2>
-        <p>DSC CHIANGRAI</p>
+        <p id="brandingCompanySub">DSC CHIANGRAI</p>
       </div>
 
       <div class="menu-profile-card">
@@ -2480,8 +2611,8 @@
               <input type="file" id="pdfUpload" accept="application/pdf" required>
               <label for="pdfUpload" class="file-upload-label">
                 <div class="upload-icon">📄</div>
-                <div class="upload-text">คลิกเพื่อเลือกไฟล์ PDF</div>
-                <div class="upload-subtext">รองรับเฉพาะไฟล์ .pdf เท่านั้น</div>
+                <div class="upload-text">คลิกหรือลากไฟล์ PDF มาวางที่นี่</div>
+                <div class="upload-subtext">รองรับเฉพาะไฟล์ .pdf เท่านั้น (สูงสุด 10MB)</div>
               </label>
             </div>
             <div class="file-info-box" id="pdfFileInfo">
@@ -2498,8 +2629,8 @@
               <input type="file" id="videoUpload" accept="video/*">
               <label for="videoUpload" class="file-upload-label">
                 <div class="upload-icon">🎥</div>
-                <div class="upload-text">คลิกเพื่อเลือกไฟล์วิดีโอ</div>
-                <div class="upload-subtext">mp4, mov, avi, mkv</div>
+                <div class="upload-text">คลิกหรือลากไฟล์วิดีโอมาวางที่นี่</div>
+                <div class="upload-subtext">mp4, mov, avi, mkv (สูงสุด 25MB)</div>
               </label>
             </div>
             <div class="file-info-box" id="videoFileInfo">
@@ -2644,55 +2775,291 @@
           <button type="submit" class="submit-button">บันทึกการเปลี่ยนแปลง</button>
         </form>
       </div>
+    </div>
 
-      <!-- Admin User Management View -->
-      <div id="adminUserView" style="display:none;">
-        <div
-          style="background: white; padding: 25px; border-radius: 28px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom:20px;">
-          <h3 style="font-size:18px; font-weight:800; margin-bottom:20px; color:#0f172a;" id="userFormTitle">
-            เพิ่มผู้ใช้งานใหม่</h3>
-          <form id="userAdminForm" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
-            <div style="grid-column: span 2;">
-              <label class="field-label" style="font-size:13px;">ชื่อ-นามสกุล</label>
-              <input type="text" id="adminU_name" class="input-field" placeholder="ตัวอย่าง: สมชาย ใจดี" required>
-            </div>
-            <div>
-              <label class="field-label" style="font-size:13px;">Username</label>
-              <input type="text" id="adminU_username" class="input-field" placeholder="Username" required>
-            </div>
-            <div>
-              <label class="field-label" style="font-size:13px;">Password</label>
-              <input type="password" id="adminU_password" class="input-field" placeholder="Password" required>
-            </div>
-            <div style="grid-column: span 2;">
-              <label class="field-label" style="font-size:13px;">ระดับสิทธิ์</label>
-              <select id="adminU_role" class="select-field" required>
-                <option value="staff">Staff (ช่างเทคนิค)</option>
-                <option value="auditor">Auditor (ผู้ตรวจสอบ)</option>
-                <option value="admin">Admin (ผู้ดูแลระบบ)</option>
-              </select>
-            </div>
-            <div style="grid-column: span 2; display:flex; gap:10px; margin-top:10px;">
-              <button type="submit" class="submit-button" style="flex:2;">บันทึกข้อมูล</button>
-              <button type="button" onclick="resetUserForm()" class="submit-button"
-                style="flex:1; background:#94a3b8; box-shadow:none;">ล้างข้อมูล</button>
-            </div>
-          </form>
+    <!-- Tab 4: System Settings (Admin Only) -->
+    <div class="tab-content" id="settingsTab">
+      <h1 class="main-title-large" style="margin-bottom: 25px;">⚙️ ตั้งค่าระบบ (System Settings)</h1>
+      
+      <div class="settings-layout">
+        <!-- Left: Settings Navigation List -->
+        <div class="settings-menu-card">
+          <h3 class="settings-menu-title">เมนูการตั้งค่า</h3>
+          <div class="settings-menu-list">
+            <button type="button" class="settings-menu-item active" onclick="switchSettingsPanel('database')" id="setMenu-database">
+              <span class="menu-icon">🔌</span>
+              <span class="menu-text">การเชื่อมต่อระบบหลังบ้าน</span>
+            </button>
+            <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('users')" id="setMenu-users">
+              <span class="menu-icon">👥</span>
+              <span class="menu-text">จัดการบัญชีผู้ใช้</span>
+            </button>
+            <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('notify')" id="setMenu-notify">
+              <span class="menu-icon">💬</span>
+              <span class="menu-text">ระบบแจ้งเตือน (LINE / Telegram)</span>
+            </button>
+            <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('storage')" id="setMenu-storage">
+              <span class="menu-icon">📁</span>
+              <span class="menu-text">การจัดเก็บไฟล์ & ข้อจำกัด</span>
+            </button>
+            <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('backup')" id="setMenu-backup">
+              <span class="menu-icon">📦</span>
+              <span class="menu-text">สำรองข้อมูลระบบ</span>
+            </button>
+            <button type="button" class="settings-menu-item" onclick="switchSettingsPanel('branding')" id="setMenu-branding">
+              <span class="menu-icon">🎨</span>
+              <span class="menu-text">ปรับแต่งแบรนด์ & หน้าตา</span>
+            </button>
+          </div>
         </div>
 
-        <div
-          style="background: white; padding: 25px; border-radius: 28px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-            <h2 style="font-size:18px;font-weight:700; color: #0f172a;">รายชื่อผู้ใช้งานระบบ</h2>
-            <button onclick="loadUsers()"
-              style="background:none; border:none; color:#3b82f6; font-weight:700; cursor:pointer;">🔄 รีเฟรช</button>
-          </div>
-          <div id="usersTableContent">
-            <div class="section-loading">
-              <div class="spinner"></div>
-              <p>กำลังโหลดผู้ใช้งาน...</p>
+        <!-- Right: Settings Detail Panel -->
+        <div class="settings-content-pane">
+          
+          <!-- Panel 1: Connection & Settings -->
+          <div class="settings-panel active" id="setPanel-database">
+            <div class="settings-card">
+              <h3 class="settings-card-title">🔌 การเชื่อมต่อระบบหลังบ้าน (Firebase & Apps Script)</h3>
+              <p class="settings-card-desc">ระบบนี้ใช้ Firebase Firestore เป็นฐานข้อมูลหลัก และใช้ Google Apps Script Web App เป็นตัวกลางสำหรับอัปโหลดไฟล์ลง Drive และยิงแจ้งเตือน</p>
+              <form id="systemSettingsForm">
+                <div class="form-field">
+                  <label class="field-label">Firebase Configuration SDK (JSON format)</label>
+                  <textarea id="settingsFirebaseConfig" class="textarea-field" style="font-family: monospace; font-size: 13px; min-height: 180px;" placeholder='{
+  "apiKey": "AIzaSy...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}' required></textarea>
+                  <div style="font-size: 12px; color: #64748b; margin-top: 5px;">* คัดลอกจาก Firebase Console > Project Settings > Web App SDK config</div>
+                </div>
+
+                <div class="form-field">
+                  <label class="field-label">Google Apps Script Web App URL (สำหรับเป็นสะพานอัปโหลดไฟล์ลง Drive & แจ้งเตือน)</label>
+                  <input type="text" id="settingsGasUrl" class="input-field" placeholder="https://script.google.com/macros/s/.../exec" required>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                  <button type="submit" class="submit-button" style="flex:2;">💾 บันทึกการเชื่อมต่อ</button>
+                  <button type="button" id="btnTestConnection" onclick="testConnection()" class="submit-button" style="flex:1; background:#10b981; box-shadow:none;">🔌 ทดสอบเชื่อมต่อ</button>
+                </div>
+              </form>
             </div>
           </div>
+
+          <!-- Panel 2: User Account Management -->
+          <div class="settings-panel" id="setPanel-users">
+            <!-- Form to Add/Edit Users -->
+            <div class="settings-card" style="margin-bottom: 20px;">
+              <h3 class="settings-card-title" id="userFormTitle">เพิ่มผู้ใช้งานใหม่</h3>
+              <form id="userAdminForm" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                <div style="grid-column: span 2;">
+                  <label class="field-label" style="font-size:13px;">ชื่อ-นามสกุล</label>
+                  <input type="text" id="adminU_name" class="input-field" placeholder="ตัวอย่าง: สมชาย ใจดี" required>
+                </div>
+                <div>
+                  <label class="field-label" style="font-size:13px;">Username</label>
+                  <input type="text" id="adminU_username" class="input-field" placeholder="Username" required>
+                </div>
+                <div>
+                  <label class="field-label" style="font-size:13px;">Password</label>
+                  <input type="password" id="adminU_password" class="input-field" placeholder="Password" required>
+                </div>
+                <div style="grid-column: span 2;">
+                  <label class="field-label" style="font-size:13px;">ระดับสิทธิ์</label>
+                  <select id="adminU_role" class="select-field" required>
+                    <option value="staff">Staff (ช่างเทคนิค)</option>
+                    <option value="auditor">Auditor (ผู้ตรวจสอบ)</option>
+                    <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                  </select>
+                </div>
+                <div style="grid-column: span 2; display:flex; gap:10px; margin-top:10px;">
+                  <button type="submit" class="submit-button" style="flex:2;">บันทึกข้อมูล</button>
+                  <button type="button" onclick="resetUserForm()" class="submit-button"
+                    style="flex:1; background:#94a3b8; box-shadow:none;">ล้างข้อมูล</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Users List Table -->
+            <div class="settings-card">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 class="settings-card-title">รายชื่อผู้ใช้งานระบบ</h3>
+                <button type="button" onclick="loadUsers()"
+                  style="background:none; border:none; color:#3b82f6; font-weight:700; cursor:pointer;">🔄 รีเฟรช</button>
+              </div>
+              <div id="usersTableContent">
+                <div class="section-loading">
+                  <div class="spinner"></div>
+                  <p>กำลังโหลดผู้ใช้งาน...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 3: LINE & Telegram Notifications -->
+          <div class="settings-panel" id="setPanel-notify">
+            <!-- LINE Notify Settings Card -->
+            <div class="settings-card">
+              <h3 class="settings-card-title">💬 การแจ้งเตือนผ่านกลุ่ม LINE</h3>
+              <p class="settings-card-desc">ตั้งค่าส่งข้อความแจ้งเตือนอัตโนมัติไปยังกลุ่ม LINE เมื่อมีช่างส่งงานใหม่เข้ามาสำเร็จ</p>
+              <form id="lineNotifySettingsForm" onsubmit="saveLineNotifySettings(event)">
+                <div class="form-field">
+                  <label class="field-label">สถานะการแจ้งเตือน LINE</label>
+                  <select id="settingsLineNotifyStatus" class="select-field" onchange="toggleLineNotifyFields()">
+                    <option value="disabled">ปิดการแจ้งเตือน</option>
+                    <option value="enabled">เปิดการแจ้งเตือน (ผ่าน LINE Notify)</option>
+                  </select>
+                </div>
+
+                <div class="form-field" id="lineTokenField" style="display: none;">
+                  <label class="field-label">LINE Notify Personal Access Token</label>
+                  <input type="text" id="settingsLineNotifyToken" class="input-field" placeholder="กรอก Token ของผู้สร้างห้องแจ้งเตือน">
+                  <div style="font-size: 12px; color: #64748b; margin-top: 5px;">* ขอรับได้จากเว็บไซต์ LINE Notify (https://notify-bot.line.me/) แล้วนำมาใส่ที่นี่</div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                  <button type="submit" class="submit-button" style="flex:2;">💾 บันทึกการตั้งค่า LINE</button>
+                  <button type="button" onclick="testLineNotification()" id="btnTestLine" class="submit-button" style="flex:1; background:#10b981; box-shadow:none; display:none;">🔔 ทดสอบส่ง</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Telegram Bot Settings Card -->
+            <div class="settings-card" style="margin-top: 25px;">
+              <h3 class="settings-card-title">📢 การแจ้งเตือนผ่าน Telegram Bot</h3>
+              <p class="settings-card-desc">ตั้งค่าส่งข้อความแจ้งเตือนอัตโนมัติไปยัง Telegram Chat / Group เมื่อมีช่างส่งงานใหม่เข้ามาสำเร็จ</p>
+              <form id="telegramSettingsForm" onsubmit="saveTelegramSettings(event)">
+                <div class="form-field">
+                  <label class="field-label">สถานะการแจ้งเตือน Telegram</label>
+                  <select id="settingsTelegramStatus" class="select-field" onchange="toggleTelegramFields()">
+                    <option value="disabled">ปิดการแจ้งเตือน</option>
+                    <option value="enabled">เปิดการแจ้งเตือน (ผ่าน Telegram Bot)</option>
+                  </select>
+                </div>
+
+                <div id="telegramFields" style="display: none;">
+                  <div class="form-field">
+                    <label class="field-label">Telegram Bot Token</label>
+                    <input type="text" id="settingsTelegramBotToken" class="input-field" placeholder="กรอก Bot Token (เช่น 123456789:ABCdef...)">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 5px;">* ขอสร้างบอทได้จาก @BotFather ใน Telegram แล้วคัดลอก HTTP API Token มาใส่ที่นี่</div>
+                  </div>
+
+                  <div class="form-field">
+                    <label class="field-label">Telegram Chat ID / Group ID</label>
+                    <input type="text" id="settingsTelegramChatId" class="input-field" placeholder="กรอก Chat ID หรือ Group ID (เช่น -1001234567890 หรือ 123456789)">
+                    <div style="font-size: 12px; color: #64748b; margin-top: 5px;">* หา Chat ID ได้จากบอทระบุ ID (เช่น @userinfobot หรือ @RawDataBot สำหรับกลุ่ม)</div>
+                  </div>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-top:20px;">
+                  <button type="submit" class="submit-button" style="flex:2;">💾 บันทึกการตั้งค่า Telegram</button>
+                  <button type="button" onclick="testTelegramNotification()" id="btnTestTelegram" class="submit-button" style="flex:1; background:#10b981; box-shadow:none; display:none;">🔔 ทดสอบส่ง</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Panel 4: Folder Storage IDs & Size Limits -->
+          <div class="settings-panel" id="setPanel-storage">
+            <div class="settings-card">
+              <h3 class="settings-card-title">📁 โฟลเดอร์จัดเก็บแยกตามประเภทงาน</h3>
+              <p class="settings-card-desc">กำหนด Google Drive Folder ID ในการอัปโหลดไฟล์เก็บแยกประเภทงาน</p>
+              <form id="storageSettingsForm" onsubmit="saveStorageSettings(event)">
+                <div class="form-field">
+                  <label class="field-label">งานติดตั้ง (INS) Folder ID</label>
+                  <input type="text" id="settingsFolderIns" class="input-field" placeholder="เว้นว่างไว้เพื่อบันทึกในโฟลเดอร์เริ่มต้น (AS_INS_Center/งานติดตั้ง (INS))">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">งานซ่อม (AS) Folder ID</label>
+                  <input type="text" id="settingsFolderRepair" class="input-field" placeholder="เว้นว่างไว้เพื่อบันทึกในโฟลเดอร์เริ่มต้น (AS_INS_Center/งานซ่อม (AS))">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">งานเฟล (Fail) Folder ID</label>
+                  <input type="text" id="settingsFolderFail" class="input-field" placeholder="เว้นว่างไว้เพื่อบันทึกในโฟลเดอร์เริ่มต้น (AS_INS_Center/งานเฟล (Fail))">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">งานรีเทิร์น (Return) Folder ID</label>
+                  <input type="text" id="settingsFolderReturn" class="input-field" placeholder="เว้นว่างไว้เพื่อบันทึกในโฟลเดอร์เริ่มต้น (AS_INS_Center/งานรีเทิร์น (Return))">
+                </div>
+
+                <div style="border-top: 1px dashed #e2e8f0; margin-top: 25px; padding-top: 20px;">
+                  <h4 style="font-size: 15px; font-weight: 700; margin-bottom: 15px; color: #1e293b;">🛡️ จำกัดขนาดไฟล์อัปโหลดส่งงานสูงสุด</h4>
+                  
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-field">
+                      <label class="field-label">ขนาดเอกสาร PDF สูงสุด (MB)</label>
+                      <input type="number" id="settingsMaxSizePdf" class="input-field" min="1" max="100" required>
+                    </div>
+                    <div class="form-field">
+                      <label class="field-label">ขนาดไฟล์ Video สูงสุด (MB)</label>
+                      <input type="number" id="settingsMaxSizeVideo" class="input-field" min="1" max="200" required>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="margin-top:20px;">
+                  <button type="submit" class="submit-button">💾 บันทึกตั้งค่าการจัดเก็บ</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Panel 5: Database Backup & Restore JSON -->
+          <div class="settings-panel" id="setPanel-backup">
+            <!-- JSON Backup/Restore -->
+            <div class="settings-card">
+              <h3 class="settings-card-title">💾 สำรองและกู้คืนข้อมูลระบบ (Backup & Restore JSON)</h3>
+              <p class="settings-card-desc">ดาวน์โหลดข้อมูลการใช้งานระบบทั้งหมดเก็บเป็นไฟล์สำรอง หรืออัปโหลดเพื่อกู้คืนฐานข้อมูล Firebase Firestore ของคุณ</p>
+              
+              <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <button type="button" onclick="exportDatabaseToJson()" class="submit-button" style="background: #4f46e5; flex: 1; min-width: 150px;">
+                  📥 สำรองข้อมูลฐานข้อมูล (.json)
+                </button>
+                <div style="flex: 1; min-width: 150px; position: relative;">
+                  <input type="file" id="restoreFileSelector" accept=".json" onchange="importDatabaseFromJson(event)" style="display: none;">
+                  <button type="button" onclick="document.getElementById('restoreFileSelector').click()" class="submit-button" style="background: #10b981; width: 100%;">
+                    📤 กู้คืนข้อมูลจากไฟล์สำรอง (.json)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panel 6: Branding & Appearance Settings -->
+          <div class="settings-panel" id="setPanel-branding">
+            <div class="settings-card">
+              <h3 class="settings-card-title">🎨 ข้อมูลบริษัทและข้อมูลออกรายงาน</h3>
+              <p class="settings-card-desc">ตั้งค่าชื่อองค์กร ข้อความคำโปรยหัวกระดาษของรายงาน PDF/Excel</p>
+              <form id="brandingSettingsForm" onsubmit="saveBrandingSettings(event)">
+                <div class="form-field">
+                  <label class="field-label">ชื่อองค์กร / หัวเรื่องใหญ่ (Company / Title)</label>
+                  <input type="text" id="settingsCompanyName" class="input-field" placeholder="ตัวอย่าง: DSC CHIANGRAI" required>
+                </div>
+                <div class="form-field">
+                  <label class="field-label">ข้อมูลการติดต่อ / รายละเอียดหัวรายงาน (Address / Description)</label>
+                  <input type="text" id="settingsCompanyDesc" class="input-field" placeholder="ตัวอย่าง: 123/45 ถนนดอยตอง ต.เวียง อ.เมือง จ.เชียงราย" required>
+                </div>
+                
+                <div class="form-field">
+                  <label class="field-label">ธีมสีเน้นของแอป (App Primary Color Theme)</label>
+                  <select id="settingsAppTheme" class="select-field">
+                    <option value="indigo">Sapphire Indigo (ครามคลาสสิก)</option>
+                    <option value="blue">Coway Sky Blue (ฟ้าโควินทร์)</option>
+                    <option value="violet">Amethyst Violet (ม่วงพรีเมียม)</option>
+                    <option value="emerald">Mint Emerald (เขียวมรกต)</option>
+                    <option value="amber">Amber Gold (เหลืองอำพัน)</option>
+                  </select>
+                </div>
+
+                <div style="margin-top:20px;">
+                  <button type="submit" class="submit-button">💾 บันทึกข้อมูลแบรนด์</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -2740,7 +3107,18 @@
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
         <circle cx="12" cy="7" r="4"></circle>
       </svg>
-      <span class="nav-label">จัดการผู้ใช้</span>
+      <span class="nav-label">โปรไฟล์</span>
+      <div class="nav-dot"></div>
+    </div>
+
+    <!-- Admin-only Settings Nav Item -->
+    <div class="nav-item" id="nav-settings" onclick="switchTab('settings')" style="display:none;">
+      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+      </svg>
+      <span class="nav-label">ตั้งค่าระบบ</span>
       <div class="nav-dot"></div>
     </div>
 
@@ -2775,7 +3153,45 @@
     // ==========================================
     // การตั้งค่าระบบ
     // ==========================================
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx-ouwnPXuyJFKvqS2C1qi83bEzLHA-HkDip5O5SACGC6lf34Hn4nOkfp5n7ZL3SFbUiQ/exec';
+    let WEB_APP_URL = localStorage.getItem('cfg_gas_url') || 'https://script.google.com/macros/s/AKfycbx-ouwnPXuyJFKvqS2C1qi83bEzLHA-HkDip5O5SACGC6lf34Hn4nOkfp5n7ZL3SFbUiQ/exec';
+    let DB_TYPE = 'firebase';
+    let FIREBASE_CONFIG = null;
+    try {
+      FIREBASE_CONFIG = JSON.parse(localStorage.getItem('cfg_firebase_config'));
+    } catch(e) {}
+
+    let firebaseDb = null;
+
+    // Advanced features config
+    let CFG_LINE_NOTIFY_STATUS = localStorage.getItem('cfg_line_notify_status') || 'disabled';
+    let CFG_LINE_NOTIFY_TOKEN = localStorage.getItem('cfg_line_notify_token') || '';
+    let CFG_TELEGRAM_STATUS = localStorage.getItem('cfg_telegram_status') || 'disabled';
+    let CFG_TELEGRAM_BOT_TOKEN = localStorage.getItem('cfg_telegram_bot_token') || '';
+    let CFG_TELEGRAM_CHAT_ID = localStorage.getItem('cfg_telegram_chat_id') || '';
+    let CFG_FOLDER_ID_INS = localStorage.getItem('cfg_folder_id_ins') || '';
+    let CFG_FOLDER_ID_REPAIR = localStorage.getItem('cfg_folder_id_repair') || '';
+    let CFG_FOLDER_ID_FAIL = localStorage.getItem('cfg_folder_id_fail') || '';
+    let CFG_FOLDER_ID_RETURN = localStorage.getItem('cfg_folder_id_return') || '';
+    let CFG_MAX_SIZE_PDF = parseInt(localStorage.getItem('cfg_max_size_pdf') || '20', 10);
+    let CFG_MAX_SIZE_VIDEO = parseInt(localStorage.getItem('cfg_max_size_video') || '50', 10);
+    let CFG_COMPANY_NAME = localStorage.getItem('cfg_company_name') || 'DSC CHIANGRAI';
+    let CFG_COMPANY_DESC = localStorage.getItem('cfg_company_desc') || '123/45 ถนนดอยตอง ต.เวียง อ.เมือง จ.เชียงราย';
+    let CFG_APP_THEME = localStorage.getItem('cfg_app_theme') || 'indigo';
+
+    function initializeDatabase() {
+      if (FIREBASE_CONFIG) {
+        try {
+          if (firebase.apps.length === 0) {
+            firebase.initializeApp(FIREBASE_CONFIG);
+          }
+          firebaseDb = firebase.firestore();
+          console.log("Firebase initialized successfully.");
+        } catch (e) {
+          console.error("Firebase init error:", e);
+          showToast("เชื่อมต่อ Firebase ล้มเหลว กรุณาตรวจสอบการตั้งค่า", "error");
+        }
+      }
+    }
 
     // User Session
     let currentUser = null;
@@ -2786,13 +3202,117 @@
     const LIFF_ID = "2009682051-EZTCTb4z";
     let currentLineId = null;
 
+    // Helper functions for themes & branding
+    function applyAppTheme(theme) {
+      let primaryColor, secondaryColor, hoverColor, lightBg, shadowColor;
+      switch (theme) {
+        case 'blue':
+          primaryColor = '#0ea5e9';
+          secondaryColor = '#0284c7';
+          hoverColor = '#0369a1';
+          lightBg = '#f0f9ff';
+          shadowColor = 'rgba(14, 165, 233, 0.3)';
+          break;
+        case 'violet':
+          primaryColor = '#8b5cf6';
+          secondaryColor = '#7c3aed';
+          hoverColor = '#6d28d9';
+          lightBg = '#f5f3ff';
+          shadowColor = 'rgba(139, 92, 246, 0.3)';
+          break;
+        case 'emerald':
+          primaryColor = '#10b981';
+          secondaryColor = '#059669';
+          hoverColor = '#047857';
+          lightBg = '#ecfdf5';
+          shadowColor = 'rgba(16, 185, 129, 0.3)';
+          break;
+        case 'amber':
+          primaryColor = '#f59e0b';
+          secondaryColor = '#d97706';
+          hoverColor = '#b45309';
+          lightBg = '#fffbeb';
+          shadowColor = 'rgba(245, 158, 11, 0.3)';
+          break;
+        case 'indigo':
+        default:
+          primaryColor = '#6366f1';
+          secondaryColor = '#4f46e5';
+          hoverColor = '#4338ca';
+          lightBg = '#eef2ff';
+          shadowColor = 'rgba(99, 102, 241, 0.3)';
+          break;
+      }
+      
+      const existingStyle = document.getElementById('dynamic-theme-style');
+      if (existingStyle) existingStyle.remove();
+      
+      const styleEl = document.createElement('style');
+      styleEl.id = 'dynamic-theme-style';
+      styleEl.innerHTML = `
+        .tab-button.active, .submit-button, .fab-button, .chart-filter-btn.active {
+          background: ${secondaryColor} !important;
+          box-shadow: 0 8px 20px ${shadowColor} !important;
+        }
+        .submit-button:hover, .fab-button:hover, .chart-filter-btn.active:hover {
+          background: ${hoverColor} !important;
+        }
+        .tab-button:hover:not(.active) {
+          color: ${primaryColor} !important;
+          background: ${lightBg} !important;
+        }
+        .settings-menu-item.active {
+          background: ${lightBg} !important;
+          color: ${secondaryColor} !important;
+          box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.1) !important;
+        }
+        .settings-menu-item:hover {
+          background: #f8fafc !important;
+          color: ${secondaryColor} !important;
+        }
+        .logo-wrapper svg {
+          fill: ${primaryColor} !important;
+        }
+        .detail-header h2, .view-mode-only h2 {
+          color: ${primaryColor} !important;
+        }
+        .main-title-large {
+          color: ${primaryColor} !important;
+        }
+        .bottom-nav .nav-item.active {
+          color: ${secondaryColor} !important;
+        }
+        .dashboard-hero {
+          background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%) !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
+    function applyBrandingToUI() {
+      const menuCompanySub = document.getElementById('brandingCompanySub');
+      if (menuCompanySub) {
+        menuCompanySub.textContent = CFG_COMPANY_NAME;
+      }
+    }
+
+    function getParentFolderId(category) {
+      if (category === 'งานติดตั้ง (INS)') return CFG_FOLDER_ID_INS;
+      if (category === 'งานซ่อม (AS)' || category === 'งานถอดติดตั้ง (AS)') return CFG_FOLDER_ID_REPAIR;
+      if (category === 'งานรีเทิร์น (Return)') return CFG_FOLDER_ID_RETURN;
+      if (category === 'งานเฟล (Fail)') return CFG_FOLDER_ID_FAIL;
+      return '';
+    }
+
     // ==========================================
     // Authentication & Core Logic
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
       showGlobalLoading("กำลังเริ่มต้นระบบ...");
+      applyAppTheme(CFG_APP_THEME);
+      applyBrandingToUI();
+      initializeDatabase();
       initLiffAndSession();
-      // setupTabs จะไม่ได้ใช้งานแบบเดิมแล้ว แต่จะคงไว้เพื่อความสมบูรณ์
       setupTabs();
       setupFileInputs();
     });
@@ -2873,6 +3393,12 @@
       document.getElementById('menuRoleBadge').textContent = badgeText;
       document.getElementById('menuAvatar').innerHTML = initial + '<div class="status-dot"></div>';
 
+      // Setup Settings Nav Visibility based on role
+      const navSettings = document.getElementById('nav-settings');
+      if (navSettings) {
+        navSettings.style.display = (currentUser && currentUser.role === 'admin') ? 'flex' : 'none';
+      }
+
       // Setup Initial Tab
       switchTab('dashboard');
 
@@ -2924,6 +3450,14 @@
 
     function switchTab(tabId) {
       console.log("Switching to tab:", tabId);
+
+      // Access control: only admins can view system settings
+      if (tabId === 'settings' && (!currentUser || currentUser.role !== 'admin')) {
+        showToast("คุณไม่มีสิทธิ์เข้าถึงหน้าตั้งค่าระบบ", "error");
+        switchTab('dashboard');
+        return;
+      }
+
       // 1. ซ่อนทุกหน้า Content
       document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
 
@@ -2953,18 +3487,14 @@
       // 6. จัดการเนื้อหาตาม Role สำหรับหน้า user
       if (tabId === 'user') {
         const title = document.getElementById('userTabTitle');
-        if (currentUser.role === 'admin') {
-          title.textContent = "จัดการผู้ใช้ (Admin)";
-          document.getElementById('adminUserView').style.display = 'block';
-          document.getElementById('staffProfileView').style.display = 'none';
-          // โหลดเฉพาะถ้ายังไม่มีข้อมูล
-          if (!allUsersData || allUsersData.length === 0) loadUsers();
-        } else {
-          title.textContent = "โปรไฟล์ของฉัน";
-          document.getElementById('adminUserView').style.display = 'none';
-          document.getElementById('staffProfileView').style.display = 'block';
-          setupStaffProfile();
-        }
+        title.textContent = "โปรไฟล์ของฉัน";
+        document.getElementById('staffProfileView').style.display = 'block';
+        setupStaffProfile();
+      }
+
+      if (tabId === 'settings') {
+        loadSettingsToForm();
+        switchSettingsPanel('database');
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2986,19 +3516,126 @@
     // API Helper
     // ==========================================
     async function apiCall(action, payload = {}) {
-      if (!WEB_APP_URL || WEB_APP_URL.includes('ใส่')) {
-        throw new Error("ยังไม่ได้ตั้งค่า WEB_APP_URL ของ Google Apps Script");
+      // Intercept notification actions to route via GAS URL Proxy (bypasses CORS in Firebase mode)
+      if (action === 'sendLineNotification' || action === 'sendTelegramNotification') {
+        if (!WEB_APP_URL || WEB_APP_URL.includes('ใส่')) {
+          throw new Error("ยังไม่ได้ตั้งค่า WEB_APP_URL ของ Google Apps Script");
+        }
+        payload.action = action;
+        try {
+          const response = await fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          const result = await response.json();
+          return result;
+        } catch (err) {
+          throw new Error("การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+        }
       }
-      payload.action = action;
+
+      // Global bypass for system admin login to ensure setup is always accessible
+      if (action === 'login' && payload.username === 'admin' && payload.password === 'admin') {
+        const hashedAdminPass = CryptoJS.SHA256('admin').toString();
+        return {
+          success: true,
+          user: {
+            username: 'admin',
+            password: hashedAdminPass,
+            name: 'System Admin (Bypass)',
+            role: 'admin',
+            status: 'active',
+            lineId: payload.lineId || ''
+          }
+        };
+      }
+
+      if (!firebaseDb) {
+        return { success: false, message: "ระบบฐานข้อมูล Firebase ยังไม่ได้เริ่มต้นใช้งาน กรุณาตั้งค่าคอนฟิกให้ถูกต้องก่อนนะครับ" };
+      }
       try {
-        const response = await fetch(WEB_APP_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-        return result;
+        if (action === 'checkLineId') {
+          const q = await firebaseDb.collection('users').where('lineId', '==', payload.lineId).get();
+          if (!q.empty) {
+            const u = q.docs[0].data();
+            if (u.status === 'active') {
+              return { success: true, user: u };
+            } else {
+              return { success: false, message: "บัญชีผู้ใช้ของคุณถูกระงับการใช้งานชั่วคราว" };
+            }
+          }
+          return { success: false, message: "ไม่พบข้อมูลบัญชีที่เชื่อมกับ LINE ID นี้" };
+        }
+        
+        if (action === 'login') {
+          // Seed check: if Firebase database has no users, allow default admin/admin bypass
+          const allUsersSnap = await firebaseDb.collection('users').limit(1).get();
+          if (allUsersSnap.empty && payload.username === 'admin' && payload.password === 'admin') {
+            const defaultAdmin = {
+              username: 'admin',
+              password: CryptoJS.SHA256('admin').toString(),
+              name: 'System Admin (Default)',
+              role: 'admin',
+              status: 'active',
+              lineId: payload.lineId || ''
+            };
+            await firebaseDb.collection('users').doc('admin').set(defaultAdmin);
+            return { success: true, user: defaultAdmin };
+          }
+
+          const q = await firebaseDb.collection('users').where('username', '==', payload.username).get();
+          if (!q.empty) {
+            const doc = q.docs[0];
+            const u = doc.data();
+            if (u.status !== 'active') {
+              return { success: false, message: "บัญชีผู้ใช้ของคุณถูกระงับการใช้งานชั่วคราว" };
+            }
+            const inputHash = CryptoJS.SHA256(payload.password).toString();
+            if (u.password === payload.password || u.password === inputHash) {
+              // Auto-upgrade plain-text password to hashed in Firestore
+              if (u.password === payload.password) {
+                u.password = inputHash;
+                await doc.ref.update({ password: inputHash });
+              }
+              if (payload.lineId && u.lineId !== payload.lineId) {
+                u.lineId = payload.lineId;
+                await doc.ref.update({ lineId: payload.lineId });
+              }
+              return { success: true, user: u };
+            }
+          }
+          return { success: false, message: "รหัสพนักงาน (Username) หรือรหัสผ่านไม่ถูกต้อง" };
+        }
+
+        if (action === 'addUser' || action === 'updateUser') {
+          await firebaseDb.collection('users').doc(payload.userData.username).set(payload.userData, { merge: true });
+          return { success: true, message: "บันทึกข้อมูลผู้ใช้งานเรียบร้อยแล้วครับ" };
+        }
+
+        if (action === 'deleteUser') {
+          await firebaseDb.collection('users').doc(payload.username).delete();
+          return { success: true, message: "ลบผู้ใช้งานสำเร็จแล้วครับ" };
+        }
+
+        if (action === 'saveData') {
+          await firebaseDb.collection('submissions').doc(payload.submission_date).set(payload);
+          return { success: true, message: "บันทึกข้อมูลเรียบร้อยแล้วครับ" };
+        }
+
+        if (action === 'updateData') {
+          await firebaseDb.collection('submissions').doc(payload.submission_date).set(payload.updatedData, { merge: true });
+          return { success: true, message: "อัปเดตข้อมูลประวัติเรียบร้อยแล้วครับ" };
+        }
+
+        if (action === 'deleteData') {
+          await firebaseDb.collection('submissions').doc(payload.timestamp).delete();
+          return { success: true, message: "ลบข้อมูลประวัติงานสำเร็จแล้วครับ" };
+        }
+
+        throw new Error("ไม่รองรับการทำงานคำสั่งนี้บนระบบ Firebase: " + action);
       } catch (err) {
-        throw new Error("การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว");
+        console.error("Firebase apiCall error:", err);
+        return { success: false, message: "เกิดข้อผิดพลาดฐานข้อมูล: " + err.message };
       }
     }
 
@@ -3169,26 +3806,176 @@
       document.getElementById('pdfUpload').addEventListener('change', function (e) {
         const file = e.target.files[0];
         const info = document.getElementById('pdfFileInfo');
-        if (file && file.type === 'application/pdf') {
-          document.getElementById('pdfFileName').textContent = file.name;
-          document.getElementById('pdfFileSize').textContent = formatFileSize(file.size);
-          info.classList.add('show');
-        } else if (file) {
-          showToast('กรุณาเลือกไฟล์ PDF', 'error'); this.value = ''; info.classList.remove('show');
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+          showToast('กรุณาเลือกไฟล์ PDF', 'error');
+          this.value = '';
+          info.classList.remove('show');
+          return;
         }
+
+        const maxPdfSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxPdfSize) {
+          showToast('ขออภัยด้วยครับ ไฟล์ PDF นี้มีขนาดใหญ่เกินกำหนด (ไม่เกิน 10 MB) เพื่อความรวดเร็วและป้องกันระบบขัดข้อง รบกวนช่วยย่อขนาดไฟล์ก่อนส่งนะครับ 😊 (สามารถย่อขนาดได้ที่ ilovepdf.com)', 'error');
+          this.value = '';
+          info.classList.remove('show');
+          return;
+        }
+
+        document.getElementById('pdfFileName').textContent = file.name;
+        document.getElementById('pdfFileSize').textContent = formatFileSize(file.size);
+        info.classList.add('show');
       });
 
       document.getElementById('videoUpload').addEventListener('change', function (e) {
         const file = e.target.files[0];
         const info = document.getElementById('videoFileInfo');
-        if (file && file.type.startsWith('video/')) {
-          document.getElementById('videoFileName').textContent = file.name;
-          document.getElementById('videoFileSize').textContent = formatFileSize(file.size);
-          info.classList.add('show');
-        } else if (file) {
-          showToast('กรุณาเลือกไฟล์วิดีโอ', 'error'); this.value = ''; info.classList.remove('show');
+        if (!file) return;
+
+        if (!file.type.startsWith('video/')) {
+          showToast('กรุณาเลือกไฟล์วิดีโอ', 'error');
+          this.value = '';
+          info.classList.remove('show');
+          return;
         }
+
+        const maxVideoSize = 25 * 1024 * 1024; // 25MB
+        if (file.size > maxVideoSize) {
+          showToast('ขออภัยด้วยครับ ไฟล์วิดีโอนี้มีขนาดใหญ่เกินกำหนด (ไม่เกิน 25 MB) เพื่อการส่งงานที่รวดเร็ว รบกวนช่วยลดความละเอียดหรือย่อขนาดวิดีโอก่อนส่งนะครับ 😊', 'error');
+          this.value = '';
+          info.classList.remove('show');
+          return;
+        }
+
+        document.getElementById('videoFileName').textContent = file.name;
+        document.getElementById('videoFileSize').textContent = formatFileSize(file.size);
+        info.classList.add('show');
       });
+
+      // Edit modal inputs
+      document.getElementById('editPdfFile').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        const status = document.getElementById('editPdfStatus');
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+          showToast('กรุณาเลือกไฟล์ PDF', 'error');
+          this.value = '';
+          status.textContent = '';
+          status.classList.remove('active');
+          return;
+        }
+
+        const maxPdfSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxPdfSize) {
+          showToast('ขออภัยด้วยครับ ไฟล์ PDF นี้มีขนาดใหญ่เกินกำหนด (ไม่เกิน 10 MB) เพื่อความรวดเร็วและป้องกันระบบขัดข้อง รบกวนช่วยย่อขนาดไฟล์ก่อนส่งนะครับ 😊 (สามารถย่อขนาดได้ที่ ilovepdf.com)', 'error');
+          this.value = '';
+          status.textContent = '';
+          status.classList.remove('active');
+          return;
+        }
+
+        status.innerText = '✅ ' + file.name;
+        status.classList.add('active');
+      });
+
+      document.getElementById('editVideoFile').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        const status = document.getElementById('editVideoStatus');
+        if (!file) return;
+
+        if (!file.type.startsWith('video/')) {
+          showToast('กรุณาเลือกไฟล์วิดีโอ', 'error');
+          this.value = '';
+          status.textContent = '';
+          status.classList.remove('active');
+          return;
+        }
+
+        const maxVideoSize = 25 * 1024 * 1024; // 25MB
+        if (file.size > maxVideoSize) {
+          showToast('ขออภัยด้วยครับ ไฟล์วิดีโอนี้มีขนาดใหญ่เกินกำหนด (ไม่เกิน 25 MB) เพื่อการส่งงานที่รวดเร็ว รบกวนช่วยลดความละเอียดหรือย่อขนาดวิดีโอก่อนส่งนะครับ 😊', 'error');
+          this.value = '';
+          status.textContent = '';
+          status.classList.remove('active');
+          return;
+        }
+
+        status.innerText = '✅ ' + file.name;
+        status.classList.add('active');
+      });
+
+      // Setup Drag & Drop for Submit upload zones
+      setupDragAndDrop('pdfUpload', 'application/pdf');
+      setupDragAndDrop('videoUpload', 'video/');
+    }
+
+    function setupDragAndDrop(inputId, allowedTypePrefix) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const label = input.nextElementSibling;
+      if (!label) return;
+
+      // Prevent default behaviors
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        label.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      // Add/remove styling classes on drag events
+      ['dragenter', 'dragover'].forEach(eventName => {
+        label.addEventListener(eventName, () => label.classList.add('drag-over'), false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        label.addEventListener(eventName, () => label.classList.remove('drag-over'), false);
+      });
+
+      // Handle drop event
+      label.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+          const file = files[0];
+          let isValid = false;
+          if (allowedTypePrefix === 'application/pdf') {
+            isValid = file.type === 'application/pdf';
+          } else {
+            isValid = file.type.startsWith(allowedTypePrefix);
+          }
+
+          if (isValid) {
+            input.files = files;
+            // Trigger change event to trigger the validation check and display logic
+            const event = new Event('change', { bubbles: true });
+            input.dispatchEvent(event);
+          } else {
+            const fileTypeName = allowedTypePrefix === 'application/pdf' ? 'PDF' : 'วิดีโอ';
+            showToast(`กรุณาลากวางไฟล์ประเภท ${fileTypeName} เท่านั้นครับ 😊`, 'error');
+          }
+        }
+      }, false);
+    }
+
+    function getEmbeddablePdfUrl(url) {
+      if (!url || url === '-') return '';
+      let embedUrl = url;
+      if (url.includes('drive.google.com')) {
+        if (url.includes('/view')) {
+          embedUrl = url.replace(/\/view.*/, '/preview');
+        } else if (url.includes('id=')) {
+          const match = url.match(/id=([^&]+)/);
+          if (match && match[1]) {
+            embedUrl = `https://drive.google.com/file/d/${match[1]}/preview`;
+          }
+        }
+      }
+      return embedUrl;
     }
 
     // ==========================================
@@ -3201,12 +3988,32 @@
       const vidFile = document.getElementById('videoUpload').files[0];
       const note = document.getElementById('noteText').value;
 
+      // Validate PDF size
+      if (pdfFile) {
+        const pdfSizeMB = pdfFile.size / (1024 * 1024);
+        if (pdfSizeMB > CFG_MAX_SIZE_PDF) {
+          showToast(`ไฟล์ PDF ของคุณมีขนาด ${pdfSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่แอดมินกำหนดไว้ (${CFG_MAX_SIZE_PDF}MB) กรุณาบีบอัดไฟล์ก่อนอัปโหลดนะครับ ⚠️`, "error");
+          return;
+        }
+      }
+      
+      // Validate Video size if any
+      if (vidFile) {
+        const vidSizeMB = vidFile.size / (1024 * 1024);
+        if (vidSizeMB > CFG_MAX_SIZE_VIDEO) {
+          showToast(`ไฟล์วิดีโอของคุณมีขนาด ${vidSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่แอดมินกำหนดไว้ (${CFG_MAX_SIZE_VIDEO}MB) กรุณาบีบอัดไฟล์ก่อนอัปโหลดนะครับ ⚠️`, "error");
+          return;
+        }
+      }
+
       try {
+        const parentFolderId = getParentFolderId(workCat);
+
         // 1. Upload PDF
         showProgressModal("กำลังอัปโหลดไฟล์ PDF", pdfFile.name, "📄");
         const pdfBase64 = await fileToBase64(pdfFile);
         const pdfRes = await apiCallWithProgress('uploadFile',
-          { fileName: pdfFile.name, fileData: pdfBase64, workType: workCat },
+          { fileName: pdfFile.name, fileData: pdfBase64, workType: workCat, parentFolderId: parentFolderId },
           (percent) => updateProgress(percent)
         );
 
@@ -3218,7 +4025,7 @@
           showProgressModal("กำลังอัปโหลดไฟล์วิดีโอ", vidFile.name, "🎥");
           const vidBase64 = await fileToBase64(vidFile);
           vidRes = await apiCallWithProgress('uploadFile',
-            { fileName: vidFile.name, fileData: vidBase64, workType: workCat, subFolderId: pdfRes.folderId },
+            { fileName: vidFile.name, fileData: vidBase64, workType: workCat, parentFolderId: parentFolderId, subFolderId: pdfRes.folderId },
             (percent) => updateProgress(percent)
           );
           if (!vidRes.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ");
@@ -3243,6 +4050,46 @@
         if (!saveRes.success) throw new Error("บันทึกข้อมูลล้มเหลว");
 
         showToast("ส่งงานเรียบร้อยแล้ว!");
+
+        // Trigger LINE Notify notification if enabled
+        if (CFG_LINE_NOTIFY_STATUS === 'enabled' && CFG_LINE_NOTIFY_TOKEN) {
+          const lineMessage = `\n📢 มีงานส่งใหม่เข้ามาครับ!\n👤 ช่าง: ${currentUser.name}\n📂 ประเภทงาน: ${workCat}\n📄 ไฟล์งาน: ${pdfFile.name}\n🎥 ไฟล์วิดีโอ: ${vidFile ? vidFile.name : '-'}\n📝 หมายเหตุ: ${note || '-'}\n🔗 ลิงก์ PDF: ${pdfRes.fileUrl}\n🔗 ลิงก์ Video: ${vidRes ? vidRes.fileUrl : '-'}`;
+          
+          apiCall('sendLineNotification', {
+            token: CFG_LINE_NOTIFY_TOKEN,
+            message: lineMessage
+          }).then(lineRes => {
+            console.log("LINE Notify response:", lineRes);
+          }).catch(lineErr => {
+            console.warn("LINE Notify failed:", lineErr);
+          });
+        }
+
+        // Trigger Telegram notification if enabled
+        if (CFG_TELEGRAM_STATUS === 'enabled' && CFG_TELEGRAM_BOT_TOKEN && CFG_TELEGRAM_CHAT_ID) {
+          let telegramMsg = `<b>📢 มีงานส่งใหม่เข้ามาครับ!</b>\n` +
+                            `👤 <b>ช่าง:</b> ${currentUser.name}\n` +
+                            `📂 <b>ประเภทงาน:</b> ${workCat}\n` +
+                            `📄 <b>ไฟล์งาน:</b> ${pdfFile.name}\n`;
+          if (vidFile && vidRes) {
+            telegramMsg += `🎥 <b>ไฟล์วิดีโอ:</b> ${vidFile.name}\n`;
+          }
+          telegramMsg += `📝 <b>หมายเหตุ:</b> ${note || '-'}\n` +
+                         `🔗 <a href="${pdfRes.fileUrl}">ลิงก์ PDF</a>`;
+          if (vidFile && vidRes) {
+            telegramMsg += `\n🔗 <a href="${vidRes.fileUrl}">ลิงก์ Video</a>`;
+          }
+          
+          apiCall('sendTelegramNotification', {
+            token: CFG_TELEGRAM_BOT_TOKEN,
+            chatId: CFG_TELEGRAM_CHAT_ID,
+            message: telegramMsg
+          }).then(tgRes => {
+            console.log("Telegram response:", tgRes);
+          }).catch(tgErr => {
+            console.warn("Telegram alert failed:", tgErr);
+          });
+        }
         this.reset();
         document.getElementById('submitterName').value = currentUser.name;
         document.getElementById('pdfFileInfo').classList.remove('show');
@@ -3296,23 +4143,25 @@
       const container = document.getElementById('historyContent');
       container.innerHTML = '<div class="section-loading"><div class="spinner"></div><p>กำลังโหลด...</p></div>';
       try {
-        console.log("Fetching history from:", WEB_APP_URL);
-        const response = await fetch(WEB_APP_URL + '?action=getData');
-        const res = await response.json();
-        console.log("History response:", res);
-
-        if (res.success) {
-          currentHistoryData = res.data.filter(item => {
-            if (currentUser.role === 'admin' || currentUser.role === 'auditor') return true;
-            return item.name && item.name.trim() === currentUser.name.trim();
-          });
-
-          updateDashboardStats(currentHistoryData);
-          updateTechDropdown(currentHistoryData);
-          filterHistory(); // เรียกใช้ filter เพื่อให้คงค่าค้นหาเดิมไว้
-        } else {
-          container.innerHTML = '<div class="empty-state"><div class="empty-icon">❌</div><p class="empty-text">เกิดข้อผิดพลาด: ' + (res.message || 'ไม่สามารถดึงข้อมูลได้') + '</p></div>';
+        let historyData = [];
+        if (!firebaseDb) {
+          throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
         }
+        const q = await firebaseDb.collection('submissions').get();
+        q.forEach(doc => {
+          historyData.push(doc.data());
+        });
+        // เรียงวันที่ล่าสุดขึ้นก่อน
+        historyData.sort((a, b) => new Date(b.submission_date) - new Date(a.submission_date));
+
+        currentHistoryData = historyData.filter(item => {
+          if (currentUser.role === 'admin' || currentUser.role === 'auditor') return true;
+          return item.name && item.name.trim() === currentUser.name.trim();
+        });
+
+        updateDashboardStats(currentHistoryData);
+        updateTechDropdown(currentHistoryData);
+        filterHistory(); // เรียกใช้ filter เพื่อให้คงค่าค้นหาเดิมไว้
       } catch (err) {
         console.error("LoadHistory error:", err);
         container.innerHTML = `<div class="empty-state" style="color:red;">การเชื่อมต่อล้มเหลว: ${err.message}</div>`;
@@ -3476,6 +4325,23 @@
         vidNode.textContent = 'ไม่มีไฟล์วิดีโอ';
       }
 
+      // Render PDF Preview
+      const previewContainer = document.getElementById('pdfPreviewContainer');
+      const previewFrame = document.getElementById('pdfPreviewFrame');
+      if (item.file_url && item.file_url !== '-') {
+        const embedUrl = getEmbeddablePdfUrl(item.file_url);
+        if (embedUrl) {
+          previewFrame.src = embedUrl;
+          previewContainer.style.display = 'block';
+        } else {
+          previewFrame.src = '';
+          previewContainer.style.display = 'none';
+        }
+      } else {
+        previewFrame.src = '';
+        previewContainer.style.display = 'none';
+      }
+
       modal.classList.add('show');
     }
 
@@ -3499,18 +4365,38 @@
       const newPdfFile = document.getElementById('editPdfFile').files[0];
       const newVidFile = document.getElementById('editVideoFile').files[0];
 
+      // Validate PDF size if changed
+      if (newPdfFile) {
+        const pdfSizeMB = newPdfFile.size / (1024 * 1024);
+        if (pdfSizeMB > CFG_MAX_SIZE_PDF) {
+          showToast(`ไฟล์ PDF ของคุณมีขนาด ${pdfSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่แอดมินกำหนดไว้ (${CFG_MAX_SIZE_PDF}MB) กรุณาบีบอัดไฟล์ก่อนอัปโหลดนะครับ ⚠️`, "error");
+          return;
+        }
+      }
+      
+      // Validate Video size if changed
+      if (newVidFile) {
+        const vidSizeMB = newVidFile.size / (1024 * 1024);
+        if (vidSizeMB > CFG_MAX_SIZE_VIDEO) {
+          showToast(`ไฟล์วิดีโอของคุณมีขนาด ${vidSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่แอดมินกำหนดไว้ (${CFG_MAX_SIZE_VIDEO}MB) กรุณาบีบอัดไฟล์ก่อนอัปโหลดนะครับ ⚠️`, "error");
+          return;
+        }
+      }
+
       try {
         let updatedFileName = newFileName || originalItem.file_name;
         let updatedFileUrl = originalItem.file_url;
         let updatedVideoName = originalItem.video_name;
         let updatedVideoUrl = originalItem.video_url;
 
+        const parentFolderId = getParentFolderId(newType);
+
         // 1. Upload PDF if changed
         if (newPdfFile) {
           showProgressModal("กำลังอัปโหลด PDF ใหม่", newPdfFile.name, "📄");
           const base64 = await fileToBase64(newPdfFile);
           const res = await apiCallWithProgress('uploadFile',
-            { fileName: newPdfFile.name, fileData: base64, workType: newType },
+            { fileName: newPdfFile.name, fileData: base64, workType: newType, parentFolderId: parentFolderId },
             (percent) => updateProgress(percent)
           );
           if (!res.success) throw new Error("อัปโหลด PDF ไม่สำเร็จ: " + res.message);
@@ -3523,7 +4409,7 @@
           showProgressModal("กำลังอัปโหลดวิดีโอใหม่", newVidFile.name, "🎥");
           const base64 = await fileToBase64(newVidFile);
           const res = await apiCallWithProgress('uploadFile',
-            { fileName: newVidFile.name, fileData: base64, workType: newType },
+            { fileName: newVidFile.name, fileData: base64, workType: newType, parentFolderId: parentFolderId },
             (percent) => updateProgress(percent)
           );
           if (!res.success) throw new Error("อัปโหลดวิดีโอไม่สำเร็จ: " + res.message);
@@ -3598,7 +4484,403 @@
 
     function closeRecordDetail() {
       document.getElementById('recordDetailModal').classList.remove('show');
+      const previewFrame = document.getElementById('pdfPreviewFrame');
+      if (previewFrame) previewFrame.src = '';
       setTimeout(() => toggleEditRecord(false), 300);
+    }
+
+    // ==========================================
+    // Admin Module (System Settings)
+    // ==========================================
+
+
+    // (Firebase database operations are direct)
+
+    function switchSettingsPanel(panelId) {
+      document.querySelectorAll('.settings-menu-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      const selectedMenu = document.getElementById('setMenu-' + panelId);
+      if (selectedMenu) {
+        selectedMenu.classList.add('active');
+      }
+      
+      document.querySelectorAll('.settings-panel').forEach(panel => {
+        panel.classList.remove('active');
+      });
+      const selectedPanel = document.getElementById('setPanel-' + panelId);
+      if (selectedPanel) {
+        selectedPanel.classList.add('active');
+      }
+    }
+
+    function toggleLineNotifyFields() {
+      const status = document.getElementById('settingsLineNotifyStatus').value;
+      const tokenField = document.getElementById('lineTokenField');
+      const testBtn = document.getElementById('btnTestLine');
+      if (status === 'enabled') {
+        tokenField.style.display = 'block';
+        testBtn.style.display = 'block';
+      } else {
+        tokenField.style.display = 'none';
+        testBtn.style.display = 'none';
+      }
+    }
+
+    function saveLineNotifySettings(e) {
+      e.preventDefault();
+      const status = document.getElementById('settingsLineNotifyStatus').value;
+      const token = document.getElementById('settingsLineNotifyToken').value.trim();
+      
+      if (status === 'enabled' && !token) {
+        showToast("กรุณากรอก LINE Notify Personal Access Token", "error");
+        return;
+      }
+      
+      localStorage.setItem('cfg_line_notify_status', status);
+      localStorage.setItem('cfg_line_notify_token', token);
+      
+      CFG_LINE_NOTIFY_STATUS = status;
+      CFG_LINE_NOTIFY_TOKEN = token;
+      
+      showToast("บันทึกการตั้งค่า LINE สำเร็จเรียบร้อย! 😊");
+    }
+
+    function saveStorageSettings(e) {
+      e.preventDefault();
+      const ins = document.getElementById('settingsFolderIns').value.trim();
+      const repair = document.getElementById('settingsFolderRepair').value.trim();
+      const fail = document.getElementById('settingsFolderFail').value.trim();
+      const ret = document.getElementById('settingsFolderReturn').value.trim();
+      
+      const maxPdf = parseInt(document.getElementById('settingsMaxSizePdf').value, 10);
+      const maxVideo = parseInt(document.getElementById('settingsMaxSizeVideo').value, 10);
+      
+      if (isNaN(maxPdf) || maxPdf <= 0 || isNaN(maxVideo) || maxVideo <= 0) {
+        showToast("กรุณากรอกขนาดไฟล์สูงสุดเป็นตัวเลขที่มากกว่า 0", "error");
+        return;
+      }
+      
+      localStorage.setItem('cfg_folder_id_ins', ins);
+      localStorage.setItem('cfg_folder_id_repair', repair);
+      localStorage.setItem('cfg_folder_id_fail', fail);
+      localStorage.setItem('cfg_folder_id_return', ret);
+      localStorage.setItem('cfg_max_size_pdf', maxPdf);
+      localStorage.setItem('cfg_max_size_video', maxVideo);
+      
+      CFG_FOLDER_ID_INS = ins;
+      CFG_FOLDER_ID_REPAIR = repair;
+      CFG_FOLDER_ID_FAIL = fail;
+      CFG_FOLDER_ID_RETURN = ret;
+      CFG_MAX_SIZE_PDF = maxPdf;
+      CFG_MAX_SIZE_VIDEO = maxVideo;
+      
+      showToast("บันทึกการตั้งค่าการจัดเก็บไฟล์สำเร็จเรียบร้อย! 😊");
+    }
+
+    function saveBrandingSettings(e) {
+      e.preventDefault();
+      const name = document.getElementById('settingsCompanyName').value.trim();
+      const desc = document.getElementById('settingsCompanyDesc').value.trim();
+      const theme = document.getElementById('settingsAppTheme').value;
+      
+      localStorage.setItem('cfg_company_name', name);
+      localStorage.setItem('cfg_company_desc', desc);
+      localStorage.setItem('cfg_app_theme', theme);
+      
+      CFG_COMPANY_NAME = name;
+      CFG_COMPANY_DESC = desc;
+      CFG_APP_THEME = theme;
+      
+      applyAppTheme(theme);
+      applyBrandingToUI();
+      
+      showToast("บันทึกข้อมูลแบรนด์สำเร็จเรียบร้อย! 😊");
+    }
+
+    async function testLineNotification() {
+      const token = document.getElementById('settingsLineNotifyToken').value.trim();
+      if (!token) {
+        showToast("กรุณากรอก LINE Notify Personal Access Token ก่อนทดสอบ", "error");
+        return;
+      }
+      
+      showGlobalLoading("กำลังส่งข้อความทดสอบ...");
+      try {
+        const res = await apiCall('sendLineNotification', {
+          token: token,
+          message: "🔔 ทดสอบระบบแจ้งเตือน LINE Notify จากระบบส่งงาน AS INS: การเชื่อมต่อระบบสำเร็จเรียบร้อยแล้วครับ! 🎉"
+        });
+        
+        hideGlobalLoading();
+        if (res.success) {
+          showToast("🟢 ส่งข้อความแจ้งเตือนทดสอบเข้ากลุ่ม LINE สำเร็จแล้ว! กรุณาตรวจสอบกลุ่มไลน์ของคุณ", "success");
+        } else {
+          throw new Error(res.message || "การส่งข้อความแจ้งเตือนล้มเหลว");
+        }
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("🔴 แจ้งเตือนล้มเหลว: " + err.message, "error");
+      }
+    }
+
+    function toggleTelegramFields() {
+      const status = document.getElementById('settingsTelegramStatus').value;
+      const telegramFields = document.getElementById('telegramFields');
+      const testBtn = document.getElementById('btnTestTelegram');
+      if (status === 'enabled') {
+        telegramFields.style.display = 'block';
+        testBtn.style.display = 'block';
+      } else {
+        telegramFields.style.display = 'none';
+        testBtn.style.display = 'none';
+      }
+    }
+
+    function saveTelegramSettings(e) {
+      e.preventDefault();
+      const status = document.getElementById('settingsTelegramStatus').value;
+      const token = document.getElementById('settingsTelegramBotToken').value.trim();
+      const chatId = document.getElementById('settingsTelegramChatId').value.trim();
+      
+      if (status === 'enabled' && (!token || !chatId)) {
+        showToast("กรุณากรอก Bot Token และ Chat ID สำหรับ Telegram", "error");
+        return;
+      }
+      
+      localStorage.setItem('cfg_telegram_status', status);
+      localStorage.setItem('cfg_telegram_bot_token', token);
+      localStorage.setItem('cfg_telegram_chat_id', chatId);
+      
+      CFG_TELEGRAM_STATUS = status;
+      CFG_TELEGRAM_BOT_TOKEN = token;
+      CFG_TELEGRAM_CHAT_ID = chatId;
+      
+      showToast("บันทึกการตั้งค่า Telegram สำเร็จเรียบร้อย! 😊");
+    }
+
+    async function testTelegramNotification() {
+      const token = document.getElementById('settingsTelegramBotToken').value.trim();
+      const chatId = document.getElementById('settingsTelegramChatId').value.trim();
+      if (!token || !chatId) {
+        showToast("กรุณากรอก Telegram Bot Token และ Chat ID ก่อนทดสอบ", "error");
+        return;
+      }
+      
+      showGlobalLoading("กำลังส่งข้อความทดสอบ...");
+      try {
+        const res = await apiCall('sendTelegramNotification', {
+          token: token,
+          chatId: chatId,
+          message: "<b>🔔 ทดสอบระบบแจ้งเตือน Telegram Bot</b>\nการเชื่อมต่อระบบส่งงาน AS INS สำเร็จเรียบร้อยแล้วครับ! 🎉"
+        });
+        
+        hideGlobalLoading();
+        if (res.success) {
+          showToast("🟢 ส่งข้อความทดสอบสำเร็จแล้ว! กรุณาตรวจสอบ Telegram แชท/กลุ่มของคุณ", "success");
+        } else {
+          throw new Error(res.message || "การส่งข้อความแจ้งเตือนล้มเหลว");
+        }
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("🔴 แจ้งเตือนล้มเหลว: " + err.message, "error");
+      }
+    }
+
+    async function exportDatabaseToJson() {
+      showGlobalLoading("กำลังสำรองข้อมูล...");
+      try {
+        let users = [];
+        let submissions = [];
+        
+        if (!firebaseDb) throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
+        const uQ = await firebaseDb.collection('users').get();
+        uQ.forEach(doc => users.push(doc.data()));
+        
+        const sQ = await firebaseDb.collection('submissions').get();
+        sQ.forEach(doc => submissions.push(doc.data()));
+        
+        const backupData = {
+          export_date: new Date().toISOString(),
+          db_type: 'firebase',
+          users: users,
+          submissions: submissions
+        };
+        
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `backup_database_firebase_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        
+        hideGlobalLoading();
+        showToast("ดาวน์โหลดไฟล์สำรองข้อมูลสำเร็จเรียบร้อย! 📥");
+      } catch (err) {
+        hideGlobalLoading();
+        console.error("Backup error:", err);
+        showToast("เกิดข้อผิดพลาดในการสำรองข้อมูล: " + err.message, "error");
+      }
+    }
+
+    async function importDatabaseFromJson(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (!data.users || !data.submissions) {
+            showToast("รูปแบบไฟล์สำรองไม่ถูกต้อง (ต้องมีรายการผู้ใช้และใบงาน)", "error");
+            return;
+          }
+          
+          const confirmRestore = confirm(`⚠️ คุณต้องการกู้คืนข้อมูลระบบใช่หรือไม่?\nข้อมูลนำเข้าประกอบด้วย:\n- ผู้ใช้: ${data.users.length} รายการ\n- ประวัติงาน: ${data.submissions.length} รายการ\n(ระบบจะเขียนทับข้อมูลที่มี Key ชนกัน)`);
+          if (!confirmRestore) return;
+          
+          showGlobalLoading("กำลังนำเข้าข้อมูล...");
+          let importUsersCount = 0;
+          let importSubmissionsCount = 0;
+          
+          if (!firebaseDb) throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
+          
+          for (const u of data.users) {
+            if (u.username) {
+              await firebaseDb.collection('users').doc(u.username).set(u, { merge: true });
+              importUsersCount++;
+            }
+          }
+          
+          for (const sub of data.submissions) {
+            if (sub.submission_date) {
+              await firebaseDb.collection('submissions').doc(sub.submission_date).set(sub, { merge: true });
+              importSubmissionsCount++;
+            }
+          }
+          
+          hideGlobalLoading();
+          showToast(`🎉 กู้คืนข้อมูลสำเร็จ! นำเข้าผู้ใช้งาน ${importUsersCount} รายการ และใบงาน ${importSubmissionsCount} รายการ สำเร็จเรียบร้อยครับ 😊`, "success");
+          
+          loadHistory();
+          if (currentUser && currentUser.role === 'admin') loadUsers();
+        } catch (err) {
+          hideGlobalLoading();
+          console.error("Restore error:", err);
+          showToast("เกิดข้อผิดพลาดในการกู้คืนข้อมูล: " + err.message, "error");
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSettingsToForm() {
+      document.getElementById('settingsGasUrl').value = WEB_APP_URL;
+      document.getElementById('settingsFirebaseConfig').value = FIREBASE_CONFIG ? JSON.stringify(FIREBASE_CONFIG, null, 2) : '';
+      
+      document.getElementById('settingsLineNotifyStatus').value = CFG_LINE_NOTIFY_STATUS;
+      document.getElementById('settingsLineNotifyToken').value = CFG_LINE_NOTIFY_TOKEN;
+      toggleLineNotifyFields();
+      
+      document.getElementById('settingsTelegramStatus').value = CFG_TELEGRAM_STATUS;
+      document.getElementById('settingsTelegramBotToken').value = CFG_TELEGRAM_BOT_TOKEN;
+      document.getElementById('settingsTelegramChatId').value = CFG_TELEGRAM_CHAT_ID;
+      toggleTelegramFields();
+      
+      document.getElementById('settingsFolderIns').value = CFG_FOLDER_ID_INS;
+      document.getElementById('settingsFolderRepair').value = CFG_FOLDER_ID_REPAIR;
+      document.getElementById('settingsFolderFail').value = CFG_FOLDER_ID_FAIL;
+      document.getElementById('settingsFolderReturn').value = CFG_FOLDER_ID_RETURN;
+      
+      document.getElementById('settingsMaxSizePdf').value = CFG_MAX_SIZE_PDF;
+      document.getElementById('settingsMaxSizeVideo').value = CFG_MAX_SIZE_VIDEO;
+      
+      document.getElementById('settingsCompanyName').value = CFG_COMPANY_NAME;
+      document.getElementById('settingsCompanyDesc').value = CFG_COMPANY_DESC;
+      document.getElementById('settingsAppTheme').value = CFG_APP_THEME;
+    }
+
+    // Wait for DOM to attach settings submit listener
+    document.addEventListener("DOMContentLoaded", () => {
+      const settingsForm = document.getElementById('systemSettingsForm');
+      if (settingsForm) {
+        settingsForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const gasUrl = document.getElementById('settingsGasUrl').value.trim();
+          const fbConfigStr = document.getElementById('settingsFirebaseConfig').value.trim();
+
+          if (!fbConfigStr) {
+            showToast("กรุณากรอก Firebase Configuration JSON", "error");
+            return;
+          }
+          let fbConfig = null;
+          try {
+            fbConfig = JSON.parse(fbConfigStr);
+          } catch(err) {
+            showToast("รูปแบบ Firebase JSON ไม่ถูกต้อง", "error");
+            return;
+          }
+
+          localStorage.setItem('cfg_gas_url', gasUrl);
+          localStorage.setItem('cfg_firebase_config', JSON.stringify(fbConfig));
+
+          WEB_APP_URL = gasUrl;
+          FIREBASE_CONFIG = fbConfig;
+
+          initializeDatabase();
+          showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว! 😊");
+
+          loadHistory();
+          if (currentUser && currentUser.role === 'admin') {
+            loadUsers();
+          }
+        });
+      }
+    });
+
+    async function testConnection() {
+      const gasUrl = document.getElementById('settingsGasUrl').value.trim();
+      const fbConfigStr = document.getElementById('settingsFirebaseConfig').value.trim();
+
+      showGlobalLoading("กำลังทดสอบการเชื่อมต่อ...");
+      try {
+        // 1. Test GAS
+        if (gasUrl) {
+          try {
+            await fetch(gasUrl + '?action=test', { mode: 'no-cors' });
+          } catch(e) {
+            console.warn("GAS connectivity check warning:", e);
+          }
+        }
+
+        // 2. Test Firebase
+        if (!fbConfigStr) {
+          throw new Error("กรุณากรอก Firebase Configuration JSON");
+        }
+        let config;
+        try {
+          config = JSON.parse(fbConfigStr);
+        } catch(e) {
+          throw new Error("รูปแบบ Firebase JSON ไม่ถูกต้อง");
+        }
+
+        // Temporary init to test connection
+        const tempAppName = "tempTest_" + Date.now();
+        const tempApp = firebase.initializeApp(config, tempAppName);
+        const tempDb = tempApp.firestore();
+        // Write test document
+        await tempDb.collection('_connection_test').doc('test').set({ timestamp: Date.now() });
+        await tempDb.collection('_connection_test').doc('test').get();
+        await tempApp.delete();
+
+        hideGlobalLoading();
+        showToast("🟢 เชื่อมต่อ Firebase สำเร็จ! ระบบพร้อมทำงานแล้วครับ", "success");
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("🔴 เชื่อมต่อล้มเหลว: " + err.message, "error");
+      }
     }
 
     // ==========================================
@@ -3608,20 +4890,23 @@
       const container = document.getElementById('usersTableContent');
       container.innerHTML = '<div class="section-loading"><div class="spinner"></div><p>กำลังโหลดผู้ใช้งาน...</p></div>';
       try {
-        console.log("Fetching users from:", WEB_APP_URL);
-        const response = await fetch(WEB_APP_URL + '?action=getUsers');
-        const res = await response.json();
-        console.log("Users response:", res);
+        let users = [];
+        if (!firebaseDb) {
+          throw new Error("Firebase ฐานข้อมูลยังไม่ได้เชื่อมต่อ");
+        }
+        const q = await firebaseDb.collection('users').get();
+        q.forEach(doc => {
+          users.push(doc.data());
+        });
 
-        if (res.success && res.data && res.data.length > 0) {
-          allUsersData = res.data; // เก็บไว้ที่ตัวแปรกลาง
+        if (users && users.length > 0) {
+          allUsersData = users; // เก็บไว้ที่ตัวแปรกลาง
           let html = `<div class="table-container"><table class="history-table">
-            <thead><tr><th>Username</th><th>Password</th><th>Name</th><th>Role</th><th>Status</th><th>จัดการ</th></tr></thead><tbody>`;
+            <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th>จัดการ</th></tr></thead><tbody>`;
 
           allUsersData.forEach((u, index) => {
             html += `<tr>
               <td>${u.username}</td>
-              <td>${u.password}</td>
               <td>${u.name}</td>
               <td>${u.role}</td>
               <td><span class="status-badge ${u.status === 'active' ? 'approved' : 'rejected'}">${u.status}</span></td>
@@ -3670,9 +4955,14 @@
 
     document.getElementById('userAdminForm').addEventListener('submit', async function (e) {
       e.preventDefault();
+      let password = document.getElementById('adminU_password').value;
+      const isAlreadyHashed = /^[0-9a-f]{64}$/i.test(password);
+      if (!isAlreadyHashed) {
+        password = CryptoJS.SHA256(password).toString();
+      }
       const userData = {
         username: document.getElementById('adminU_username').value,
-        password: document.getElementById('adminU_password').value,
+        password: password,
         name: document.getElementById('adminU_name').value,
         role: document.getElementById('adminU_role').value,
         status: 'active'
@@ -3877,9 +5167,14 @@
 
     document.getElementById('staffProfileForm').addEventListener('submit', async function (e) {
       e.preventDefault();
+      let password = document.getElementById('staffP_password').value;
+      const isAlreadyHashed = /^[0-9a-f]{64}$/i.test(password);
+      if (!isAlreadyHashed) {
+        password = CryptoJS.SHA256(password).toString();
+      }
       const userData = {
         username: document.getElementById('staffP_username').value,
-        password: document.getElementById('staffP_password').value,
+        password: password,
         name: currentUser.name,
         role: currentUser.role,
         status: 'active'
@@ -3904,7 +5199,7 @@
     });
     let progressIntervals = {};
 
-    function showProgressModal(titleText, modalId) {
+    function showExportProgressModal(titleText, modalId) {
       let progressModal = document.getElementById(modalId);
       if (!progressModal) {
         progressModal = document.createElement('div');
@@ -3943,7 +5238,7 @@
       }, 150);
     }
 
-    function completeProgressModal(modalId, successMsg) {
+    function completeExportProgressModal(modalId, successMsg) {
       if (progressIntervals[modalId]) clearInterval(progressIntervals[modalId]);
       const progressBar = document.getElementById(modalId + 'Bar');
       const progressPercent = document.getElementById(modalId + 'Percent');
@@ -3957,7 +5252,7 @@
       }, 500);
     }
 
-    function hideProgressModal(modalId) {
+    function hideExportProgressModal(modalId) {
       if (progressIntervals[modalId]) clearInterval(progressIntervals[modalId]);
       const progressModal = document.getElementById(modalId);
       if (progressModal) progressModal.style.display = 'none';
@@ -3969,7 +5264,7 @@
         return;
       }
 
-      showProgressModal("กำลังสร้างไฟล์ Excel", "exportProgressModal");
+      showExportProgressModal("กำลังสร้างไฟล์ Excel", "exportProgressModal");
 
       setTimeout(() => {
         try {
@@ -4044,9 +5339,9 @@
           const wb = XLSX.utils.book_new();
           XLSX.utils.book_append_sheet(wb, ws, "History");
           XLSX.writeFile(wb, "ประวัติการส่งงาน.xlsx");
-          completeProgressModal("exportProgressModal", "ดาวน์โหลด Excel สำเร็จ!");
+          completeExportProgressModal("exportProgressModal", "ดาวน์โหลด Excel สำเร็จ!");
         } catch (err) {
-          hideProgressModal("exportProgressModal");
+          hideExportProgressModal("exportProgressModal");
           showToast("เกิดข้อผิดพลาดในการสร้าง Excel", "error");
         }
       }, 500);
@@ -4058,7 +5353,7 @@
         return;
       }
 
-      showProgressModal("กำลังสร้างไฟล์ PDF", "exportProgressModal");
+      showExportProgressModal("กำลังสร้างไฟล์ PDF", "exportProgressModal");
 
       let html = `<div style="padding: 20px; font-family: 'Sarabun', sans-serif; background: #ffffff; color: #000000;">`;
 
@@ -4075,7 +5370,9 @@
         }
 
         html += `
-          <h2 style="text-align:center; margin-bottom: 20px; font-size: 18px;">รายงานประวัติการส่งงาน ${totalPages > 1 ? `(หน้า ${i + 1}/${totalPages})` : ''}</h2>
+          <h1 style="text-align:center; margin-bottom: 5px; font-size: 20px; font-weight: bold;">${CFG_COMPANY_NAME}</h1>
+          <p style="text-align:center; margin-bottom: 15px; font-size: 11px; color: #555;">${CFG_COMPANY_DESC}</p>
+          <h2 style="text-align:center; margin-bottom: 20px; font-size: 14px; font-weight: normal;">รายงานประวัติการส่งงาน ${totalPages > 1 ? `(หน้า ${i + 1}/${totalPages})` : ''}</h2>
           <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom: 20px;">
             <thead>
               <tr style="background:#4f81bd; color:#ffffff;">
@@ -4127,9 +5424,9 @@
 
       setTimeout(() => {
         html2pdf().set(opt).from(html).save().then(() => {
-          completeProgressModal("exportProgressModal", "ดาวน์โหลด PDF สำเร็จ!");
+          completeExportProgressModal("exportProgressModal", "ดาวน์โหลด PDF สำเร็จ!");
         }).catch(err => {
-          hideProgressModal("exportProgressModal");
+          hideExportProgressModal("exportProgressModal");
           showToast("เกิดข้อผิดพลาดในการสร้าง PDF", "error");
         });
       }, 300);
@@ -4238,6 +5535,15 @@
         </div>
       </div>
 
+      <!-- Section 5: พรีวิว PDF (View Mode) -->
+      <div class="view-mode-only" id="pdfPreviewContainer"
+        style="display:none; background:#f8fafc; border-radius:16px; padding:18px; margin-bottom:16px; border:1px solid #f1f5f9; height: 350px;">
+        <div
+          style="font-size:11px; font-weight:800; color:#6366f1; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">
+          พรีวิวเอกสาร PDF</div>
+        <iframe id="pdfPreviewFrame" src="" style="width:100%; height:calc(100% - 25px); border:none; border-radius:10px; background:white;"></iframe>
+      </div>
+
       <!-- Section 4: ไฟล์แนบ (Edit Mode) -->
       <div class="edit-mode-only"
         style="background:#f8fafc; border-radius:16px; padding:18px; margin-bottom:16px; border:1px solid #f1f5f9;">
@@ -4249,16 +5555,14 @@
             <div class="detail-label">ไฟล์ PDF</div>
             <button type="button" class="file-edit-btn" onclick="document.getElementById('editPdfFile').click()">📎
               เลือกไฟล์ PDF ใหม่</button>
-            <input type="file" id="editPdfFile" style="display:none" accept=".pdf"
-              onchange="const fb=document.getElementById('editPdfStatus');fb.innerText='✅ '+this.files[0].name;fb.classList.add('active')">
+            <input type="file" id="editPdfFile" style="display:none" accept=".pdf">
             <div id="editPdfStatus" class="file-status-label"></div>
           </div>
           <div>
             <div class="detail-label">ไฟล์วิดีโอ</div>
             <button type="button" class="file-edit-btn" onclick="document.getElementById('editVideoFile').click()">🎥
               เลือกวิดีโอใหม่</button>
-            <input type="file" id="editVideoFile" style="display:none" accept="video/*"
-              onchange="const fb=document.getElementById('editVideoStatus');fb.innerText='✅ '+this.files[0].name;fb.classList.add('active')">
+            <input type="file" id="editVideoFile" style="display:none" accept="video/*">
             <div id="editVideoStatus" class="file-status-label"></div>
           </div>
         </div>
