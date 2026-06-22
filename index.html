@@ -3390,6 +3390,61 @@
       }
     }
 
+    async function loadSystemSettingsFromFirestore() {
+      if (!firebaseDb) return;
+      try {
+        const docSnap = await firebaseDb.collection('app_config').doc('system_settings').get();
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          if (data.telegram_status !== undefined) CFG_TELEGRAM_STATUS = data.telegram_status;
+          if (data.telegram_bot_token !== undefined) CFG_TELEGRAM_BOT_TOKEN = data.telegram_bot_token;
+          if (data.telegram_chat_id !== undefined) CFG_TELEGRAM_CHAT_ID = data.telegram_chat_id;
+          if (data.folder_id_ins !== undefined) CFG_FOLDER_ID_INS = data.folder_id_ins;
+          if (data.folder_id_repair !== undefined) CFG_FOLDER_ID_REPAIR = data.folder_id_repair;
+          if (data.folder_id_fail !== undefined) CFG_FOLDER_ID_FAIL = data.folder_id_fail;
+          if (data.folder_id_return !== undefined) CFG_FOLDER_ID_RETURN = data.folder_id_return;
+          if (data.max_size_pdf !== undefined) CFG_MAX_SIZE_PDF = parseInt(data.max_size_pdf, 10) || 20;
+          if (data.max_size_video !== undefined) CFG_MAX_SIZE_VIDEO = parseInt(data.max_size_video, 10) || 50;
+          if (data.company_name !== undefined) CFG_COMPANY_NAME = data.company_name;
+          if (data.company_desc !== undefined) CFG_COMPANY_DESC = data.company_desc;
+          if (data.app_theme !== undefined) CFG_APP_THEME = data.app_theme;
+
+          console.log("System settings loaded from Firestore.");
+          applyAppTheme(CFG_APP_THEME);
+          applyBrandingToUI();
+        }
+      } catch (e) {
+        console.error("Failed to load system settings from Firestore:", e);
+      }
+    }
+
+    async function saveSystemSettingsToFirestore() {
+      if (!firebaseDb) {
+        console.warn("Firebase not initialized, cannot save settings to Firestore.");
+        return;
+      }
+      try {
+        await firebaseDb.collection('app_config').doc('system_settings').set({
+          telegram_status: CFG_TELEGRAM_STATUS,
+          telegram_bot_token: CFG_TELEGRAM_BOT_TOKEN,
+          telegram_chat_id: CFG_TELEGRAM_CHAT_ID,
+          folder_id_ins: CFG_FOLDER_ID_INS,
+          folder_id_repair: CFG_FOLDER_ID_REPAIR,
+          folder_id_fail: CFG_FOLDER_ID_FAIL,
+          folder_id_return: CFG_FOLDER_ID_RETURN,
+          max_size_pdf: CFG_MAX_SIZE_PDF,
+          max_size_video: CFG_MAX_SIZE_VIDEO,
+          company_name: CFG_COMPANY_NAME,
+          company_desc: CFG_COMPANY_DESC,
+          app_theme: CFG_APP_THEME
+        }, { merge: true });
+        console.log("System settings saved to Firestore.");
+      } catch (err) {
+        console.error("Failed to save system settings to Firestore:", err);
+        showToast("ไม่สามารถบันทึกค่าลงคลาวด์ได้: " + err.message, "error");
+      }
+    }
+
     // User Session
     let currentUser = null;
     let editUsernameTarget = null; // สำหรับโหมดแก้ไขพนักงาน
@@ -3504,11 +3559,12 @@
     // ==========================================
     // Authentication & Core Logic
     // ==========================================
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener("DOMContentLoaded", async () => {
       showGlobalLoading("กำลังเริ่มต้นระบบ...");
       applyAppTheme(CFG_APP_THEME);
       applyBrandingToUI();
       initializeDatabase();
+      await loadSystemSettingsFromFirestore();
       initLiffAndSession();
       setupTabs();
       setupFileInputs();
@@ -5393,7 +5449,7 @@
       }
     }
 
-    function saveStorageSettings(e) {
+    async function saveStorageSettings(e) {
       e.preventDefault();
       const ins = document.getElementById('settingsFolderIns').value.trim();
       const repair = document.getElementById('settingsFolderRepair').value.trim();
@@ -5422,10 +5478,13 @@
       CFG_MAX_SIZE_PDF = maxPdf;
       CFG_MAX_SIZE_VIDEO = maxVideo;
       
+      showGlobalLoading("กำลังบันทึกการตั้งค่าลงระบบคลาวด์...");
+      await saveSystemSettingsToFirestore();
+      hideGlobalLoading();
       showToast("บันทึกการตั้งค่าการจัดเก็บไฟล์สำเร็จเรียบร้อย! 😊");
     }
 
-    function saveBrandingSettings(e) {
+    async function saveBrandingSettings(e) {
       e.preventDefault();
       const name = document.getElementById('settingsCompanyName').value.trim();
       const desc = document.getElementById('settingsCompanyDesc').value.trim();
@@ -5442,6 +5501,9 @@
       applyAppTheme(theme);
       applyBrandingToUI();
       
+      showGlobalLoading("กำลังบันทึกข้อมูลแบรนด์ลงระบบคลาวด์...");
+      await saveSystemSettingsToFirestore();
+      hideGlobalLoading();
       showToast("บันทึกข้อมูลแบรนด์สำเร็จเรียบร้อย! 😊");
     }
 
@@ -5458,7 +5520,7 @@
       }
     }
 
-    function saveTelegramSettings(e) {
+    async function saveTelegramSettings(e) {
       e.preventDefault();
       const status = document.getElementById('settingsTelegramStatus').value;
       const token = document.getElementById('settingsTelegramBotToken').value.trim();
@@ -5477,6 +5539,9 @@
       CFG_TELEGRAM_BOT_TOKEN = token;
       CFG_TELEGRAM_CHAT_ID = chatId;
       
+      showGlobalLoading("กำลังบันทึกการตั้งค่า Telegram ลงระบบคลาวด์...");
+      await saveSystemSettingsToFirestore();
+      hideGlobalLoading();
       showToast("บันทึกการตั้งค่า Telegram สำเร็จเรียบร้อย! 😊");
     }
 
