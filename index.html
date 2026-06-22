@@ -32,6 +32,12 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
+    }
+
+    *::-webkit-scrollbar {
+      display: none; /* Chrome, Safari and Opera */
     }
 
     html {
@@ -43,7 +49,7 @@
       background-color: #f8fafc;
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       padding: 20px;
       position: relative;
@@ -1202,28 +1208,40 @@
     /* Bottom Navigation Bar Styles */
     .bottom-nav {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 75px;
-      background: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(20px) saturate(180%);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      bottom: 25px;
+      left: 50%;
+      transform: translate(-50%, 150%);
+      width: calc(100% - 40px);
+      max-width: 460px;
+      height: 70px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(25px) saturate(200%);
+      -webkit-backdrop-filter: blur(25px) saturate(200%);
       display: flex;
       justify-content: space-around;
       align-items: center;
       padding: 0 10px;
-      box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
       z-index: 9000;
-      border-top: 1px solid rgba(255, 255, 255, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 35px;
       visibility: hidden;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      transform: translateY(100%);
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+      opacity: 0;
     }
 
     body.main-active .bottom-nav {
       visibility: visible;
-      transform: translateY(0);
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+
+    body:not(.main-active) .bottom-nav {
+      display: none !important;
+    }
+
+    body.main-active {
+      padding-bottom: 110px !important;
     }
 
     .nav-item {
@@ -1231,43 +1249,34 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      flex: 1;
-      height: 100%;
-      color: #94a3b8;
+      height: 48px;
+      width: 48px;
+      border-radius: 16px;
+      color: #64748b;
       cursor: pointer;
       position: relative;
-      transition: all 0.2s;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .nav-item.active {
-      color: #6366f1;
+      background-color: #f1f5f9; /* Soft capsule highlight */
+      color: #0f172a;
     }
 
     .nav-item svg {
-      width: 24px;
-      height: 24px;
-      transition: all 0.3s;
+      width: 22px;
+      height: 22px;
+      stroke-width: 2.2px;
+      transition: all 0.25s ease;
     }
 
     .nav-item.active svg {
-      transform: translateY(-4px);
+      transform: scale(1.05);
+      stroke-width: 2.5px;
     }
 
     .nav-dot {
-      width: 5px;
-      height: 5px;
-      background: #6366f1;
-      border-radius: 50%;
-      position: absolute;
-      bottom: 12px;
-      opacity: 0;
-      transform: scale(0);
-      transition: all 0.3s;
-    }
-
-    .nav-item.active .nav-dot {
-      opacity: 1;
-      transform: scale(1);
+      display: none !important;
     }
 
     .nav-fab-wrapper {
@@ -1304,6 +1313,115 @@
       height: 30px;
     }
 
+    /* Advanced Search & Filter */
+    .search-filter-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-bottom: 25px;
+      position: relative;
+      z-index: 50;
+    }
+
+    .expandable-search-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      border-radius: 999px;
+      height: 34px;
+      width: 34px;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.08);
+      cursor: text;
+    }
+
+    .expandable-search-container:hover,
+    .expandable-search-container:focus-within {
+      width: 170px;
+      max-width: calc(100vw - 120px);
+    }
+
+    .search-icon-wrapper {
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: #3b82f6;
+    }
+
+    .expandable-search-container input {
+      border: none;
+      background: transparent;
+      outline: none;
+      width: 100%;
+      height: 100%;
+      padding-right: 15px;
+      font-size: 13px;
+      color: #1e293b;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .expandable-search-container:hover input,
+    .expandable-search-container:focus-within input {
+      opacity: 1;
+    }
+
+    .filter-btn-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 12px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      transition: all 0.2s;
+    }
+
+    .filter-btn-pill:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .filter-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      left: auto;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 300px;
+      display: none;
+      flex-direction: column;
+      gap: 15px;
+      z-index: 100;
+      border: 1px solid #f1f5f9;
+    }
+
+    .filter-dropdown-menu.show {
+      display: flex;
+      animation: fadeInDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     /* Space for bottom nav */
     .main-container {
       margin-bottom: 120px !important;
@@ -1319,12 +1437,13 @@
       background: rgba(15, 23, 42, 0.4);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      z-index: 11000;
+      z-index: 8999; /* Below bottom-nav (9000) */
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
       visibility: hidden;
       opacity: 0;
       transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex;
-      align-items: flex-end;
     }
 
     .menu-modal.show {
@@ -1334,15 +1453,20 @@
 
     .menu-content {
       width: 100%;
-      max-width: 600px;
-      margin: 0 auto;
-      background: #ffffff;
-      border-radius: 40px 40px 0 0;
-      padding: 30px 25px 50px;
+      height: 100%;
+      max-width: 100%;
+      margin: 0;
+      background: #f8fafc;
+      border-radius: 0;
+      padding: 50px 25px 120px; /* 120px bottom padding to avoid bottom nav */
       transform: translateY(100%);
-      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-      box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.15);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Removed bounce */
+      box-shadow: none;
       position: relative;
+      display: flex;
+      flex-direction: column;
+      max-height: none;
+      overflow-y: auto;
     }
 
     .menu-modal.show .menu-content {
@@ -1353,9 +1477,10 @@
       position: absolute;
       top: 25px;
       right: 25px;
-      width: 40px;
-      height: 40px;
-      background: #f1f5f9;
+      width: 36px;
+      height: 36px;
+      background: #ffffff;
+      border: 1px solid #f1f5f9;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -1363,71 +1488,76 @@
       cursor: pointer;
       color: #64748b;
       transition: all 0.2s;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+      z-index: 10;
     }
 
     .menu-close-btn:hover {
-      background: #e2e8f0;
+      background: #f1f5f9;
       color: #0f172a;
     }
 
     .menu-header {
-      margin-bottom: 25px;
+      margin-bottom: 20px;
+      text-align: left;
+      padding-left: 10px;
     }
 
     .menu-header h2 {
-      font-size: 24px;
-      font-weight: 900;
+      font-size: 18px;
+      font-weight: 800;
       color: #6366f1;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 2px;
+      margin-bottom: 0;
+      margin-top: 0;
     }
 
     .menu-header p {
-      font-size: 13px;
+      font-size: 11px;
       color: #94a3b8;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      margin-bottom: 0;
+      margin-top: 2px;
     }
 
     /* Profile Card in Menu */
     .menu-profile-card {
       background: #ffffff;
       border-radius: 30px;
-      padding: 20px;
+      padding: 15px 20px;
       display: flex;
       align-items: center;
       gap: 15px;
-      box-shadow: 0 10px 40px rgba(99, 102, 241, 0.08);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
       border: 1px solid #f1f5f9;
-      margin-bottom: 30px;
+      margin-bottom: 25px;
       position: relative;
     }
 
     .menu-avatar {
-      width: 65px;
-      height: 65px;
-      background: #1e1b4b;
+      width: 55px;
+      height: 55px;
+      background: #1e293b;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 22px;
       color: white;
       font-weight: 800;
       position: relative;
     }
 
     .status-dot {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       background: #10b981;
       border-radius: 50%;
       border: 2px solid white;
       position: absolute;
-      bottom: 2px;
-      right: 2px;
+      bottom: 0px;
+      right: 0px;
     }
 
     .menu-user-info {
@@ -1435,7 +1565,7 @@
     }
 
     .menu-user-name {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 800;
       color: #0f172a;
       margin-bottom: 4px;
@@ -1446,7 +1576,7 @@
       padding: 4px 10px;
       background: #eef2ff;
       color: #6366f1;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       border-radius: 8px;
       text-transform: uppercase;
@@ -1454,8 +1584,8 @@
     }
 
     .menu-logout-btn {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       background: #fee2e2;
       color: #ef4444;
       border-radius: 16px;
@@ -1465,83 +1595,101 @@
       cursor: pointer;
       transition: all 0.2s;
       -webkit-tap-highlight-color: transparent;
-      /* Remove mobile tap highlight */
     }
 
     .menu-logout-btn svg {
       pointer-events: none;
-      /* Icon won't block the click on the parent div */
+    }
+
+    /* Section Header */
+    .menu-section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      padding-left: 5px;
+    }
+
+    .menu-section-line {
+      width: 3px;
+      height: 18px;
+      background: #6366f1;
+      border-radius: 4px;
+    }
+
+    .menu-section-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1e293b;
     }
 
     /* Quick Action Buttons in Menu */
     .menu-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .menu-item {
-      padding: 18px 25px;
+      padding: 12px 16px;
       background: #ffffff;
-      border-radius: 20px;
+      border-radius: 24px;
       display: flex;
+      flex-direction: row;
       align-items: center;
+      text-align: left;
       gap: 15px;
       cursor: pointer;
-      transition: all 0.3s;
-      border: 1px solid #f1f5f9;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid #ffffff;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
       position: relative;
     }
 
     .menu-item:hover {
-      background: #f8fafc;
-      transform: translateX(5px);
-      border-color: #e2e8f0;
+      background: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(99, 102, 241, 0.08);
+      border-color: #e0e7ff;
     }
 
     .menu-item-icon {
-      width: 45px;
-      height: 45px;
-      border-radius: 12px;
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 20px;
+      color: #ffffff;
     }
 
-    .icon-blue {
-      background: #eff6ff;
-      color: #3b82f6;
-    }
-
-    .icon-orange {
-      background: #fff7ed;
-      color: #f97316;
-    }
-
-    .icon-purple {
-      background: #f5f3ff;
-      color: #8b5cf6;
-    }
+    .icon-blue { background: #3b82f6; }
+    .icon-orange { background: #f97316; }
+    .icon-purple { background: #a855f7; }
+    .icon-pink { background: #ec4899; }
 
     .menu-item-text {
       flex: 1;
+      width: auto;
     }
 
     .menu-item-title {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 700;
       color: #0f172a;
       margin-bottom: 2px;
     }
 
     .menu-item-desc {
-      font-size: 12px;
+      display: block;
+      font-size: 11px;
       color: #94a3b8;
-      font-weight: 500;
+      font-weight: 600;
     }
 
     .menu-item-arrow {
+      display: flex;
       color: #cbd5e1;
     }
 
@@ -2214,16 +2362,14 @@
         padding-top: 40px;
         padding-bottom: 30px;
         gap: 15px;
-        border-top: none;
-        border-right: 1px solid rgba(255, 255, 255, 0.4);
-        border-left: none;
+        border: none;
+        border-right: 1px solid rgba(0, 0, 0, 0.08);
         border-radius: 0;
-        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.03);
-        transform: translateX(-100%);
-      }
-
-      body.main-active .bottom-nav {
-        transform: translateX(0);
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.01);
+        background: #ffffff;
+        transform: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
 
       .nav-item {
@@ -2237,6 +2383,10 @@
         align-items: center;
         border-radius: 16px;
         gap: 15px;
+      }
+
+      .bottom-nav .mobile-menu-icon {
+        display: none !important;
       }
 
       .nav-item svg {
@@ -2336,7 +2486,7 @@
     }
 
     /* Mobile nav adjustments (matches exact layout requested) */
-    @media (max-width: 767px) {
+    @media (max-width: 1023px) {
       .bottom-nav .nav-label {
         display: none !important;
       }
@@ -2348,12 +2498,18 @@
       .bottom-nav .nav-item svg {
         margin-bottom: 0 !important;
       }
+      
+      #nav-settings {
+        display: none !important; /* Hide settings on mobile (it's inside Hamburger) */
+      }
     }
 
     @media (min-width: 768px) {
-      .bottom-nav .mobile-menu-icon {
+      .bottom-nav .mobile-menu-icon,
+      #hamburgerMenuItem {
         display: none !important;
       }
+    }
     /* Google Drive & Restore Custom Styles */
     .restore-grid {
       display: grid;
@@ -2514,6 +2670,94 @@
       background: #f1f5f9;
       color: #64748b;
     }
+    .assigned-job-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.06) !important;
+      border-color: #cbd5e1 !important;
+    }
+    .btn-job-submit:hover {
+      transform: translateY(-1px);
+      filter: brightness(0.95);
+    }
+    .btn-job-submit:active {
+      transform: translateY(0);
+    }
+
+    /* Table Actions Toolbar (Tailwind / GitHub Style) */
+    .table-actions-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .tbl-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #475569; /* Slate 600 */
+      background-color: #ffffff;
+      border: 1px solid #cbd5e1; /* Slate 300 */
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-family: inherit;
+      outline: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .tbl-action-btn svg {
+      color: #64748b; /* Slate 400 */
+      transition: color 0.15s ease;
+    }
+
+    .tbl-action-btn:hover {
+      background-color: #f8fafc; /* Slate 50 */
+      border-color: #94a3b8; /* Slate 400 */
+      color: #1e293b; /* Slate 900 */
+    }
+
+    .tbl-action-btn:hover svg {
+      color: #475569;
+    }
+
+    .tbl-action-btn:active {
+      transform: scale(0.98);
+      background-color: #f1f5f9;
+    }
+
+    /* Danger styles for selected delete */
+    .tbl-action-btn.danger-btn-selected {
+      color: #ef4444;
+      border-color: #fca5a5; /* Red 300 */
+      background-color: #fff5f5;
+    }
+    .tbl-action-btn.danger-btn-selected svg {
+      color: #ef4444;
+    }
+    .tbl-action-btn.danger-btn-selected:hover {
+      background-color: #fee2e2; /* Red 100 */
+      border-color: #f87171;
+      color: #dc2626;
+    }
+
+    /* Danger styles for delete all */
+    .tbl-action-btn.danger-btn-all {
+      color: #dc2626;
+      border-color: #fecaca; /* Red 200 */
+      background-color: #fef2f2;
+    }
+    .tbl-action-btn.danger-btn-all svg {
+      color: #dc2626;
+    }
+    .tbl-action-btn.danger-btn-all:hover {
+      background-color: #fee2e2;
+      border-color: #f87171;
+      color: #b91c1c;
+    }
   </style>
 
 </head>
@@ -2598,6 +2842,45 @@
             <polyline points="16 17 21 12 16 7"></polyline>
             <line x1="21" y1="12" x2="9" y2="12"></line>
           </svg>
+        </div>
+      </div>
+
+      <!-- Menu Options for Admin only -->
+      <div id="drawerAdminLinks" style="display: none; margin: 10px 0 20px 0;">
+        <div class="menu-section-header">
+          <div class="menu-section-line"></div>
+          <span class="menu-section-title">Main Menu</span>
+        </div>
+        <div class="menu-grid">
+          <div class="menu-item" onclick="handleDrawerNav('user')">
+            <div class="menu-item-icon icon-purple">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </div>
+            <div class="menu-item-text">
+              <div class="menu-item-title">โปรไฟล์ของฉัน</div>
+              <div class="menu-item-desc">Profile</div>
+            </div>
+            <div class="menu-item-arrow">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </div>
+          </div>
+
+          <div class="menu-item" onclick="handleDrawerNav('settings')">
+            <div class="menu-item-icon icon-orange">
+              <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </div>
+            <div class="menu-item-text">
+              <div class="menu-item-title">ตั้งค่าระบบ</div>
+              <div class="menu-item-desc">System Settings</div>
+            </div>
+            <div class="menu-item-arrow">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2746,8 +3029,21 @@
         <h1 class="main-title-large" style="font-size:32px; font-weight:900; color: #6366f1; letter-spacing: -1px;">
           ส่งงาน</h1>
       </header>
+      <!-- Assigned Jobs Section -->
+      <div id="assignedJobsSection" style="margin-bottom: 25px; display: none;">
+        <h3 style="font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+          <span>📅</span> งานวันนี้ของฉัน (My Assigned Jobs)
+        </h3>
+        <div id="assignedJobsList" style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- List items dynamically generated -->
+        </div>
+      </div>
 
-      <div
+      <div id="manualSubmissionHeader" style="margin-bottom: 12px; font-size: 15px; font-weight: 700; color: #64748b; display: flex; align-items: center; gap: 6px;">
+        <span>📦</span> ส่งงานทั่วไป (แบบระบุข้อมูลเอง)
+      </div>
+
+      <div id="manualSubmissionCard"
         style="background: white; padding: 25px; border-radius: 28px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
         <form id="workSubmissionForm">
           <div class="form-field">
@@ -2837,62 +3133,104 @@
 
       <div class="dashboard-section" style="padding: 25px;">
         <!-- Filter Controls -->
-        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom: 25px; align-items:center;">
-          <input type="text" id="historySearch" placeholder="🔍 ค้นหางาน, ชื่อไฟล์..." class="input-field"
-            style="flex:2; min-width:180px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
-            oninput="filterHistory()">
-
-          <select id="historyTechFilter" class="select-field"
-            style="flex:1; min-width:140px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
-            onchange="filterHistory()">
-            <option value="">ผู้ส่งงาน</option>
-          </select>
-
-          <div style="flex:2; min-width:280px; display:flex; gap:12px;">
-            <input type="text" placeholder="ตั้งแต่วันที่" onfocus="(this.type='date')"
-              onblur="(this.type=this.value?'date':'text')" id="historyDateFrom" class="input-field"
-              title="ตั้งแต่วันที่"
-              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 12px 16px;"
-              onchange="filterHistory()">
-
-            <input type="text" placeholder="ถึงวันที่" onfocus="(this.type='date')"
-              onblur="(this.type=this.value?'date':'text')" id="historyDateTo" class="input-field" title="ถึงวันที่"
-              style="flex:1; width:100%; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02); padding: 12px 16px;"
-              onchange="filterHistory()">
+        <div class="search-filter-wrapper">
+          <!-- Expandable Search -->
+          <div class="expandable-search-container" onclick="this.querySelector('input').focus()">
+            <div class="search-icon-wrapper">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </div>
+            <input type="text" id="historySearch" placeholder="ค้นหาชื่อ, SKU..." oninput="filterHistory()">
           </div>
 
-          <select id="historyCatFilter" class="select-field"
-            style="flex:1; min-width:130px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
-            onchange="filterHistory()">
-            <option value="">ประเภทงาน</option>
-            <option value="งานติดตั้ง (INS)">งานติดตั้ง (INS)</option>
-            <option value="งานซ่อม (AS)">งานซ่อม (AS)</option>
-            <option value="งานถอดติดตั้ง (AS)">งานถอดติดตั้ง (AS)</option>
-            <option value="งานรีเทิร์น (Return)">งานรีเทิร์น (Return)</option>
-            <option value="งานเฟล (Fail)">งานเฟล (Fail)</option>
-          </select>
+          <!-- Filter Button -->
+          <div class="filter-btn-pill" style="padding: 0; width: 34px; justify-content: center;" onclick="document.getElementById('filterDropdown').classList.toggle('show')">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+          </div>
 
-          <select id="historyStatusFilter" class="select-field"
-            style="flex:1; min-width:110px; border-radius:18px; background:rgba(255,255,255,0.9); border-color: rgba(99,102,241,0.2); box-shadow:0 4px 15px rgba(0,0,0,0.02);"
-            onchange="filterHistory()">
-            <option value="">สถานะส่งงาน</option>
-            <option value="รอตรวจ">รอตรวจ</option>
-            <option value="ตรวจแล้ว">ตรวจแล้ว</option>
-            <option value="แก้ไข">แก้ไข</option>
-          </select>
+          <!-- The Dropdown Menu -->
+          <div id="filterDropdown" class="filter-dropdown-menu">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span style="font-weight: 800; color: #1e293b; font-size: 14px;">ตัวเลือกตัวกรอง & ค้นหา</span>
+              </div>
+              <button onclick="document.getElementById('filterDropdown').classList.remove('show')" style="background:none; border:none; font-size: 20px; cursor:pointer; color: #94a3b8; line-height: 1;">&times;</button>
+            </div>
+            
+            <div style="border-top: 1px solid #f1f5f9; margin-bottom: 15px; margin-top: -5px;"></div>
 
-          <button onclick="resetAndLoadHistory()"
-            style="padding:12px 20px;background:linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);color:white;border:none;border-radius:18px;font-family:inherit;cursor:pointer;font-size:14px;font-weight:800; transition: all 0.3s; box-shadow: 0 4px 15px rgba(99,102,241,0.3); display: flex; align-items:center; justify-content:center;">
-            🔄 รีเฟรช
-          </button>
+            <!-- Type -->
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:12px; font-weight:800; color:#64748b;">ประเภทธุรกรรม (Type)</label>
+              <select id="historyCatFilter" class="select-field" style="border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; margin-bottom: 0; padding: 10px 14px; font-size: 13px;" onchange="filterHistory()">
+                <option value="">ทุกประเภท (All Types)</option>
+                <option value="งานติดตั้ง (INS)">งานติดตั้ง (INS)</option>
+                <option value="งานซ่อม (AS)">งานซ่อม (AS)</option>
+                <option value="งานถอดติดตั้ง (AS)">งานถอดติดตั้ง (AS)</option>
+                <option value="งานรีเทิร์น (Return)">งานรีเทิร์น (Return)</option>
+                <option value="งานเฟล (Fail)">งานเฟล (Fail)</option>
+              </select>
+            </div>
 
-          <div style="display:flex; gap: 8px;">
-            <button onclick="exportHistoryPDF()" class="chart-filter-btn"
-              style="background:#ef4444; color:white; border:none; padding:10px 16px;">📄 PDF</button>
-            <button onclick="exportHistoryExcel()" class="chart-filter-btn"
-              style="background:#10b981; color:white; border:none; padding:10px 16px;">📊 Excel</button>
+            <!-- Party -->
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:12px; font-weight:800; color:#64748b;">ผู้เกี่ยวข้อง / ช่าง (Party)</label>
+              <select id="historyTechFilter" class="select-field" style="border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; margin-bottom: 0; padding: 10px 14px; font-size: 13px;" onchange="filterHistory()">
+                <option value="">ทุกคน (All Parties)</option>
+              </select>
+            </div>
+
+            <!-- Date -->
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:12px; font-weight:800; color:#64748b;">วันที่ดำเนินการ (Date)</label>
+              <div style="display:flex; gap:10px;">
+                <input type="text" placeholder="วว/ดด/ปปปป" onfocus="(this.type='date')" onblur="(this.type=this.value?'date':'text')" id="historyDateFrom" class="input-field" title="ตั้งแต่วันที่" style="flex:1; border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; margin-bottom: 0; font-size:13px;" onchange="filterHistory()">
+                <input type="text" placeholder="ถึง" onfocus="(this.type='date')" onblur="(this.type=this.value?'date':'text')" id="historyDateTo" class="input-field" title="ถึงวันที่" style="flex:1; border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; padding: 10px 14px; margin-bottom: 0; font-size:13px;" onchange="filterHistory()">
+              </div>
+            </div>
+
+            <!-- Status -->
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <label style="font-size:12px; font-weight:800; color:#64748b;">สถานะ (Status)</label>
+              <select id="historyStatusFilter" class="select-field" style="border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; margin-bottom: 0; padding: 10px 14px; font-size: 13px;" onchange="filterHistory()">
+                <option value="">ทุกสถานะ (All Statuses)</option>
+                <option value="รอตรวจ">รอตรวจ</option>
+                <option value="ตรวจแล้ว">ตรวจแล้ว</option>
+                <option value="แก้ไข">แก้ไข</option>
+              </select>
+            </div>
+
+            <div style="display:flex; gap: 8px; margin-top: 5px;">
+              <button onclick="resetAndLoadHistory()" style="flex: 1; padding:12px; background:#f1f5f9; color:#475569; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">🔄 ล้างค่า</button>
+              <button onclick="document.getElementById('filterDropdown').classList.remove('show')" style="flex: 2; padding:12px; background:linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color:white; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">นำไปใช้</button>
+            </div>
+            
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 15px; margin-top: 5px; display:flex; gap: 8px;">
+              <button onclick="exportHistoryPDF()" style="flex:1; background:#ffffff; color:#ef4444; border:1px solid #fee2e2; padding:8px; border-radius:12px; font-weight:700; cursor:pointer; font-size:12px;">📄 PDF</button>
+              <button onclick="exportHistoryExcel()" style="flex:1; background:#ffffff; color:#10b981; border:1px solid #d1fae5; padding:8px; border-radius:12px; font-weight:700; cursor:pointer; font-size:12px;">📊 Excel</button>
+            </div>
           </div>
         </div>
+
+        <script>
+          // Close dropdown when clicking outside
+          document.addEventListener('click', function(event) {
+            var dropdown = document.getElementById('filterDropdown');
+            var btn = document.querySelector('.filter-btn-pill');
+            if (dropdown && btn && dropdown.classList.contains('show')) {
+              if (!dropdown.contains(event.target) && !btn.contains(event.target)) {
+                dropdown.classList.remove('show');
+              }
+            }
+          });
+        </script>
 
         <div id="historyContent">
           <div class="section-loading">
@@ -2935,6 +3273,187 @@
           </div>
           <button type="submit" class="submit-button">บันทึกการเปลี่ยนแปลง</button>
         </form>
+      </div>
+    </div>
+
+    <!-- Tab 5: Import Daily Jobs (Admin Only) -->
+    <div class="tab-content" id="import-jobsTab">
+      <header class="header-section" style="margin-bottom: 25px; text-align: left; padding: 0 5px;">
+        <h1 class="main-title-large" style="font-size:32px; font-weight:900; color: #3b82f6; letter-spacing: -1px;">
+          จ่ายงานช่างประจำวัน</h1>
+        <p style="color:#64748b; font-size:14px; margin-top:5px;">นำเข้าไฟล์ Excel เพื่อจ่ายงานและสร้างคิวงานอัตโนมัติประจำวัน</p>
+      </header>
+
+      <!-- Excel Import Section -->
+      <div class="settings-card" style="background: white; padding: 25px; border-radius: 28px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+        <h3 style="font-size: 18px; font-weight: 800; color: #1e293b; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+          นำเข้าตารางงาน Excel
+        </h3>
+        
+        <!-- Drag and drop zone for Excel files -->
+        <div class="drag-drop-zone" id="excelDragDropArea" onclick="document.getElementById('excelFileSelector').click()" style="margin-bottom: 20px; border: 2px dashed #3b82f6; background: rgba(59, 130, 246, 0.02); cursor: pointer; padding: 40px 20px; border-radius: 20px; text-align: center; transition: all 0.3s;">
+          <span class="drag-drop-icon" style="font-size: 44px; display: block; margin-bottom: 12px;">📊</span>
+          <span class="drag-drop-title" style="font-weight: 800; color: #1e293b; display: block; margin-bottom: 5px; font-size: 16px;">คลิก หรือ ลากไฟล์ Excel (INS / AS) มาวางที่นี่</span>
+          <span class="drag-drop-desc" style="font-size: 13px; color: #64748b;">รองรับไฟล์เฉพาะประเภท .xlsx หรือ .xls (นำเข้าได้ครั้งละหลายไฟล์)</span>
+        </div>
+        <input type="file" id="excelFileSelector" accept=".xlsx, .xls" multiple onchange="handleExcelImport(event)" style="display: none;">
+        
+        <!-- Display parsed results and status -->
+        <div id="excelImportResult" style="display: none; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+          <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 15px; color: #1e293b;">📋 ผลการวิเคราะห์ไฟล์นำเข้า</h4>
+          <div id="excelImportFilesList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;"></div>
+          
+          <div style="display: flex; gap: 12px;">
+            <button type="button" id="btnConfirmImport" onclick="confirmExcelImport()" class="submit-button" style="flex: 2; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); box-shadow: 0 4px 15px rgba(59,130,246,0.3);">
+              🚀 ยืนยันจ่ายงานลงระบบฐานข้อมูล
+            </button>
+            <button type="button" onclick="cancelExcelImport()" class="submit-button" style="flex: 1; background: #94a3b8; box-shadow: none;">
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table of currently assigned jobs for today/recent -->
+      <div class="settings-card" style="margin-top: 25px; background: white; padding: 25px; border-radius: 28px; border: 1px solid #f1f5f9; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap: wrap; gap: 10px;">
+          <h3 style="font-size: 18px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 8px; margin: 0;">
+            รายการ
+          </h3>
+          <div class="table-actions-toolbar" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            
+            <!-- Expandable Search -->
+            <div class="expandable-search-container" onclick="this.querySelector('input').focus()" style="margin-right:4px;">
+              <div class="search-icon-wrapper">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </div>
+              <input type="text" id="adminJobsSearch" placeholder="ค้นหารหัสงาน, ชื่อลูกค้า, ช่าง..." oninput="filterAdminJobs()">
+            </div>
+
+            <!-- Filter Button -->
+            <div style="position:relative;">
+              <div class="filter-btn-pill" style="padding: 0; width: 34px; justify-content: center;" onclick="document.getElementById('adminFilterDropdown').classList.toggle('show')">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+              </div>
+
+              <!-- The Dropdown Menu -->
+              <div id="adminFilterDropdown" class="filter-dropdown-menu" style="top: calc(100% + 8px); right: 0; left: auto; width: 280px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="#3b82f6" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
+                    <span style="font-weight: 800; color: #1e293b; font-size: 14px;">ตัวเลือกตัวกรอง</span>
+                  </div>
+                  <button onclick="document.getElementById('adminFilterDropdown').classList.remove('show')" style="background:none; border:none; font-size: 20px; cursor:pointer; color: #94a3b8; line-height: 1;">&times;</button>
+                </div>
+                
+                <div style="border-top: 1px solid #f1f5f9; margin-bottom: 15px; margin-top: -5px;"></div>
+
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <label style="font-size:12px; font-weight:800; color:#64748b;">สถานะงาน (Status)</label>
+                  <select id="adminStatusFilter" class="select-field" style="border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; margin-bottom: 0; padding: 10px 14px; font-size: 13px;" onchange="filterAdminJobs()">
+                    <option value="">ทุกสถานะ (All Statuses)</option>
+                    <option value="pending">ค้างส่ง</option>
+                    <option value="submitted">ส่งแล้ว</option>
+                  </select>
+                </div>
+
+                <div style="display:flex; gap: 8px; margin-top: 5px;">
+                  <button onclick="document.getElementById('adminStatusFilter').value=''; document.getElementById('adminJobsSearch').value=''; filterAdminJobs();" style="flex: 1; padding:12px; background:#f1f5f9; color:#475569; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">🔄 ล้างค่า</button>
+                  <button onclick="document.getElementById('adminFilterDropdown').classList.remove('show')" style="flex: 2; padding:12px; background:linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color:white; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">นำไปใช้</button>
+                </div>
+              </div>
+            </div>
+            <!-- Actions Options Button -->
+            <div style="position:relative;">
+              <div class="filter-btn-pill" style="padding: 0; background: #ffffff; border: 1px solid #e2e8f0; color: #475569; width: 34px; justify-content: center;" onclick="document.getElementById('adminActionsDropdown').classList.toggle('show')">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="1"></circle>
+                  <circle cx="12" cy="5" r="1"></circle>
+                  <circle cx="12" cy="19" r="1"></circle>
+                </svg>
+              </div>
+
+              <!-- Options Dropdown -->
+              <div id="adminActionsDropdown" class="filter-dropdown-menu" style="top: calc(100% + 8px); right: 0; left: auto; width: 200px; padding: 8px; z-index: 100;">
+                
+                <button type="button" onclick="loadAssignedJobsForAdmin(); document.getElementById('adminActionsDropdown').classList.remove('show');" style="width:100%; text-align:left; background:none; border:none; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:#475569; display:flex; align-items:center; gap:10px; border-radius:8px; transition: background 0.2s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='none'">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                  รีเฟรชตาราง
+                </button>
+                
+                <div style="border-top: 1px solid #f1f5f9; margin: 6px 0;"></div>
+                
+                <!-- Delete Selected -->
+                <button type="button" id="btnDeleteSelectedJobs" onclick="deleteSelectedAssignedJobs(); document.getElementById('adminActionsDropdown').classList.remove('show');" style="width:100%; text-align:left; background:none; border:none; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:#ef4444; display:none; align-items:center; gap:10px; border-radius:8px; transition: background 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  ลบที่เลือก (<span id="deleteSelectedCount">0</span>)
+                </button>
+
+                <!-- Delete All -->
+                <button type="button" id="btnDeleteAllJobs" onclick="deleteAllAssignedJobs(); document.getElementById('adminActionsDropdown').classList.remove('show');" style="width:100%; text-align:left; background:none; border:none; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:#ef4444; display:none; align-items:center; gap:10px; border-radius:8px; transition: background 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor"></line></svg>
+                  ลบทั้งหมด
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <script>
+          // Close dropdowns when clicking outside
+          document.addEventListener('click', function(event) {
+            // Filter Dropdown
+            var filterDropdown = document.getElementById('adminFilterDropdown');
+            var filterBtn = filterDropdown ? filterDropdown.previousElementSibling : null;
+            if (filterDropdown && filterBtn && filterDropdown.classList.contains('show')) {
+              if (!filterDropdown.contains(event.target) && !filterBtn.contains(event.target)) {
+                filterDropdown.classList.remove('show');
+              }
+            }
+            
+            // Actions Dropdown
+            var actionDropdown = document.getElementById('adminActionsDropdown');
+            var actionBtn = actionDropdown ? actionDropdown.previousElementSibling : null;
+            if (actionDropdown && actionBtn && actionDropdown.classList.contains('show')) {
+              if (!actionDropdown.contains(event.target) && !actionBtn.contains(event.target)) {
+                actionDropdown.classList.remove('show');
+              }
+            }
+          });
+
+          // Filter jobs in the admin assign table
+          function filterAdminJobs() {
+            let searchInput = document.getElementById('adminJobsSearch');
+            let statusInput = document.getElementById('adminStatusFilter');
+            if (!searchInput || !statusInput) return;
+            
+            let search = searchInput.value.toLowerCase();
+            let status = statusInput.value;
+            let rows = document.querySelectorAll('.admin-job-row');
+            
+            rows.forEach(row => {
+              let text = row.getAttribute('data-search') || '';
+              let rowStatus = row.getAttribute('data-status') || '';
+              let matchSearch = text.includes(search);
+              let matchStatus = status === "" || rowStatus === status;
+              
+              if (matchSearch && matchStatus) {
+                row.style.display = '';
+              } else {
+                row.style.display = 'none';
+              }
+            });
+          }
+        </script>
+        <div id="adminAssignedJobsTable" style="overflow-x:auto; border-radius: 14px; border: 1px solid #f1f5f9;">
+          <p style="color: #64748b; font-size: 14px; text-align: center; padding: 25px;">กำลังโหลดตารางงาน...</p>
+        </div>
       </div>
     </div>
 
@@ -3219,35 +3738,116 @@
 
           <!-- Panel 6: Branding & Appearance Settings -->
           <div class="settings-panel" id="setPanel-branding">
-            <div class="settings-card">
-              <h3 class="settings-card-title">🎨 ข้อมูลบริษัทและข้อมูลออกรายงาน</h3>
-              <p class="settings-card-desc">ตั้งค่าชื่อองค์กร ข้อความคำโปรยหัวกระดาษของรายงาน PDF/Excel</p>
-              <form id="brandingSettingsForm" onsubmit="saveBrandingSettings(event)">
-                <div class="form-field">
-                  <label class="field-label">ชื่อองค์กร / หัวเรื่องใหญ่ (Company / Title)</label>
-                  <input type="text" id="settingsCompanyName" class="input-field" placeholder="ตัวอย่าง: DSC CHIANGRAI" required>
+            <form id="brandingSettingsForm" onsubmit="saveBrandingSettings(event)">
+              
+              <!-- Card 1: App Info -->
+              <div class="settings-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">ชื่อแอปหลัก (App Name)</label>
+                    <input type="text" id="settingsAppName" class="input-field" value="DSC CRI">
+                  </div>
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">คำอธิบายย่อย (App Subtitle)</label>
+                    <input type="text" id="settingsAppSubtitle" class="input-field" value="Stock">
+                  </div>
                 </div>
-                <div class="form-field">
-                  <label class="field-label">ข้อมูลการติดต่อ / รายละเอียดหัวรายงาน (Address / Description)</label>
-                  <input type="text" id="settingsCompanyDesc" class="input-field" placeholder="ตัวอย่าง: 123/45 ถนนดอยตอง ต.เวียง อ.เมือง จ.เชียงราย" required>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">ลิงก์รูปโลโก้ (Logo URL)</label>
+                    <input type="text" id="settingsAppLogo" class="input-field" placeholder="กรอก URL รูปภาพโลโก้หลัก">
+                  </div>
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">ลิงก์รูป Favicon (Favicon URL)</label>
+                    <input type="text" id="settingsAppFavicon" class="input-field" placeholder="กรอก URL ไฟล์ไอคอนเบราว์เซอร์ (.ico หรือ .png)">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 2: PWA Branding -->
+              <div class="settings-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; margin-bottom: 20px; gap: 15px;">
+                  <div style="width: 40px; height: 40px; background: #f0fdf4; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #22c55e;">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><line x1="8" y1="4" x2="8" y2="20"></line><line x1="16" y1="4" x2="16" y2="20"></line><line x1="4" y1="12" x2="20" y2="12"></line></svg>
+                  </div>
+                  <div>
+                    <h3 class="settings-card-title" style="margin-bottom: 4px;">การตั้งค่า PWA Branding</h3>
+                    <p class="settings-card-desc" style="margin-bottom: 0; font-size: 13px;">แก้ไขสัญลักษณ์ PWA เมื่อทำการติดตั้งบนอุปกรณ์พกพา</p>
+                  </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">ชื่อแอป PWA (PWA Full Name)</label>
+                    <input type="text" id="settingsPwaName" class="input-field" value="Coway Stock">
+                  </div>
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">ชื่อย่อแอป PWA (PWA Short Name)</label>
+                    <input type="text" id="settingsPwaShortName" class="input-field" value="Coway Stock">
+                  </div>
+                </div>
+                <div class="form-field" style="margin-bottom: 0;">
+                  <label class="field-label">คำอธิบาย PWA (PWA Description)</label>
+                  <input type="text" id="settingsPwaDesc" class="input-field" value="Inventory Management System">
+                </div>
+              </div>
+
+              <!-- Card 3: Sidebar Theme -->
+              <div class="settings-card" style="padding: 24px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                  <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="width: 40px; height: 40px; background: #eff6ff; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #3b82f6;">
+                      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path></svg>
+                    </div>
+                    <div>
+                      <h3 class="settings-card-title" style="margin-bottom: 4px;">โทนสีของ Sidebar</h3>
+                      <p class="settings-card-desc" style="margin-bottom: 0; font-size: 13px;">เลือกสีพื้นหลัง สีตัวอักษร และลักษณะสีของปุ่มที่ถูกเลือกในแถบนำทาง</p>
+                    </div>
+                  </div>
+                  <button type="button" class="btn-cancel" style="padding: 6px 12px; font-size: 12px; height: auto;" onclick="resetSidebarColors()">รีเซ็ตเป็นค่าเริ่มต้น</button>
                 </div>
                 
-                <div class="form-field">
-                  <label class="field-label">ธีมสีเน้นของแอป (App Primary Color Theme)</label>
-                  <select id="settingsAppTheme" class="select-field">
-                    <option value="indigo">Sapphire Indigo (ครามคลาสสิก)</option>
-                    <option value="blue">Coway Sky Blue (ฟ้าโควินทร์)</option>
-                    <option value="violet">Amethyst Violet (ม่วงพรีเมียม)</option>
-                    <option value="emerald">Mint Emerald (เขียวมรกต)</option>
-                    <option value="amber">Amber Gold (เหลืองอำพัน)</option>
-                  </select>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">สีพื้นหลัง Sidebar (Background Color)</label>
+                    <div style="display: flex; gap: 10px;">
+                      <input type="color" id="settingsSidebarBgColor" class="input-field" value="#78A3D4" style="flex: 0 0 46px; height: 46px; padding: 4px; cursor: pointer;">
+                      <input type="text" id="settingsSidebarBgText" class="input-field" value="#78A3D4" style="flex: 1;">
+                    </div>
+                  </div>
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">สีตัวอักษร Sidebar (Text Color)</label>
+                    <div style="display: flex; gap: 10px;">
+                      <input type="color" id="settingsSidebarTextColor" class="input-field" value="#ffffff" style="flex: 0 0 46px; height: 46px; padding: 4px; cursor: pointer;">
+                      <input type="text" id="settingsSidebarTextText" class="input-field" value="#ffffff" style="flex: 1;">
+                    </div>
+                  </div>
                 </div>
 
-                <div style="margin-top:20px;">
-                  <button type="submit" class="submit-button">💾 บันทึกข้อมูลแบรนด์</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px;">
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">สีตัวอักษรเมนูที่ถูกเลือก (Active Text Color)</label>
+                    <div style="display: flex; gap: 10px;">
+                      <input type="color" id="settingsSidebarActiveTextColor" class="input-field" value="#fbe5e5" style="flex: 0 0 46px; height: 46px; padding: 4px; cursor: pointer;">
+                      <input type="text" id="settingsSidebarActiveTextText" class="input-field" value="#fbe5e5" style="flex: 1;">
+                    </div>
+                  </div>
+                  <div class="form-field" style="margin-bottom: 0;">
+                    <label class="field-label">สีพื้นหลังเมนูที่ถูกเลือก (Active Background)</label>
+                    <input type="text" id="settingsSidebarActiveBgText" class="input-field" value="rgba(255, 255, 255, 0.1)">
+                  </div>
                 </div>
-              </form>
-            </div>
+
+                <div class="form-field" style="margin-bottom: 0;">
+                  <label class="field-label">สีพื้นหลังขณะเอาเมาส์ชี้เมนู (Hover Background)</label>
+                  <input type="text" id="settingsSidebarHoverBgText" class="input-field" value="rgba(255, 255, 255, 0.05)">
+                </div>
+
+              </div>
+
+              <div style="margin-top:20px; text-align: right;">
+                <button type="submit" class="submit-button" style="display: inline-block; width: auto; padding: 12px 30px;">💾 บันทึกข้อมูลแบรนด์</button>
+              </div>
+            </form>
           </div>
 
         </div>
@@ -3279,15 +3879,14 @@
       <div class="nav-dot"></div>
     </div>
 
-    <div class="nav-fab-wrapper" id="nav-submit" onclick="switchTab('submit')">
-      <div class="fab-button" id="nav-submit-fab">
-        <svg viewBox="0 0 24 24" width="30" height="30" stroke="currentColor" stroke-width="3" fill="none"
-          stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      </div>
-      <div class="nav-label" style="text-align: center; margin-top: 5px;">ส่งงาน</div>
+    <div class="nav-item" id="nav-submit" onclick="switchTab('submit')">
+      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <line x1="5" y1="12" x2="19" y2="12"></line>
+      </svg>
+      <span class="nav-label">ส่งงาน</span>
+      <div class="nav-dot"></div>
     </div>
 
 
@@ -3298,6 +3897,20 @@
         <circle cx="12" cy="7" r="4"></circle>
       </svg>
       <span class="nav-label">โปรไฟล์</span>
+      <div class="nav-dot"></div>
+    </div>
+
+    <!-- Admin-only Import Jobs Nav Item -->
+    <div class="nav-item" id="nav-import-jobs" onclick="switchTab('import-jobs')" style="display:none;">
+      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+      </svg>
+      <span class="nav-label">จ่ายงาน</span>
       <div class="nav-dot"></div>
     </div>
 
@@ -3314,7 +3927,7 @@
 
 
     <!-- Hamburger Menu (Mobile Only) -->
-    <div class="nav-item mobile-menu-icon" onclick="toggleMenuModal()">
+    <div id="hamburgerMenuItem" class="nav-item mobile-menu-icon" onclick="toggleMenuModal()">
       <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"
         stroke-linecap="round" stroke-linejoin="round">
         <line x1="4" y1="12" x2="20" y2="12"></line>
@@ -3414,6 +4027,20 @@
     let CFG_COMPANY_DESC = localStorage.getItem('cfg_company_desc') || '123/45 ถนนดอยตอง ต.เวียง อ.เมือง จ.เชียงราย';
     let CFG_APP_THEME = localStorage.getItem('cfg_app_theme') || 'indigo';
 
+    // UI & Branding Customization
+    let CFG_APP_NAME = localStorage.getItem('cfg_app_name') || 'DSC CRI';
+    let CFG_APP_SUBTITLE = localStorage.getItem('cfg_app_subtitle') || 'Stock';
+    let CFG_APP_LOGO = localStorage.getItem('cfg_app_logo') || '';
+    let CFG_APP_FAVICON = localStorage.getItem('cfg_app_favicon') || '';
+    let CFG_PWA_NAME = localStorage.getItem('cfg_pwa_name') || 'Coway Stock';
+    let CFG_PWA_SHORT = localStorage.getItem('cfg_pwa_short') || 'Coway Stock';
+    let CFG_PWA_DESC = localStorage.getItem('cfg_pwa_desc') || 'Inventory Management System';
+    let CFG_SIDEBAR_BG = localStorage.getItem('cfg_sidebar_bg') || '#78a3d4';
+    let CFG_SIDEBAR_TEXT = localStorage.getItem('cfg_sidebar_text') || '#ffffff';
+    let CFG_SIDEBAR_ACTIVE_TEXT = localStorage.getItem('cfg_sidebar_active_text') || '#fbe5e5';
+    let CFG_SIDEBAR_ACTIVE_BG = localStorage.getItem('cfg_sidebar_active_bg') || 'rgba(255, 255, 255, 0.1)';
+    let CFG_SIDEBAR_HOVER_BG = localStorage.getItem('cfg_sidebar_hover_bg') || 'rgba(255, 255, 255, 0.05)';
+
     function initializeDatabase() {
       if (FIREBASE_CONFIG) {
         try {
@@ -3468,6 +4095,19 @@
           if (data.company_desc !== undefined) CFG_COMPANY_DESC = data.company_desc;
           if (data.app_theme !== undefined) CFG_APP_THEME = data.app_theme;
 
+          if (data.app_name !== undefined) CFG_APP_NAME = data.app_name;
+          if (data.app_subtitle !== undefined) CFG_APP_SUBTITLE = data.app_subtitle;
+          if (data.app_logo !== undefined) CFG_APP_LOGO = data.app_logo;
+          if (data.app_favicon !== undefined) CFG_APP_FAVICON = data.app_favicon;
+          if (data.pwa_name !== undefined) CFG_PWA_NAME = data.pwa_name;
+          if (data.pwa_short !== undefined) CFG_PWA_SHORT = data.pwa_short;
+          if (data.pwa_desc !== undefined) CFG_PWA_DESC = data.pwa_desc;
+          if (data.sidebar_bg !== undefined) CFG_SIDEBAR_BG = data.sidebar_bg;
+          if (data.sidebar_text !== undefined) CFG_SIDEBAR_TEXT = data.sidebar_text;
+          if (data.sidebar_active_text !== undefined) CFG_SIDEBAR_ACTIVE_TEXT = data.sidebar_active_text;
+          if (data.sidebar_active_bg !== undefined) CFG_SIDEBAR_ACTIVE_BG = data.sidebar_active_bg;
+          if (data.sidebar_hover_bg !== undefined) CFG_SIDEBAR_HOVER_BG = data.sidebar_hover_bg;
+
           console.log("System settings loaded from Firestore.");
           // บันทึกลงแคชเครื่อง
           localStorage.setItem('cfg_system_settings_cache', JSON.stringify(data));
@@ -3500,6 +4140,19 @@
           if (data.company_name !== undefined) CFG_COMPANY_NAME = data.company_name;
           if (data.company_desc !== undefined) CFG_COMPANY_DESC = data.company_desc;
           if (data.app_theme !== undefined) CFG_APP_THEME = data.app_theme;
+          
+          if (data.app_name !== undefined) CFG_APP_NAME = data.app_name;
+          if (data.app_subtitle !== undefined) CFG_APP_SUBTITLE = data.app_subtitle;
+          if (data.app_logo !== undefined) CFG_APP_LOGO = data.app_logo;
+          if (data.app_favicon !== undefined) CFG_APP_FAVICON = data.app_favicon;
+          if (data.pwa_name !== undefined) CFG_PWA_NAME = data.pwa_name;
+          if (data.pwa_short !== undefined) CFG_PWA_SHORT = data.pwa_short;
+          if (data.pwa_desc !== undefined) CFG_PWA_DESC = data.pwa_desc;
+          if (data.sidebar_bg !== undefined) CFG_SIDEBAR_BG = data.sidebar_bg;
+          if (data.sidebar_text !== undefined) CFG_SIDEBAR_TEXT = data.sidebar_text;
+          if (data.sidebar_active_text !== undefined) CFG_SIDEBAR_ACTIVE_TEXT = data.sidebar_active_text;
+          if (data.sidebar_active_bg !== undefined) CFG_SIDEBAR_ACTIVE_BG = data.sidebar_active_bg;
+          if (data.sidebar_hover_bg !== undefined) CFG_SIDEBAR_HOVER_BG = data.sidebar_hover_bg;
           console.log("System settings loaded from local storage cache.");
           applyAppTheme(CFG_APP_THEME);
           applyBrandingToUI();
@@ -3527,7 +4180,19 @@
           max_size_video: CFG_MAX_SIZE_VIDEO,
           company_name: CFG_COMPANY_NAME,
           company_desc: CFG_COMPANY_DESC,
-          app_theme: CFG_APP_THEME
+          app_theme: CFG_APP_THEME,
+          app_name: CFG_APP_NAME,
+          app_subtitle: CFG_APP_SUBTITLE,
+          app_logo: CFG_APP_LOGO,
+          app_favicon: CFG_APP_FAVICON,
+          pwa_name: CFG_PWA_NAME,
+          pwa_short: CFG_PWA_SHORT,
+          pwa_desc: CFG_PWA_DESC,
+          sidebar_bg: CFG_SIDEBAR_BG,
+          sidebar_text: CFG_SIDEBAR_TEXT,
+          sidebar_active_text: CFG_SIDEBAR_ACTIVE_TEXT,
+          sidebar_active_bg: CFG_SIDEBAR_ACTIVE_BG,
+          sidebar_hover_bg: CFG_SIDEBAR_HOVER_BG
         }, { merge: true });
         console.log("System settings saved to Firestore.");
       } catch (err) {
@@ -3633,10 +4298,52 @@
     }
 
     function applyBrandingToUI() {
-      const menuCompanySub = document.getElementById('brandingCompanySub');
-      if (menuCompanySub) {
-        menuCompanySub.textContent = CFG_COMPANY_NAME;
+      // 1. App Info Updates
+      if (CFG_APP_NAME) document.title = CFG_APP_NAME;
+      if (CFG_APP_FAVICON) {
+        let link = document.querySelector("link[rel~='icon']");
+        if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+        }
+        link.href = CFG_APP_FAVICON;
       }
+
+      // 2. Dynamic Sidebar CSS
+      let sidebarStyle = document.getElementById('dynamicSidebarStyle');
+      if (!sidebarStyle) {
+        sidebarStyle = document.createElement('style');
+        sidebarStyle.id = 'dynamicSidebarStyle';
+        document.head.appendChild(sidebarStyle);
+      }
+      sidebarStyle.innerHTML = `
+        @media (min-width: 1024px) {
+          .bottom-nav { background: ${CFG_SIDEBAR_BG} !important; }
+          .nav-item .nav-label, .nav-item svg { color: ${CFG_SIDEBAR_TEXT} !important; }
+          .nav-item.active { background: ${CFG_SIDEBAR_ACTIVE_BG} !important; }
+          .nav-item.active .nav-label, .nav-item.active svg { color: ${CFG_SIDEBAR_ACTIVE_TEXT} !important; }
+          .nav-item:hover { background: ${CFG_SIDEBAR_HOVER_BG} !important; }
+        }
+      `;
+
+      // 3. Populate Form Fields (if available)
+      const el = (id, val) => { const e = document.getElementById(id); if (e) e.value = val || ''; };
+      el('settingsAppName', CFG_APP_NAME);
+      el('settingsAppSubtitle', CFG_APP_SUBTITLE);
+      el('settingsAppLogo', CFG_APP_LOGO);
+      el('settingsAppFavicon', CFG_APP_FAVICON);
+      el('settingsPwaName', CFG_PWA_NAME);
+      el('settingsPwaShortName', CFG_PWA_SHORT);
+      el('settingsPwaDesc', CFG_PWA_DESC);
+      el('settingsSidebarBgColor', CFG_SIDEBAR_BG);
+      el('settingsSidebarBgText', CFG_SIDEBAR_BG);
+      el('settingsSidebarTextColor', CFG_SIDEBAR_TEXT);
+      el('settingsSidebarTextText', CFG_SIDEBAR_TEXT);
+      el('settingsSidebarActiveTextColor', CFG_SIDEBAR_ACTIVE_TEXT);
+      el('settingsSidebarActiveTextText', CFG_SIDEBAR_ACTIVE_TEXT);
+      el('settingsSidebarActiveBgText', CFG_SIDEBAR_ACTIVE_BG);
+      el('settingsSidebarHoverBgText', CFG_SIDEBAR_HOVER_BG);
     }
 
     function getParentFolderId(category) {
@@ -3651,6 +4358,19 @@
     // Authentication & Core Logic
     // ==========================================
     document.addEventListener("DOMContentLoaded", async () => {
+      // Sync color pickers with text inputs for Branding Settings
+      const syncColor = (colorId, textId) => {
+        const c = document.getElementById(colorId);
+        const t = document.getElementById(textId);
+        if (c && t) {
+          c.addEventListener('input', (e) => t.value = e.target.value);
+          t.addEventListener('input', (e) => c.value = e.target.value);
+        }
+      };
+      syncColor('settingsSidebarBgColor', 'settingsSidebarBgText');
+      syncColor('settingsSidebarTextColor', 'settingsSidebarTextText');
+      syncColor('settingsSidebarActiveTextColor', 'settingsSidebarActiveTextText');
+
       showGlobalLoading("กำลังเริ่มต้นระบบ...");
       applyAppTheme(CFG_APP_THEME);
       applyBrandingToUI();
@@ -3659,6 +4379,8 @@
       initLiffAndSession();
       setupTabs();
       setupFileInputs();
+      setupAssignedJobForm();
+      initScrollAutoHideNav();
     });
 
     async function initLiffAndSession() {
@@ -3719,6 +4441,10 @@
       document.getElementById('loginUI').style.display = 'none';
       document.getElementById('mainAppUI').style.display = 'block';
       document.body.classList.add('main-active'); // แสดง Bottom Nav
+      const bottomNav = document.getElementById('bottomNav');
+      if (bottomNav) {
+        bottomNav.style.transform = 'translate(-50%, 0)';
+      }
 
       // Google Drive Setup
       await loadGDrivePrefs();
@@ -3744,10 +4470,53 @@
       document.getElementById('menuRoleBadge').textContent = badgeText;
       document.getElementById('menuAvatar').innerHTML = initial + '<div class="status-dot"></div>';
 
-      // Setup Settings Nav Visibility based on role
+      // Setup Settings & Profile Nav Visibility based on role
       const navSettings = document.getElementById('nav-settings');
       if (navSettings) {
         navSettings.style.display = (currentUser && currentUser.role === 'admin') ? 'flex' : 'none';
+      }
+
+      const navUser = document.getElementById('nav-user');
+      if (navUser) {
+        navUser.style.display = (currentUser && currentUser.role === 'admin') ? 'none' : 'flex';
+      }
+
+      const navImportJobs = document.getElementById('nav-import-jobs');
+      if (navImportJobs) {
+        navImportJobs.style.display = (currentUser && currentUser.role === 'admin') ? 'flex' : 'none';
+      }
+
+      // Show/Hide admin-only links in Hamburger drawer
+      const drawerAdminLinks = document.getElementById('drawerAdminLinks');
+      if (drawerAdminLinks) {
+        drawerAdminLinks.style.display = (currentUser && currentUser.role === 'admin') ? 'block' : 'none';
+      }
+
+      // Hamburger menu icon visibility (visible for admin on mobile, hidden on desktop via CSS)
+      const mobileMenuIcon = document.querySelector('.mobile-menu-icon');
+      if (mobileMenuIcon) {
+        if (currentUser && currentUser.role === 'admin') {
+          mobileMenuIcon.style.display = 'flex';
+        } else {
+          mobileMenuIcon.style.display = 'none';
+        }
+      }
+
+      // Setup Manual Submission Visibility based on role
+      const manualHeader = document.getElementById('manualSubmissionHeader');
+      const manualCard = document.getElementById('manualSubmissionCard');
+      if (manualHeader && manualCard) {
+        if (currentUser && currentUser.role === 'staff') {
+          manualHeader.style.display = 'none';
+          manualCard.style.display = 'none';
+        } else {
+          manualHeader.style.display = 'flex';
+          manualCard.style.display = 'block';
+        }
+      }
+
+      if (currentUser && currentUser.role === 'admin') {
+        initExcelDragDrop();
       }
 
       // Setup Initial Tab
@@ -3799,10 +4568,18 @@
 
     function switchTab(tabId) {
       console.log("Switching to tab:", tabId);
+      closeMenuModal(); // Ensure mobile menu overlay closes on navigation
 
       // Access control: only admins can view system settings
       if (tabId === 'settings' && (!currentUser || currentUser.role !== 'admin')) {
         showToast("คุณไม่มีสิทธิ์เข้าถึงหน้าตั้งค่าระบบ", "error");
+        switchTab('dashboard');
+        return;
+      }
+
+      // Access control: only admins can view import-jobs
+      if (tabId === 'import-jobs' && (!currentUser || currentUser.role !== 'admin')) {
+        showToast("คุณไม่มีสิทธิ์เข้าถึงหน้านำเข้าคิวงาน", "error");
         switchTab('dashboard');
         return;
       }
@@ -3841,16 +4618,29 @@
         setupStaffProfile();
       }
 
+      if (tabId === 'submit') {
+        loadAssignedJobsForTech();
+      }
+
+      if (tabId === 'import-jobs') {
+        loadAssignedJobsForAdmin();
+      }
+
       if (tabId === 'settings') {
         loadSettingsToForm();
         switchSettingsPanel('database');
+      }
+
+      const bottomNav = document.getElementById('bottomNav');
+      if (bottomNav) {
+        bottomNav.style.transform = 'translate(-50%, 0)';
       }
 
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // ==========================================
-    // Hamburger Menu Modal Toggle
+    // Hamburger Menu Modal Toggle & Nav
     // ==========================================
     function toggleMenuModal() {
       const modal = document.getElementById('menuModal');
@@ -3859,6 +4649,38 @@
 
     function closeMenuModal(e) {
       document.getElementById('menuModal').classList.remove('show');
+    }
+
+    function handleDrawerNav(tabId) {
+      switchTab(tabId);
+      toggleMenuModal();
+    }
+
+    // ==========================================
+    // Scroll Auto-Hide Navigation Bar
+    // ==========================================
+    function initScrollAutoHideNav() {
+      let lastScrollY = window.scrollY;
+      window.addEventListener('scroll', () => {
+        // Only run if the app is active and on mobile screens
+        if (!document.body.classList.contains('main-active') || window.innerWidth >= 768) return;
+
+        const bottomNav = document.getElementById('bottomNav');
+        if (!bottomNav) return;
+
+        const currentScrollY = window.scrollY;
+
+        // Hide when scrolling down, show when scrolling up
+        if (currentScrollY > lastScrollY && currentScrollY > 50) {
+          bottomNav.style.transform = 'translate(-50%, 150%)';
+          bottomNav.style.opacity = '0';
+        } else {
+          bottomNav.style.transform = 'translate(-50%, 0)';
+          bottomNav.style.opacity = '1';
+        }
+
+        lastScrollY = currentScrollY;
+      }, { passive: true });
     }
 
     // ==========================================
@@ -3959,8 +4781,22 @@
         }
 
         if (action === 'deleteData') {
-          await firebaseDb.collection('submissions').doc(payload.timestamp).delete();
-          return { success: true, message: "ลบข้อมูลประวัติงานสำเร็จแล้วครับ" };
+          const docRef = firebaseDb.collection('submissions').doc(payload.timestamp);
+          const docSnap = await docRef.get();
+          if (docSnap.exists) {
+            const data = docSnap.data();
+            if (data.job_id) {
+              await firebaseDb.collection('assigned_jobs').doc(data.job_id).update({
+                status: 'pending',
+                submission_date: '-',
+                file_url: '-',
+                video_url: '-',
+                note: '-'
+              }).catch(e => console.warn("Failed to revert assigned job status", e));
+            }
+          }
+          await docRef.delete();
+          return { success: true, message: "ลบข้อมูลประวัติงานสำเร็จและรีเซ็ตสถานะงานจ่ายเรียบร้อยแล้วครับ" };
         }
 
         throw new Error("ไม่รองรับการทำงานคำสั่งนี้บนระบบ Firebase: " + action);
@@ -4358,22 +5194,27 @@
       return createData.id;
     }
 
-    async function getOrCreateTargetUploadFolder(accessToken, category, fileName) {
+    async function getOrCreateTargetUploadFolder(accessToken, category, fileName, subWorkType = "") {
       // 1. Get or create root "Upfile Data Center" folder
       const rootFolderName = 'Upfile Data Center';
       const rootFolderId = await getOrCreateFolder(accessToken, rootFolderName);
       
       // 2. Get or create category folder inside "Upfile Data Center"
-      const categoryFolderId = await getOrCreateFolderWithParent(accessToken, category, rootFolderId);
+      let currentParentId = await getOrCreateFolderWithParent(accessToken, category, rootFolderId);
       
-      // 3. Get or create subfolder inside category folder named after the file (without extension)
+      // 2b. If category is "งานถอดติดตั้ง (AS)" and subWorkType is specified, create/get that subFolder
+      if (category === 'งานถอดติดตั้ง (AS)' && subWorkType) {
+        currentParentId = await getOrCreateFolderWithParent(accessToken, subWorkType, currentParentId);
+      }
+      
+      // 3. Get or create subfolder inside parent folder named after the file (without extension)
       const folderName = fileName.replace(/\.[^/.]+$/, "");
-      const targetFolderId = await getOrCreateFolderWithParent(accessToken, folderName, categoryFolderId);
+      const targetFolderId = await getOrCreateFolderWithParent(accessToken, folderName, currentParentId);
       
       return targetFolderId;
     }
 
-    async function deleteTargetUploadFolder(accessToken, category, fileName) {
+    async function deleteTargetUploadFolder(accessToken, category, fileName, subWorkType = "") {
       try {
         // 1. Find root "Upfile Data Center" folder
         const rootQuery = `mimeType='application/vnd.google-apps.folder' and name='Upfile Data Center' and trashed=false`;
@@ -4395,11 +5236,26 @@
         if (!catSearchRes.ok) return;
         const catSearchData = await catSearchRes.json();
         if (!catSearchData.files || catSearchData.files.length === 0) return;
-        const categoryFolderId = catSearchData.files[0].id;
+        let currentParentId = catSearchData.files[0].id;
+
+        // 2b. If category is "งานถอดติดตั้ง (AS)" and subWorkType is specified
+        if (category === 'งานถอดติดตั้ง (AS)' && subWorkType) {
+          const subQuery = `mimeType='application/vnd.google-apps.folder' and name='${subWorkType}' and '${currentParentId}' in parents and trashed=false`;
+          const subSearchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(subQuery)}&fields=files(id)`;
+          const subSearchRes = await fetch(subSearchUrl, {
+            headers: { 'Authorization': 'Bearer ' + accessToken }
+          });
+          if (subSearchRes.ok) {
+            const subSearchData = await subSearchRes.json();
+            if (subSearchData.files && subSearchData.files.length > 0) {
+              currentParentId = subSearchData.files[0].id;
+            }
+          }
+        }
 
         // 3. Find subfolder inside category folder named after the file (without extension)
         const folderName = fileName.replace(/\.[^/.]+$/, "");
-        const folderQuery = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${categoryFolderId}' in parents and trashed=false`;
+        const folderQuery = `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and '${currentParentId}' in parents and trashed=false`;
         const folderSearchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(folderQuery)}&fields=files(id)`;
         const folderSearchRes = await fetch(folderSearchUrl, {
           headers: { 'Authorization': 'Bearer ' + accessToken }
@@ -4426,10 +5282,11 @@
     }
 
     // Direct Google Drive Upload (Metadata + Media content)
-    async function directUploadToGDrive(accessToken, file, parentFolderId) {
+    async function directUploadToGDrive(accessToken, file, parentFolderId, customName = "") {
+      const uploadName = customName || file.name;
       const metaBody = {
-        name: file.name,
-        mimeType: file.type || getMimeTypeFromExt(file.name)
+        name: uploadName,
+        mimeType: file.type || getMimeTypeFromExt(uploadName)
       };
       if (parentFolderId) {
         metaBody.parents = [parentFolderId];
@@ -4456,7 +5313,7 @@
         method: 'PATCH',
         headers: {
           'Authorization': 'Bearer ' + accessToken,
-          'Content-Type': file.type || getMimeTypeFromExt(file.name)
+          'Content-Type': file.type || getMimeTypeFromExt(uploadName)
         },
         body: file
       });
@@ -4757,14 +5614,22 @@
           resolve(false);
         };
 
+        const handleOverlayClick = (e) => {
+          if (e.target === modal) {
+            handleCancel();
+          }
+        };
+
         const cleanup = () => {
           modal.classList.remove('show');
           btnOk.removeEventListener('click', handleOk);
           btnCancel.removeEventListener('click', handleCancel);
+          modal.removeEventListener('click', handleOverlayClick);
         };
 
         btnOk.addEventListener('click', handleOk);
         btnCancel.addEventListener('click', handleCancel);
+        modal.addEventListener('click', handleOverlayClick);
 
         modal.classList.add('show');
       });
@@ -5526,7 +6391,7 @@
           const accessToken = await getValidAccessToken();
           if (accessToken) {
             showProgressModal("กำลังลบโฟลเดอร์บน Google Drive...", item.file_name, "🗑️");
-            await deleteTargetUploadFolder(accessToken, item.work_type, item.file_name);
+            await deleteTargetUploadFolder(accessToken, item.work_type, item.file_name, item.sub_work_type || "");
           } else {
             console.warn("Google Drive Access Token expired, skipping GDrive folder deletion.");
             showToast("สิทธิ์ Google Drive หมดอายุ ไม่สามารถลบไฟล์บน Drive อัตโนมัติได้", "warning");
@@ -5627,21 +6492,50 @@
       showToast("บันทึกการตั้งค่าการจัดเก็บไฟล์สำเร็จเรียบร้อย! 😊");
     }
 
+    function resetSidebarColors() {
+      document.getElementById('settingsSidebarBgColor').value = '#78a3d4';
+      document.getElementById('settingsSidebarBgText').value = '#78a3d4';
+      document.getElementById('settingsSidebarTextColor').value = '#ffffff';
+      document.getElementById('settingsSidebarTextText').value = '#ffffff';
+      document.getElementById('settingsSidebarActiveTextColor').value = '#fbe5e5';
+      document.getElementById('settingsSidebarActiveTextText').value = '#fbe5e5';
+      document.getElementById('settingsSidebarActiveBgText').value = 'rgba(255, 255, 255, 0.1)';
+      document.getElementById('settingsSidebarHoverBgText').value = 'rgba(255, 255, 255, 0.05)';
+    }
+
     async function saveBrandingSettings(e) {
       e.preventDefault();
-      const name = document.getElementById('settingsCompanyName').value.trim();
-      const desc = document.getElementById('settingsCompanyDesc').value.trim();
-      const theme = document.getElementById('settingsAppTheme').value;
       
-      localStorage.setItem('cfg_company_name', name);
-      localStorage.setItem('cfg_company_desc', desc);
-      localStorage.setItem('cfg_app_theme', theme);
+      const v = (id) => document.getElementById(id).value.trim();
       
-      CFG_COMPANY_NAME = name;
-      CFG_COMPANY_DESC = desc;
-      CFG_APP_THEME = theme;
+      CFG_APP_NAME = v('settingsAppName');
+      CFG_APP_SUBTITLE = v('settingsAppSubtitle');
+      CFG_APP_LOGO = v('settingsAppLogo');
+      CFG_APP_FAVICON = v('settingsAppFavicon');
       
-      applyAppTheme(theme);
+      CFG_PWA_NAME = v('settingsPwaName');
+      CFG_PWA_SHORT = v('settingsPwaShortName');
+      CFG_PWA_DESC = v('settingsPwaDesc');
+      
+      CFG_SIDEBAR_BG = v('settingsSidebarBgText');
+      CFG_SIDEBAR_TEXT = v('settingsSidebarTextText');
+      CFG_SIDEBAR_ACTIVE_TEXT = v('settingsSidebarActiveTextText');
+      CFG_SIDEBAR_ACTIVE_BG = v('settingsSidebarActiveBgText');
+      CFG_SIDEBAR_HOVER_BG = v('settingsSidebarHoverBgText');
+      
+      localStorage.setItem('cfg_app_name', CFG_APP_NAME);
+      localStorage.setItem('cfg_app_subtitle', CFG_APP_SUBTITLE);
+      localStorage.setItem('cfg_app_logo', CFG_APP_LOGO);
+      localStorage.setItem('cfg_app_favicon', CFG_APP_FAVICON);
+      localStorage.setItem('cfg_pwa_name', CFG_PWA_NAME);
+      localStorage.setItem('cfg_pwa_short', CFG_PWA_SHORT);
+      localStorage.setItem('cfg_pwa_desc', CFG_PWA_DESC);
+      localStorage.setItem('cfg_sidebar_bg', CFG_SIDEBAR_BG);
+      localStorage.setItem('cfg_sidebar_text', CFG_SIDEBAR_TEXT);
+      localStorage.setItem('cfg_sidebar_active_text', CFG_SIDEBAR_ACTIVE_TEXT);
+      localStorage.setItem('cfg_sidebar_active_bg', CFG_SIDEBAR_ACTIVE_BG);
+      localStorage.setItem('cfg_sidebar_hover_bg', CFG_SIDEBAR_HOVER_BG);
+      
       applyBrandingToUI();
       
       showGlobalLoading("กำลังบันทึกข้อมูลแบรนด์ลงระบบคลาวด์...");
@@ -6498,6 +7392,1019 @@
         });
       }, 300);
     }
+
+    // ==========================================
+    // Daily Assigned Jobs & Excel Import
+    // ==========================================
+    let tempParsedJobs = [];
+    let currentModalJob = null;
+
+    function getEnglishNameSuffix(nameStr) {
+      if (!nameStr) return "";
+      const parts = nameStr.split("-");
+      return parts[parts.length - 1].trim().toLowerCase();
+    }
+
+    function findMatchingTechnician(excelCtName, dbUsers) {
+      const excelSuffix = getEnglishNameSuffix(excelCtName);
+      if (!excelSuffix) return null;
+      
+      for (const user of dbUsers) {
+        if (user.role !== 'staff') continue;
+        const userSuffix = getEnglishNameSuffix(user.name);
+        if (userSuffix && userSuffix === excelSuffix) {
+          return user.name;
+        }
+      }
+      return null;
+    }
+
+    function initExcelDragDrop() {
+      const dropZone = document.getElementById('excelDragDropArea');
+      if (!dropZone) return;
+
+      // Prevent default drag behaviors
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      // Add/remove hover styles
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('dragover'), false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('dragover'), false);
+      });
+
+      // Handle dropped files
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+          processExcelFiles(files);
+        }
+      }, false);
+    }
+
+    function handleExcelImport(event) {
+      const files = event.target.files;
+      if (files.length > 0) {
+        processExcelFiles(files);
+      }
+    }
+
+    function processExcelFiles(files) {
+      tempParsedJobs = [];
+      const fileListDiv = document.getElementById('excelImportFilesList');
+      fileListDiv.innerHTML = '';
+      document.getElementById('excelImportResult').style.display = 'block';
+      
+      let filesProcessed = 0;
+      const totalFiles = files.length;
+      
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (rows.length === 0) {
+              addFileResultItem(file.name, "error", "ไม่พบข้อมูลในไฟล์ Excel");
+              checkAllProcessed();
+              return;
+            }
+            
+            const headers = rows[0].map(h => String(h || "").trim().toLowerCase());
+            let fileType = "";
+            
+            const hasInstallNo = headers.some(h => h.includes("install no"));
+            const hasAsNo = headers.some(h => h.includes("as no") || h.includes("result no"));
+            
+            if (hasInstallNo) {
+              fileType = "INS";
+            } else if (hasAsNo) {
+              fileType = "AS";
+            } else {
+              if (headers.includes("install no") || headers.includes("install_no")) {
+                fileType = "INS";
+              } else if (headers.includes("as no.") || headers.includes("as_no") || headers.includes("result no")) {
+                fileType = "AS";
+              } else {
+                if (file.name.toLowerCase().includes("install")) {
+                  fileType = "INS";
+                } else if (file.name.toLowerCase().includes("as")) {
+                  fileType = "AS";
+                } else {
+                  addFileResultItem(file.name, "error", "ไม่สามารถระบุประเภทตารางงานได้ (ไม่พบหัวตาราง Install No หรือ AS No.)");
+                  checkAllProcessed();
+                  return;
+                }
+              }
+            }
+            
+            let matchedCount = 0;
+            let totalJobsInFile = 0;
+            let unmatchedStaffNames = new Set();
+            
+            if (fileType === "INS") {
+              const installNoIdx = headers.findIndex(h => h.includes("install no"));
+              const orderNoIdx = headers.findIndex(h => h.includes("order no"));
+              const custNameIdx = headers.findIndex(h => h.includes("customer name"));
+              const ctNameIdx = headers.findIndex(h => h.includes("ct name"));
+              
+              if (installNoIdx === -1 || ctNameIdx === -1) {
+                addFileResultItem(file.name, "error", `ไม่พบคอลัมน์หลักในตาราง INS (พบ Install No: ${installNoIdx !== -1}, CT Name: ${ctNameIdx !== -1})`);
+                checkAllProcessed();
+                return;
+              }
+              
+              for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+                
+                const installNo = String(row[installNoIdx] || "").trim();
+                if (!installNo) continue;
+                
+                totalJobsInFile++;
+                const orderNo = orderNoIdx !== -1 ? String(row[orderNoIdx] || "").trim() : "";
+                const custName = custNameIdx !== -1 ? String(row[custNameIdx] || "").trim() : "ลูกค้าทั่วไป";
+                const ctNameInExcel = String(row[ctNameIdx] || "").trim();
+                
+                const matchedDbName = findMatchingTechnician(ctNameInExcel, allUsersData);
+                if (matchedDbName) {
+                  matchedCount++;
+                } else {
+                  unmatchedStaffNames.add(ctNameInExcel);
+                }
+                
+                tempParsedJobs.push({
+                  job_id: installNo,
+                  order_no: orderNo,
+                  customer_name: custName,
+                  job_type: "งานติดตั้ง (INS)",
+                  sub_work_type: "",
+                  assigned_to: matchedDbName || ctNameInExcel,
+                  assigned_to_excel: ctNameInExcel,
+                  is_matched: !!matchedDbName,
+                  status: "pending",
+                  timestamp: new Date().toISOString(),
+                  submission_date: "",
+                  file_url: "",
+                  video_url: "",
+                  note: ""
+                });
+              }
+            } else if (fileType === "AS") {
+              const asNoIdx = headers.findIndex(h => h.includes("as no"));
+              const resultNoIdx = headers.findIndex(h => h.includes("result no"));
+              const custNameIdx = headers.findIndex(h => h.includes("customer name"));
+              const ctNameIdx = headers.findIndex(h => h.includes("ct name"));
+              const errCodeIdx = headers.findIndex(h => h.includes("error code"));
+              const errDescIdx = headers.findIndex(h => h.includes("error description") || h.includes("error desc") || h.includes("อาการเสีย"));
+              const salesOrderIdx = headers.findIndex(h => h.includes("sales order"));
+              const errCodeThIdx = headers.findIndex(h => h.includes("error code (th)"));
+              const errDescThIdx = headers.findIndex(h => h.includes("error description (th)"));
+              
+              const keyIdx = asNoIdx !== -1 ? asNoIdx : (resultNoIdx !== -1 ? resultNoIdx : -1);
+              if (keyIdx === -1 || ctNameIdx === -1) {
+                addFileResultItem(file.name, "error", `ไม่พบคอลัมน์หลักในตาราง AS (พบ AS No/Result No: ${keyIdx !== -1}, CT Name: ${ctNameIdx !== -1})`);
+                checkAllProcessed();
+                return;
+              }
+              
+              for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+                
+                const jobKey = String(row[keyIdx] || "").trim();
+                if (!jobKey) continue;
+                
+                totalJobsInFile++;
+                const salesOrder = salesOrderIdx !== -1 ? String(row[salesOrderIdx] || "").trim() : "";
+                const orderNo = (salesOrder === "-" || salesOrder === "") ? "" : salesOrder;
+                const custName = custNameIdx !== -1 ? String(row[custNameIdx] || "").trim() : "ลูกค้าทั่วไป";
+                const ctNameInExcel = String(row[ctNameIdx] || "").trim();
+                
+                const errCode = errCodeIdx !== -1 ? String(row[errCodeIdx] || "").trim() : "";
+                const errDesc = errDescIdx !== -1 ? String(row[errDescIdx] || "").trim() : "";
+                const errCodeTh = errCodeThIdx !== -1 ? String(row[errCodeThIdx] || "").trim() : "";
+                const errDescTh = errDescThIdx !== -1 ? String(row[errDescThIdx] || "").trim() : "";
+                
+                const fullErrorText = `${errCode} | ${errDesc} | ${errCodeTh} | ${errDescTh}`.toLowerCase();
+                const isDismantle = 
+                  fullErrorText.includes("ถอด") || 
+                  fullErrorText.includes("ติดตั้ง") || 
+                  fullErrorText.includes("ย้าย") || 
+                  fullErrorText.includes("install") || 
+                  fullErrorText.includes("dismantle") || 
+                  fullErrorText.includes("reloc");
+                const jobType = isDismantle ? "งานถอดติดตั้ง (AS)" : "งานซ่อม (AS)";
+                
+                const matchedDbName = findMatchingTechnician(ctNameInExcel, allUsersData);
+                if (matchedDbName) {
+                  matchedCount++;
+                } else {
+                  unmatchedStaffNames.add(ctNameInExcel);
+                }
+                
+                tempParsedJobs.push({
+                  job_id: jobKey,
+                  order_no: orderNo,
+                  customer_name: custName,
+                  job_type: jobType,
+                  sub_work_type: "",
+                  assigned_to: matchedDbName || ctNameInExcel,
+                  assigned_to_excel: ctNameInExcel,
+                  is_matched: !!matchedDbName,
+                  status: "pending",
+                  timestamp: new Date().toISOString(),
+                  submission_date: "",
+                  file_url: "",
+                  video_url: "",
+                  note: ""
+                });
+              }
+            }
+            
+            const unmatchedArr = Array.from(unmatchedStaffNames);
+            const warningText = unmatchedArr.length > 0 
+              ? ` (ช่างไม่พบในระบบ: ${unmatchedArr.join(", ")})` 
+              : "";
+            
+            addFileResultItem(
+              file.name, 
+              unmatchedArr.length > 0 ? "warning" : "success", 
+              `พบ ${totalJobsInFile} รายการ | จับคู่ช่างสำเร็จ ${matchedCount}/${totalJobsInFile}${warningText}`
+            );
+            
+          } catch (err) {
+            console.error(err);
+            addFileResultItem(file.name, "error", "เกิดข้อผิดพลาดในการประมวลผลไฟล์: " + err.message);
+          }
+          
+          checkAllProcessed();
+        };
+        
+        reader.readAsArrayBuffer(file);
+      });
+      
+      function checkAllProcessed() {
+        filesProcessed++;
+        if (filesProcessed === totalFiles) {
+          if (tempParsedJobs.length === 0) {
+            document.getElementById('btnConfirmImport').disabled = true;
+            document.getElementById('btnConfirmImport').style.opacity = '0.5';
+          } else {
+            document.getElementById('btnConfirmImport').disabled = false;
+            document.getElementById('btnConfirmImport').style.opacity = '1';
+          }
+        }
+      }
+    }
+    
+    function addFileResultItem(fileName, status, message) {
+      const fileListDiv = document.getElementById('excelImportFilesList');
+      let statusColor = "#10b981";
+      let icon = "✅";
+      if (status === "warning") {
+        statusColor = "#f59e0b";
+        icon = "⚠️";
+      } else if (status === "error") {
+        statusColor = "#ef4444";
+        icon = "❌";
+      }
+      
+      const fileHtml = `
+        <div style="background: #f8fafc; border-left: 4px solid ${statusColor}; padding: 12px 16px; border-radius: 4px 12px 12px 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600;">
+          <div>
+            <strong style="color: #1e293b; display: block; margin-bottom: 2px;">${fileName}</strong>
+            <span style="color: #64748b;">${icon} ${message}</span>
+          </div>
+        </div>
+      `;
+      fileListDiv.insertAdjacentHTML('beforeend', fileHtml);
+    }
+
+    async function confirmExcelImport() {
+      if (tempParsedJobs.length === 0) return;
+      
+      const confirmSave = await showCustomConfirm(
+        "🚀 ยืนยันการนำเข้าและจ่ายงาน",
+        `ระบบตรวจพบงานทั้งหมด ${tempParsedJobs.length} รายการ ต้องการจ่ายงานลงในระบบใช่หรือไม่? งานเดิมที่มี ID ชนกันจะถูกอัปเดตใหม่`,
+        { icon: "📊", okText: "ยืนยันนำเข้า", cancelText: "ยกเลิก" }
+      );
+      
+      if (!confirmSave) return;
+      
+      try {
+        showGlobalLoading("กำลังนำเข้าข้อมูลลงฐานข้อมูล...");
+        
+        let batch = firebaseDb.batch();
+        let count = 0;
+        let batchCount = 0;
+        
+        for (const job of tempParsedJobs) {
+          const docRef = firebaseDb.collection('assigned_jobs').doc(job.job_id);
+          batch.set(docRef, job, { merge: true });
+          count++;
+          
+          if (count === 400) {
+            await batch.commit();
+            batch = firebaseDb.batch();
+            batchCount += count;
+            count = 0;
+          }
+        }
+        
+        if (count > 0) {
+          await batch.commit();
+          batchCount += count;
+        }
+        
+        hideGlobalLoading();
+        showToast(`นำเข้าคิวงานประจำวันสำเร็จ ${batchCount} รายการ! 🎉`, "success");
+        cancelExcelImport();
+        loadAssignedJobsForAdmin();
+      } catch (err) {
+        hideGlobalLoading();
+        console.error("Error committing Excel import batch:", err);
+        showToast("ไม่สามารถนำเข้าข้อมูลได้: " + err.message, "error");
+      }
+    }
+    
+    function cancelExcelImport() {
+      tempParsedJobs = [];
+      document.getElementById('excelImportResult').style.display = 'none';
+      document.getElementById('excelFileSelector').value = '';
+      document.getElementById('excelImportFilesList').innerHTML = '';
+    }
+
+    async function loadAssignedJobsForAdmin() {
+      const container = document.getElementById('adminAssignedJobsTable');
+      if (!container) return;
+      
+      container.innerHTML = '<p style="color: #64748b; font-size: 14px; text-align: center; padding: 20px;">กำลังโหลดตารางงาน...</p>';
+      
+      try {
+        const q = await firebaseDb.collection('assigned_jobs')
+          .orderBy('timestamp', 'desc')
+          .limit(100)
+          .get();
+          
+        let jobs = [];
+        q.forEach(doc => {
+          jobs.push(doc.data());
+        });
+        
+        if (jobs.length === 0) {
+          container.innerHTML = `
+            <div style="text-align:center; padding:30px; color:#64748b; font-size:14px;">
+              <p>📭 ยังไม่มีคิวงานจ่ายในระบบวันนี้</p>
+              <p style="font-size:12px; margin-top:5px;">ลากไฟล์ Excel ด้านบนเพื่อเริ่มสั่งจ่ายงานประจำวัน</p>
+            </div>
+          `;
+          const btnDeleteAll = document.getElementById('btnDeleteAllJobs');
+          if (btnDeleteAll) btnDeleteAll.style.display = 'none';
+          const btnDeleteSelected = document.getElementById('btnDeleteSelectedJobs');
+          if (btnDeleteSelected) btnDeleteSelected.style.display = 'none';
+          return;
+        }
+        
+        let html = `
+          <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
+            <thead>
+              <tr style="border-bottom:2px solid #e2e8f0; color:#64748b; font-weight:700;">
+                <th style="padding:10px 8px; width:40px; text-align:center;">
+                  <input type="checkbox" id="selectAllJobsCheckbox" onchange="toggleSelectAllJobs(this)" style="cursor:pointer; width:16px; height:16px;">
+                </th>
+                <th style="padding:10px 8px;">รหัสงาน</th>
+                <th style="padding:10px 8px;">ชื่อลูกค้า</th>
+                <th style="padding:10px 8px;">ประเภทงาน</th>
+                <th style="padding:10px 8px;">ช่างผู้รับผิดชอบ</th>
+                <th style="padding:10px 8px; text-align:center;">สถานะ</th>
+                <th style="padding:10px 8px; text-align:center;">การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        jobs.forEach(job => {
+          let statusText = job.status === 'pending' ? '⏳ ค้างส่ง' : '✅ ส่งแล้ว';
+          let statusBg = job.status === 'pending' ? '#fef3c7' : '#d1fae5';
+          let statusColor = job.status === 'pending' ? '#d97706' : '#059669';
+          
+          let jobTypeBadgeColor = '#eff6ff';
+          let jobTypeTextColor = '#2563eb';
+          if (job.job_type.includes("ถอด")) {
+            jobTypeBadgeColor = '#f5f3ff';
+            jobTypeTextColor = '#7c3aed';
+          } else if (job.job_type.includes("ซ่อม")) {
+            jobTypeBadgeColor = '#ecfdf5';
+            jobTypeTextColor = '#059669';
+          }
+          
+          let searchData = `${job.job_id} ${job.customer_name} ${job.assigned_to}`.toLowerCase();
+          html += `
+            <tr class="admin-job-row" data-search="${searchData}" data-status="${job.status}" style="border-bottom:1px solid #f1f5f9; hover:background-color:#f8fafc;">
+              <td style="padding:12px 8px; text-align:center;">
+                <input type="checkbox" class="job-select-checkbox" value="${job.job_id}" onchange="updateSelectedJobsCount()" style="cursor:pointer; width:16px; height:16px;">
+              </td>
+              <td style="padding:12px 8px; font-weight:700; color:#1e293b;">${job.job_id}</td>
+              <td style="padding:12px 8px; color:#475569;">${job.customer_name}</td>
+              <td style="padding:12px 8px;">
+                <span style="background:${jobTypeBadgeColor}; color:${jobTypeTextColor}; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700; display:inline-block;">
+                  ${job.job_type}${job.sub_work_type ? ` (${job.sub_work_type})` : ''}
+                </span>
+              </td>
+              <td style="padding:12px 8px; font-weight:600; color:#1e293b;">${job.assigned_to}</td>
+              <td style="padding:12px 8px; text-align:center;">
+                <span style="background:${statusBg}; color:${statusColor}; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700;">
+                  ${statusText}
+                </span>
+              </td>
+              <td style="padding:12px 8px; text-align:center;">
+                <button type="button" onclick="deleteAssignedJob('${job.job_id}')" style="background:none; border:none; color:#ef4444; cursor:pointer; font-weight:700; font-size:14px; padding:4px;" title="ลบงานจ่าย">🗑️</button>
+              </td>
+            </tr>
+          `;
+        });
+        
+        html += `
+            </tbody>
+          </table>
+        `;
+        container.innerHTML = html;
+        
+        // Show/hide Delete All button
+        const btnDeleteAll = document.getElementById('btnDeleteAllJobs');
+        if (btnDeleteAll) {
+          btnDeleteAll.style.display = jobs.length > 0 ? 'inline-flex' : 'none';
+        }
+        
+        // Hide Delete Selected button since nothing is selected initially
+        const btnDeleteSelected = document.getElementById('btnDeleteSelectedJobs');
+        if (btnDeleteSelected) {
+          btnDeleteSelected.style.display = 'none';
+        }
+      } catch (err) {
+        console.error(err);
+        container.innerHTML = `<p style="color: #ef4444; font-size: 14px; text-align: center; padding: 20px;">เกิดข้อผิดพลาดในการโหลดคิวงาน: ${err.message}</p>`;
+        const btnDeleteAll = document.getElementById('btnDeleteAllJobs');
+        if (btnDeleteAll) btnDeleteAll.style.display = 'none';
+        const btnDeleteSelected = document.getElementById('btnDeleteSelectedJobs');
+        if (btnDeleteSelected) btnDeleteSelected.style.display = 'none';
+      }
+    }
+    
+    function toggleSelectAllJobs(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.job-select-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = masterCheckbox.checked;
+      });
+      updateSelectedJobsCount();
+    }
+    
+    function updateSelectedJobsCount() {
+      const checkboxes = document.querySelectorAll('.job-select-checkbox');
+      const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+      const count = checkedBoxes.length;
+      
+      const countEl = document.getElementById('deleteSelectedCount');
+      if (countEl) countEl.textContent = count;
+      
+      const btnDeleteSelected = document.getElementById('btnDeleteSelectedJobs');
+      if (btnDeleteSelected) {
+        btnDeleteSelected.style.display = count > 0 ? 'inline-flex' : 'none';
+      }
+      
+      const masterCheckbox = document.getElementById('selectAllJobsCheckbox');
+      if (masterCheckbox) {
+        masterCheckbox.checked = checkboxes.length > 0 && count === checkboxes.length;
+        masterCheckbox.indeterminate = count > 0 && count < checkboxes.length;
+      }
+    }
+    
+    async function deleteSelectedAssignedJobs() {
+      const checkboxes = document.querySelectorAll('.job-select-checkbox:checked');
+      const jobIds = Array.from(checkboxes).map(cb => cb.value);
+      if (jobIds.length === 0) return;
+      
+      const confirmDelete = await showCustomConfirm(
+        "🗑️ ยืนยันการลบงานจ่ายที่เลือก",
+        `คุณต้องการลบรายการงานจ่ายที่เลือกจำนวน ${jobIds.length} รายการ ออกจากระบบคิวงานใช่หรือไม่? (การลบนี้ไม่ส่งผลกระทบต่อประวัติที่ส่งไปแล้ว)`,
+        { danger: true, icon: "🗑️", okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
+      );
+      if (!confirmDelete) return;
+      
+      try {
+        showGlobalLoading(`กำลังลบงานจ่ายที่เลือก (${jobIds.length} รายการ)...`);
+        
+        const batch = firebaseDb.batch();
+        jobIds.forEach(jobId => {
+          const docRef = firebaseDb.collection('assigned_jobs').doc(jobId);
+          batch.delete(docRef);
+        });
+        await batch.commit();
+        
+        hideGlobalLoading();
+        showToast(`ลบงานจ่ายที่เลือกจำนวน ${jobIds.length} รายการสำเร็จเรียบร้อยครับ`, "success");
+        loadAssignedJobsForAdmin();
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("ลบงานจ่ายที่เลือกไม่สำเร็จ: " + err.message, "error");
+      }
+    }
+    
+    async function deleteAllAssignedJobs() {
+      const confirmDelete = await showCustomConfirm(
+        "💥 ยืนยันลบงานจ่ายทั้งหมด",
+        "⚠️ คำเตือน: คุณต้องการลบรายการงานจ่ายทั้งหมดทุกรายการออกจากระบบใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนคืนได้ และจะล้างคิวงานของช่างทุกคนทันที! (ประวัติส่งงานเดิมจะไม่ได้รับผลกระทบ)",
+        { danger: true, icon: "💥", okText: "ลบทั้งหมด", cancelText: "ยกเลิก" }
+      );
+      if (!confirmDelete) return;
+      
+      try {
+        showGlobalLoading("กำลังดึงข้อมูลเพื่อลบงานจ่ายทั้งหมด...");
+        const q = await firebaseDb.collection('assigned_jobs').get();
+        
+        if (q.size === 0) {
+          hideGlobalLoading();
+          showToast("ไม่พบรายการงานจ่ายที่ต้องการลบในระบบ", "info");
+          return;
+        }
+        
+        showGlobalLoading(`กำลังลบงานจ่ายทั้งหมดจำนวน ${q.size} รายการ...`);
+        
+        const docs = [];
+        q.forEach(doc => docs.push(doc.ref));
+        
+        for (let i = 0; i < docs.length; i += 500) {
+          const batch = firebaseDb.batch();
+          const chunk = docs.slice(i, i + 500);
+          chunk.forEach(ref => batch.delete(ref));
+          await batch.commit();
+        }
+        
+        hideGlobalLoading();
+        showToast(`ลบงานจ่ายทั้งหมดจำนวน ${docs.length} รายการสำเร็จเรียบร้อยครับ`, "success");
+        loadAssignedJobsForAdmin();
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("ลบงานจ่ายทั้งหมดไม่สำเร็จ: " + err.message, "error");
+      }
+    }
+    
+    async function deleteAssignedJob(jobId) {
+      const confirmDelete = await showCustomConfirm(
+        "⚠️ ยืนยันการลบงานจ่าย",
+        `คุณต้องการลบรายการงานจ่ายรหัส "${jobId}" ออกจากระบบคิวงานใช่หรือไม่? (การลบนี้ไม่ส่งผลกระทบต่อประวัติที่ส่งไปแล้ว)`,
+        { danger: true, icon: "🗑️", okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
+      );
+      if (!confirmDelete) return;
+      
+      try {
+        showGlobalLoading("กำลังลบงานจ่าย...");
+        await firebaseDb.collection('assigned_jobs').doc(jobId).delete();
+        hideGlobalLoading();
+        showToast("ลบงานจ่ายสำเร็จเรียบร้อยครับ", "success");
+        loadAssignedJobsForAdmin();
+      } catch (err) {
+        hideGlobalLoading();
+        showToast("ลบงานจ่ายล้มเหลว: " + err.message, "error");
+      }
+    }
+
+    async function loadAssignedJobsForTech() {
+      const section = document.getElementById('assignedJobsSection');
+      const listContainer = document.getElementById('assignedJobsList');
+      if (!section || !listContainer) return;
+      
+      if (!currentUser || currentUser.role !== 'staff') {
+        section.style.display = 'none';
+        return;
+      }
+      
+      listContainer.innerHTML = '<p style="color: #64748b; font-size: 13px; text-align: center; padding: 15px;">กำลังโหลดงานประจำวัน...</p>';
+      section.style.display = 'block';
+      
+      try {
+        const q = await firebaseDb.collection('assigned_jobs')
+          .where('assigned_to', '==', currentUser.name.trim())
+          .where('status', '==', 'pending')
+          .get();
+          
+        let jobs = [];
+        q.forEach(doc => {
+          jobs.push(doc.data());
+        });
+        
+        if (jobs.length === 0) {
+          listContainer.innerHTML = `
+            <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 16px; padding: 20px; text-align: center; color: #64748b; font-size: 13px;">
+              ✨ วันนี้คุณไม่มีงานค้างส่งในตารางแล้ว!
+            </div>
+          `;
+          return;
+        }
+        
+        let html = '';
+        jobs.forEach(job => {
+          let badgeColor = '#3b82f6';
+          let badgeBg = '#dbeafe';
+          let icon = '📦';
+          let jobName = 'งานติดตั้ง';
+          
+          if (job.job_type.includes("ถอด")) {
+            badgeColor = '#8b5cf6';
+            badgeBg = '#ede9fe';
+            icon = '⚙️';
+            jobName = 'งานถอดติดตั้ง';
+          } else if (job.job_type.includes("ซ่อม")) {
+            badgeColor = '#10b981';
+            badgeBg = '#d1fae5';
+            icon = '🔧';
+            jobName = 'งานซ่อม';
+          }
+          
+          window.assignedJobsCache = window.assignedJobsCache || {};
+          window.assignedJobsCache[job.job_id] = job;
+          html += `
+            <div class="assigned-job-card" style="background: white; border: 1px solid #f1f5f9; border-radius: 20px; padding: 20px; display: flex; justify-content: space-between; align-items: center; gap: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); transition: all 0.3s ease; position: relative; overflow: hidden;">
+              <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: ${badgeColor};"></div>
+              <div style="display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0;">
+                <div style="width: 48px; height: 48px; border-radius: 14px; background: ${badgeBg}; color: ${badgeColor}; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; flex-shrink: 0;">
+                  ${icon}
+                </div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap;">
+                    <span style="font-weight: 800; color: #0f172a; font-size: 15px; letter-spacing: -0.3px;">${job.order_no ? `ออเดอร์: #${job.order_no}` : job.job_id}</span>
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px;">
+                      ${jobName}
+                    </span>
+                  </div>
+                  <div style="font-size: 14px; color: #334155; font-weight: 700; display: flex; align-items: center; gap: 4px;">
+                    <span style="color: #64748b;">ลูกค้า:</span> ${job.customer_name}
+                  </div>
+                  ${job.order_no ? `<div style="font-size: 12px; color: #64748b; margin-top: 2px; font-family: monospace;">รหัสงาน: ${job.job_id}</div>` : ''}
+                </div>
+              </div>
+              <div style="flex-shrink: 0;">
+                <button type="button" onclick="openAssignedJobModal('${job.job_id}')" class="btn-job-submit" style="background: ${badgeColor}; color: white; border: none; padding: 10px 20px; border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px ${badgeColor}33; transition: all 0.2s;">
+                  <span>📥</span> ส่งงาน
+                </button>
+              </div>
+            </div>
+          `;
+        });
+        
+        listContainer.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        listContainer.innerHTML = `<p style="color: #ef4444; font-size: 13px; text-align: center; padding: 15px;">ไม่สามารถดึงงานประจำวันได้: ${err.message}</p>`;
+      }
+    }
+    
+    function openAssignedJobModal(jobOrId) {
+      console.log("openAssignedJobModal called with:", jobOrId);
+      let job = jobOrId;
+      if (typeof jobOrId === 'string') {
+        console.log("assignedJobsCache contains:", window.assignedJobsCache);
+        job = window.assignedJobsCache ? window.assignedJobsCache[jobOrId] : null;
+      }
+      console.log("Resolved job object:", job);
+      if (!job) {
+        console.error("Job not found in cache!");
+        return;
+      }
+      currentModalJob = job;
+      
+      const modalTitleText = job.order_no ? `ออเดอร์: #${job.order_no}` : job.job_id;
+      document.getElementById('modalJobId').textContent = modalTitleText;
+      
+      let customerInfo = `ลูกค้า: ${job.customer_name}`;
+      if (job.order_no) {
+        customerInfo += ` | รหัสงาน: ${job.job_id}`;
+      }
+      document.getElementById('modalCustomerName').textContent = customerInfo;
+      
+      document.getElementById('assignedJobForm').reset();
+      
+      const labels = ['labelInsSuccess', 'labelInsFail', 'labelDismantle1', 'labelDismantle2', 'labelDismantle3'];
+      labels.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.style.borderColor = '#e2e8f0';
+          el.style.background = 'white';
+        }
+      });
+      
+      document.getElementById('modalPdfFileInfo').classList.remove('show');
+      document.getElementById('modalVideoFileInfo').classList.remove('show');
+      
+      const insSec = document.getElementById('insStatusSection');
+      const disSec = document.getElementById('dismantleSubSection');
+      const vidSec = document.getElementById('modalVideoSection');
+      
+      if (job.job_type === "งานติดตั้ง (INS)") {
+        insSec.style.display = 'block';
+        disSec.style.display = 'none';
+        vidSec.style.display = 'block';
+        
+        document.querySelectorAll('input[name="insStatus"]').forEach(el => el.required = true);
+        document.querySelectorAll('input[name="dismantleSub"]').forEach(el => el.required = false);
+      } else if (job.job_type === "งานถอดติดตั้ง (AS)") {
+        insSec.style.display = 'none';
+        disSec.style.display = 'block';
+        vidSec.style.display = 'block';
+        
+        document.querySelectorAll('input[name="insStatus"]').forEach(el => el.required = false);
+        document.querySelectorAll('input[name="dismantleSub"]').forEach(el => el.required = true);
+      } else {
+        insSec.style.display = 'none';
+        disSec.style.display = 'none';
+        vidSec.style.display = 'none';
+        
+        document.querySelectorAll('input[name="insStatus"]').forEach(el => el.required = false);
+        document.querySelectorAll('input[name="dismantleSub"]').forEach(el => el.required = false);
+      }
+      
+      const modal = document.getElementById('assignedJobModal');
+      modal.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    function closeAssignedJobModal() {
+      const modal = document.getElementById('assignedJobModal');
+      modal.classList.remove('show');
+      document.body.style.overflow = '';
+      currentModalJob = null;
+    }
+    
+    function handleModalFileChange(type) {
+      if (type === 'pdf') {
+        const file = document.getElementById('modalPdfUpload').files[0];
+        const info = document.getElementById('modalPdfFileInfo');
+        const nameText = document.getElementById('modalPdfFileName');
+        const sizeText = document.getElementById('modalPdfFileSize');
+        
+        if (file) {
+          nameText.textContent = file.name;
+          sizeText.textContent = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+          info.classList.add('show');
+        } else {
+          info.classList.remove('show');
+        }
+      } else if (type === 'video') {
+        const file = document.getElementById('modalVideoUpload').files[0];
+        const info = document.getElementById('modalVideoFileInfo');
+        const nameText = document.getElementById('modalVideoFileName');
+        const sizeText = document.getElementById('modalVideoFileSize');
+        
+        if (file) {
+          nameText.textContent = file.name;
+          sizeText.textContent = (file.size / (1024 * 1024)).toFixed(2) + " MB";
+          info.classList.add('show');
+        } else {
+          info.classList.remove('show');
+        }
+      }
+    }
+    
+    function updateInsStatusUI(status) {
+      const successLabel = document.getElementById('labelInsSuccess');
+      const failLabel = document.getElementById('labelInsFail');
+      
+      if (status === 'success') {
+        successLabel.style.borderColor = '#10b981';
+        successLabel.style.background = '#ecfdf5';
+        failLabel.style.borderColor = '#e2e8f0';
+        failLabel.style.background = 'white';
+      } else {
+        failLabel.style.borderColor = '#ef4444';
+        failLabel.style.background = '#fdf2f2';
+        successLabel.style.borderColor = '#e2e8f0';
+        successLabel.style.background = 'white';
+      }
+    }
+    
+    function updateDismantleUI(subType) {
+      const d1 = document.getElementById('labelDismantle1');
+      const d2 = document.getElementById('labelDismantle2');
+      const d3 = document.getElementById('labelDismantle3');
+      
+      [d1, d2, d3].forEach(d => {
+        d.style.borderColor = '#e2e8f0';
+        d.style.background = 'white';
+      });
+      
+      if (subType === 'ถอดเครื่อง') {
+        d1.style.borderColor = '#6366f1';
+        d1.style.background = '#f5f3ff';
+      } else if (subType === 'ย้ายจุดเดิม') {
+        d2.style.borderColor = '#6366f1';
+        d2.style.background = '#f5f3ff';
+      } else if (subType === 'ย้ายจุดใหม่') {
+        d3.style.borderColor = '#6366f1';
+        d3.style.background = '#f5f3ff';
+      }
+    }
+
+    function setupAssignedJobForm() {
+      const ajForm = document.getElementById('assignedJobForm');
+      if (ajForm) {
+        ajForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          if (!currentModalJob) return;
+          
+          const pdfFile = document.getElementById('modalPdfUpload').files[0];
+          const vidFile = document.getElementById('modalVideoUpload').files[0];
+          const note = document.getElementById('modalNoteText').value;
+          
+          if (pdfFile) {
+            const pdfSizeMB = pdfFile.size / (1024 * 1024);
+            if (pdfSizeMB > CFG_MAX_SIZE_PDF) {
+              showToast(`ไฟล์ใบงาน PDF ของคุณมีขนาด ${pdfSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่แอดมินกำหนดไว้ (${CFG_MAX_SIZE_PDF}MB) รบกวนช่วยบีบอัดไฟล์ให้เล็กลงแล้วลองส่งใหม่อีกครั้งนะครับ ✌️`, "error");
+              return;
+            }
+          }
+          
+          if (vidFile) {
+            const vidSizeMB = vidFile.size / (1024 * 1024);
+            if (vidSizeMB > CFG_MAX_SIZE_VIDEO) {
+              showToast(`ไฟล์วิดีโอประกอบใบงานของคุณมีขนาด ${vidSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่กำหนดไว้ (${CFG_MAX_SIZE_VIDEO}MB) แนะนำให้ปรับความละเอียดวิดีโอหรือบีบอัดไฟล์แล้วลองใหม่อีกครั้งนะคร้าบ 🎥`, "error");
+              return;
+            }
+          }
+          
+          let insStatus = "";
+          if (currentModalJob.job_type === "งานติดตั้ง (INS)") {
+            const selectedRadio = document.querySelector('input[name="insStatus"]:checked');
+            if (!selectedRadio) {
+              showToast("กรุณาเลือกสถานะการส่งงานด้วยนะครับ (สำเร็จ หรือ งานเฟล) เพื่อให้ระบบคัดแยกหมวดหมู่ได้ถูกต้อง 🟢🔴", "error");
+              return;
+            }
+            insStatus = selectedRadio.value;
+          }
+          
+          let sub_work_type = "";
+          if (currentModalJob.job_type === "งานถอดติดตั้ง (AS)") {
+            const selectedRadio = document.querySelector('input[name="dismantleSub"]:checked');
+            if (!selectedRadio) {
+              showToast("กรุณาเลือกประเภทย่อยของงานถอดติดตั้งด้วยนะครับ (ถอดเครื่อง / ย้ายจุดเดิม / ย้ายจุดใหม่) เพื่อความสะดวกในการแยกโฟลเดอร์จัดเก็บครับ 📂", "error");
+              return;
+            }
+            sub_work_type = selectedRadio.value;
+          }
+          
+          let finalWorkCat = currentModalJob.job_type;
+          if (currentModalJob.job_type === "งานติดตั้ง (INS)") {
+            if (insStatus === "fail") {
+              finalWorkCat = "งานเฟล (Fail)";
+            }
+          }
+          
+          let baseOrderNo = currentModalJob.order_no;
+          if (!baseOrderNo || baseOrderNo === '-') {
+            baseOrderNo = currentModalJob.job_id.replace(/^(INS|AS)-/i, '');
+          }
+          const cleanCustomerName = currentModalJob.customer_name.replace(/[\\/:*?"<>|]/g, '');
+          const renamedPdfName = `${baseOrderNo} ${cleanCustomerName}.pdf`;
+          let renamedVidName = "";
+          if (vidFile) {
+            const vidExt = vidFile.name.substring(vidFile.name.lastIndexOf('.'));
+            renamedVidName = `${baseOrderNo} ${cleanCustomerName}${vidExt}`;
+          }
+          
+          try {
+            let pdfUrl = '';
+            let vidUrl = '';
+            
+            if (!GDRIVE_PREFS || !GDRIVE_PREFS.connected) {
+              throw new Error("ระบบยังไม่ได้เชื่อมต่อกับพื้นที่ Google Drive กรุณาแจ้งแอดมินหรือหัวหน้างานเพื่อตั้งค่าระบบเชื่อมต่อในส่วนของผู้ดูแลระบบก่อนนะครับ 🙏");
+            }
+
+            const accessToken = await getValidAccessToken();
+            if (!accessToken) {
+              throw new Error("สิทธิ์การเข้าถึง Google Drive ของบริษัทหมดอายุชั่วคราว รบกวนแจ้งแอดมินช่วยกด 'ต่ออายุสิทธิ์' ในหน้าตั้งค่าเพื่อให้ทุกคนส่งงานต่อได้ตามปกตินะครับ 🚀");
+            }
+
+            showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", renamedPdfName.replace(/\.[^/.]+$/, ""), "📂");
+            updateProgress(20);
+            
+            const targetFolderId = await getOrCreateTargetUploadFolder(accessToken, finalWorkCat, renamedPdfName, sub_work_type);
+            
+            showProgressModal("กำลังอัปโหลดไฟล์ PDF ตรงไปยัง Google Drive", renamedPdfName, "📄");
+            updateProgress(50);
+            const pdfRes = await directUploadToGDrive(accessToken, pdfFile, targetFolderId, renamedPdfName);
+            pdfUrl = pdfRes.url;
+
+            if (vidFile) {
+              showProgressModal("กำลังอัปโหลดไฟล์วิดีโอตรงไปยัง Google Drive", renamedVidName, "🎥");
+              updateProgress(80);
+              const vidRes = await directUploadToGDrive(accessToken, vidFile, targetFolderId, renamedVidName);
+              vidUrl = vidRes.url;
+            }
+
+            showProgressModal("กำลังบันทึกข้อมูลการส่งงาน...", "กรุณารอสักครู่...", "💾");
+            updateProgress(90);
+            
+            const submissionDateStr = new Date().toISOString();
+            const saveRes = await apiCall('saveData', {
+              submission_date: submissionDateStr,
+              name: currentUser.name,
+              work_type: finalWorkCat,
+              file_name: renamedPdfName,
+              file_url: pdfUrl,
+              video_name: vidFile ? renamedVidName : '-',
+              video_url: vidUrl || '-',
+              description: note || '-',
+              status: 'รอตรวจ',
+              job_id: currentModalJob.job_id,
+              order_no: currentModalJob.order_no || "-",
+              sub_work_type: sub_work_type,
+              assigned_to: currentUser.name
+            });
+            
+            if (!saveRes.success) throw new Error("ไม่สามารถบันทึกประวัติการส่งงานได้");
+
+            await firebaseDb.collection('assigned_jobs').doc(currentModalJob.job_id).update({
+              status: 'submitted',
+              submission_date: submissionDateStr,
+              file_url: pdfUrl,
+              video_url: vidUrl || '-',
+              note: note || '-',
+              sub_work_type: sub_work_type
+            });
+
+            updateProgress(100);
+            showToast(`ส่งงานรหัส ${currentModalJob.job_id} เรียบร้อยแล้วครับ! ขอบคุณสำหรับความตั้งใจในการทำงานวันนี้ครับ 🌟`, "success");
+            
+            if (CFG_TELEGRAM_STATUS === 'enabled' && CFG_TELEGRAM_BOT_TOKEN && CFG_TELEGRAM_CHAT_ID) {
+              let telegramMsg = `<b>📢 มีงานส่งใหม่เข้ามาครับ! (อ้างอิงรหัสงาน: ${currentModalJob.job_id})</b>\n` +
+                                `👤 <b>ช่าง:</b> ${currentUser.name}\n` +
+                                `📂 <b>ประเภทงาน:</b> ${finalWorkCat}${sub_work_type ? ` (${sub_work_type})` : ''}\n` +
+                                `📄 <b>ไฟล์งาน:</b> ${renamedPdfName}\n`;
+              if (vidFile) {
+                telegramMsg += `🎥 <b>ไฟล์วิดีโอ:</b> ${renamedVidName}\n`;
+              }
+              if (currentModalJob.order_no) {
+                telegramMsg += `🔢 <b>รหัสออเดอร์:</b> ${currentModalJob.order_no}\n`;
+              }
+              telegramMsg += `📝 <b>หมายเหตุ:</b> ${note || '-'}\n` +
+                             `🔗 <a href="${pdfUrl}">ลิงก์ PDF</a>`;
+              if (vidFile && vidUrl) {
+                telegramMsg += `\n🔗 <a href="${vidUrl}">ลิงก์ Video</a>`;
+              }
+              
+              sendTelegramDirect(CFG_TELEGRAM_BOT_TOKEN, CFG_TELEGRAM_CHAT_ID, telegramMsg).then(tgRes => {
+                console.log("Telegram response:", tgRes);
+              }).catch(tgErr => {
+                console.warn("Telegram alert failed:", tgErr);
+              });
+            }
+
+            closeAssignedJobModal();
+            loadAssignedJobsForTech();
+            loadHistory();
+
+          } catch (err) {
+            showToast("อุ๊ย! เกิดข้อผิดพลาดบางอย่าง: " + err.message + " กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบครับ 🛠️", "error");
+          } finally {
+            hideProgressModal();
+          }
+        });
+      }
+
+      // Backdrop click to close assigned job modal
+      const ajModal = document.getElementById('assignedJobModal');
+      if (ajModal) {
+        ajModal.addEventListener('click', function(e) {
+          if (e.target === ajModal) {
+            closeAssignedJobModal();
+          }
+        });
+      }
+
+      // Backdrop click to close gdrive connect modal
+      const gdModal = document.getElementById('gdriveConnectModal');
+      if (gdModal) {
+        gdModal.addEventListener('click', function(e) {
+          if (e.target === gdModal) {
+            hideConnectGDriveModal();
+          }
+        });
+      }
+    }
   </script>
   <div class="detail-modal" id="recordDetailModal" onclick="closeRecordDetail()">
     <div class="detail-content" onclick="event.stopPropagation()" style="max-height:90vh; overflow-y:auto;">
@@ -6706,6 +8613,101 @@
         <button type="button" id="btnCustomConfirmCancel" style="flex: 1; height: 46px; background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; font-family: 'Prompt', sans-serif; font-size: 14px; font-weight: 600; border-radius: 14px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center;">ยกเลิก</button>
         <button type="button" id="btnCustomConfirmOk" style="flex: 1; height: 46px; background: #ef4444; color: #ffffff; border: none; font-family: 'Prompt', sans-serif; font-size: 14px; font-weight: 600; border-radius: 14px; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);">ตกลง</button>
       </div>
+    </div>
+  </div>
+  <!-- Modal: Assigned Job Submission Dialog -->
+  <div class="modal-overlay" id="assignedJobModal">
+    <div style="background: white; width: 100%; max-width: 500px; border-radius: 24px; padding: 25px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); position: relative; max-height: 90vh; overflow-y: auto;">
+      <button onclick="closeAssignedJobModal()" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; color: #94a3b8; transition: color 0.2s;">✕</button>
+      
+      <h3 style="font-size: 20px; font-weight: 800; color: #1e293b; margin-bottom: 5px; display: flex; align-items: center; gap: 8px;">
+        <span>📝</span> ส่งงาน: <span id="modalJobId" style="color: #6366f1;">INS123456</span>
+      </h3>
+      <p style="font-size: 14px; color: #64748b; margin-bottom: 20px;" id="modalCustomerName">ลูกค้า: คุณประภาพรรณ</p>
+      
+      <form id="assignedJobForm">
+        <!-- INS status selection -->
+        <div id="insStatusSection" style="display: none; margin-bottom: 20px;">
+          <label class="field-label" style="margin-bottom: 10px;">สถานะงานติดตั้ง <span class="required-mark">*</span></label>
+          <div style="display: flex; gap: 12px;">
+            <label style="flex: 1; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;" id="labelInsSuccess">
+              <input type="radio" name="insStatus" value="success" style="display: none;" onchange="updateInsStatusUI('success')">
+              <span style="font-size: 24px;">🟢</span>
+              <span style="font-size: 13px; font-weight: 700; color: #475569;">ติดตั้งสำเร็จ</span>
+            </label>
+            <label style="flex: 1; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;" id="labelInsFail">
+              <input type="radio" name="insStatus" value="fail" style="display: none;" onchange="updateInsStatusUI('fail')">
+              <span style="font-size: 24px;">🔴</span>
+              <span style="font-size: 13px; font-weight: 700; color: #475569;">ไม่สำเร็จ (งานเฟล)</span>
+            </label>
+          </div>
+        </div>
+        
+        <!-- Dismantle subcategory selection -->
+        <div id="dismantleSubSection" style="display: none; margin-bottom: 20px;">
+          <label class="field-label" style="margin-bottom: 10px;">ประเภทย่อยงานถอดติดตั้ง <span class="required-mark">*</span></label>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.3s;" id="labelDismantle1">
+              <input type="radio" name="dismantleSub" value="ถอดเครื่อง" style="display: none;" onchange="updateDismantleUI('ถอดเครื่อง')">
+              <span style="font-size: 14px; font-weight: 700; color: #475569;">ถอดเครื่อง (Dismantle Only)</span>
+            </label>
+            <label style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.3s;" id="labelDismantle2">
+              <input type="radio" name="dismantleSub" value="ย้ายจุดเดิม" style="display: none;" onchange="updateDismantleUI('ย้ายจุดเดิม')">
+              <span style="font-size: 14px; font-weight: 700; color: #475569;">ย้ายจุดติดตั้งในสถานที่เดิม (Same-site Relocation)</span>
+            </label>
+            <label style="border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.3s;" id="labelDismantle3">
+              <input type="radio" name="dismantleSub" value="ย้ายจุดใหม่" style="display: none;" onchange="updateDismantleUI('ย้ายจุดใหม่')">
+              <span style="font-size: 14px; font-weight: 700; color: #475569;">ติดตั้งเครื่อง ในสถานที่ใหม่ (New-site Relocation)</span>
+            </label>
+          </div>
+        </div>
+        
+        <!-- File upload for PDF -->
+        <div class="form-field">
+          <label class="field-label">ไฟล์ใบงาน (PDF เท่านั้น) <span class="required-mark">*</span></label>
+          <div class="file-upload-zone">
+            <input type="file" id="modalPdfUpload" accept="application/pdf" style="display: none;" onchange="handleModalFileChange('pdf')">
+            <label for="modalPdfUpload" class="file-upload-label" style="padding: 20px 10px; border: 2px dashed #cbd5e1; border-radius: 12px; text-align: center; cursor: pointer; display: block;">
+              <div class="upload-icon" style="font-size: 24px; margin-bottom: 5px;">📄</div>
+              <div class="upload-text" style="font-size: 13px; font-weight: 700;">คลิกเพื่อเลือกไฟล์ PDF ใบงาน</div>
+              <div class="upload-subtext" style="font-size: 11px; color: #64748b;">(สูงสุด 10MB)</div>
+            </label>
+          </div>
+          <div class="file-info-box" id="modalPdfFileInfo" style="margin-top: 8px;">
+            <div class="file-details">
+              <div class="file-name-text" id="modalPdfFileName" style="font-size: 12px;"></div>
+              <div class="file-size-text" id="modalPdfFileSize" style="font-size: 11px;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- File upload for Video -->
+        <div class="form-field" id="modalVideoSection">
+          <label class="field-label">ไฟล์วิดีโอประกอบ (เฉพาะงานติดตั้งและถอดติดตั้ง)</label>
+          <div class="file-upload-zone">
+            <input type="file" id="modalVideoUpload" accept="video/*" style="display: none;" onchange="handleModalFileChange('video')">
+            <label for="modalVideoUpload" class="file-upload-label" style="padding: 20px 10px; border: 2px dashed #cbd5e1; border-radius: 12px; text-align: center; cursor: pointer; display: block;">
+              <div class="upload-icon" style="font-size: 24px; margin-bottom: 5px;">🎥</div>
+              <div class="upload-text" style="font-size: 13px; font-weight: 700;">คลิกเพื่อเลือกไฟล์วิดีโอ</div>
+              <div class="upload-subtext" style="font-size: 11px; color: #64748b;">(สูงสุด 25MB)</div>
+            </label>
+          </div>
+          <div class="file-info-box" id="modalVideoFileInfo" style="margin-top: 8px;">
+            <div class="file-details">
+              <div class="file-name-text" id="modalVideoFileName" style="font-size: 12px;"></div>
+              <div class="file-size-text" id="modalVideoFileSize" style="font-size: 11px;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Notes -->
+        <div class="form-field">
+          <label class="field-label">หมายเหตุ (ถ้ามี)</label>
+          <textarea id="modalNoteText" class="textarea-field" placeholder="กรอกรายละเอียดเพิ่มเติม..." style="min-height: 80px; font-size: 13px; padding: 10px;"></textarea>
+        </div>
+        
+        <button type="submit" class="submit-button" id="modalSubmitBtn" style="margin-top: 15px; width: 100%;">💾 ยืนยันส่งงาน</button>
+      </form>
     </div>
   </div>
 </body>
