@@ -4077,7 +4077,12 @@
     }
 
     async function handleDisconnectGDrive() {
-      if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการตัดการเชื่อมต่อกับ Google Drive?\nข้อมูลสำรองจะยังคงอยู่ในระบบ Drive ของคุณ แต่แอปนี้จะไม่สามารถอัปโหลดข้อมูลเพิ่มได้อีกจนกว่าจะล็อกอินใหม่")) {
+      const confirmDisconnect = await showCustomConfirm(
+        "🔌 ยืนยันการตัดการเชื่อมต่อ Google Drive",
+        "คุณต้องการตัดการเชื่อมต่อบัญชี Google Drive หรือไม่? ข้อมูลสำรองจะยังคงอยู่ในระบบ Drive ของคุณ แต่แอปจะไม่สามารถอัปโหลดชิ้นงานใหม่หรือสำรองข้อมูลคลาวด์ได้อีกจนกว่าจะลงทะเบียนเชื่อมต่อใหม่",
+        { danger: true, okText: "ตัดการเชื่อมต่อ", cancelText: "ยกเลิก" }
+      );
+      if (!confirmDisconnect) {
         return;
       }
       
@@ -4449,7 +4454,12 @@
     }
 
     async function handleRestoreFromGDrive(fileId, fileName) {
-      if (!confirm(`⚠️ ยืนยันการกู้คืนข้อมูลระบบคลาวด์!\nคุณต้องการกู้คืนข้อมูลจากไฟล์สำรอง "${fileName}" ใช่หรือไม่?\nข้อมูลคลังและประวัติงานปัจจุบันทั้งหมดจะถูกเขียนทับด้วยข้อมูลจากคลาวด์ตัวนี้และกู้คืนกลับไม่ได้อีก!`)) {
+      const confirmRestore = await showCustomConfirm(
+        "📥 ยืนยันการกู้คืนข้อมูลจากคลาวด์",
+        `คุณต้องการกู้คืนข้อมูลจากไฟล์สำรอง "${fileName}" ใช่หรือไม่? ข้อมูลประวัติงานส่งและบัญชีช่างเทคนิคปัจจุบันทั้งหมดจะถูกเขียนทับด้วยข้อมูลสำรองตัวนี้ และจะไม่สามารถกู้กลับคืนได้`,
+        { danger: true, okText: "กู้คืนระบบ", cancelText: "ยกเลิก" }
+      );
+      if (!confirmRestore) {
         return;
       }
       
@@ -4534,6 +4544,54 @@
           toast.classList.remove('show', 'hiding');
         }, 300);
       }, 1500);
+    }
+
+    function showCustomConfirm(title, message, options = {}) {
+      return new Promise((resolve) => {
+        const modal = document.getElementById('customConfirmModal');
+        const titleEl = document.getElementById('customConfirmTitle');
+        const messageEl = document.getElementById('customConfirmMessage');
+        const btnOk = document.getElementById('btnCustomConfirmOk');
+        const btnCancel = document.getElementById('btnCustomConfirmCancel');
+
+        titleEl.textContent = title || "คุณแน่ใจหรือไม่?";
+        messageEl.textContent = message || "การกระทำนี้ไม่สามารถย้อนคืนได้";
+        
+        if (options.okText) btnOk.textContent = options.okText;
+        else btnOk.textContent = "ตกลง";
+        
+        if (options.cancelText) btnCancel.textContent = options.cancelText;
+        else btnCancel.textContent = "ยกเลิก";
+
+        if (options.danger) {
+          btnOk.style.background = "#ef4444";
+          btnOk.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.2)";
+        } else {
+          btnOk.style.background = "#3b82f6";
+          btnOk.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.2)";
+        }
+
+        const handleOk = () => {
+          cleanup();
+          resolve(true);
+        };
+
+        const handleCancel = () => {
+          cleanup();
+          resolve(false);
+        };
+
+        const cleanup = () => {
+          modal.classList.remove('show');
+          btnOk.removeEventListener('click', handleOk);
+          btnCancel.removeEventListener('click', handleCancel);
+        };
+
+        btnOk.addEventListener('click', handleOk);
+        btnCancel.addEventListener('click', handleCancel);
+
+        modal.classList.add('show');
+      });
     }
     function formatFileSize(bytes) {
       if (bytes === 0) return '0 Bytes';
@@ -5246,7 +5304,11 @@
       if (currentDetailIndex === -1) return;
       const item = currentHistoryData[currentDetailIndex];
 
-      const confirmDelete = confirm("⚠️ คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้? การกระทำนี้ไม่สามารถย้อนคืนได้");
+      const confirmDelete = await showCustomConfirm(
+        "⚠️ ยืนยันการลบงานส่งนี้",
+        `คุณต้องการลบงาน "${item.file_name}" ใช่หรือไม่? โฟลเดอร์และไฟล์งานทั้งหมดบน Google Drive รวมถึงประวัติงานชิ้นนี้จะถูกลบออกแบบถาวรและไม่สามารถกู้คืนกลับมาได้อีก`,
+        { danger: true, okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
+      );
       if (!confirmDelete) return;
 
       try {
@@ -5505,7 +5567,11 @@
             return;
           }
           
-          const confirmRestore = confirm(`⚠️ คุณต้องการกู้คืนข้อมูลระบบใช่หรือไม่?\nข้อมูลนำเข้าประกอบด้วย:\n- ผู้ใช้: ${data.users.length} รายการ\n- ประวัติงาน: ${data.submissions.length} รายการ\n(ระบบจะเขียนทับข้อมูลที่มี Key ชนกัน)`);
+          const confirmRestore = await showCustomConfirm(
+            "📥 ยืนยันการกู้คืนข้อมูลระบบ",
+            `คุณต้องการกู้คืนข้อมูลจากไฟล์สำรองแบบไฟล์โลคอลนี้ใช่หรือไม่?\n\nข้อมูลที่จะนำเข้าประกอบด้วย:\n- บัญชีผู้ใช้: ${data.users.length} รายการ\n- ประวัติงานส่ง: ${data.submissions.length} รายการ\n\n(ระบบจะเขียนทับข้อมูลที่มีค่าคีย์ตรงกันและไม่สามารถยกเลิกได้หลังกู้คืนสำเร็จ)`,
+            { danger: true, okText: "กู้คืนข้อมูล", cancelText: "ยกเลิก" }
+          );
           if (!confirmRestore) return;
           
           showGlobalLoading("กำลังนำเข้าข้อมูล...");
@@ -5738,7 +5804,12 @@
     });
 
     async function deleteUser(username) {
-      if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้: ${username} ?`)) return;
+      const confirmDelete = await showCustomConfirm(
+        "👤 ยืนยันการลบผู้ใช้",
+        `คุณต้องการลบผู้ใช้ "${username}" ใช่หรือไม่? ผู้ใช้รายนี้จะไม่สามารถลงชื่อเข้าใช้งานระบบได้อีก`,
+        { danger: true, okText: "ลบผู้ใช้", cancelText: "ยกเลิก" }
+      );
+      if (!confirmDelete) return;
 
       showGlobalLoading("กำลังลบ...");
       try {
@@ -6374,6 +6445,20 @@
       <div style="display: flex; gap: 10px; justify-content: flex-end;">
         <button type="button" onclick="hideConnectGDriveModal()" class="submit-button" style="background: #94a3b8; box-shadow: none; width: auto; padding: 10px 20px;">ยกเลิก</button>
         <button type="button" onclick="handleConfirmGDriveConnect()" class="submit-button" style="background: #3b82f6; width: auto; padding: 10px 25px;">เชื่อมต่อด้วย Google Sign-In</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Custom Confirm Dialog -->
+  <div class="modal-overlay" id="customConfirmModal">
+    <div class="modal-card" style="max-width: 420px; text-align: center; padding: 30px 20px;">
+      <div style="font-size: 50px; margin-bottom: 15px;">⚠️</div>
+      <h3 class="modal-title" id="customConfirmTitle" style="font-size: 20px; margin-bottom: 12px; font-weight: 700; width: 100%; justify-content: center; display: flex; color: #1e293b;">คุณแน่ใจหรือไม่?</h3>
+      <p class="modal-desc" id="customConfirmMessage" style="font-size: 14px; color: #64748b; margin-bottom: 25px; line-height: 1.6; padding: 0 10px; text-align: center; word-break: break-word;">การกระทำนี้ไม่สามารถย้อนคืนได้</p>
+      
+      <div style="display: flex; gap: 12px; justify-content: center; width: 100%;">
+        <button type="button" id="btnCustomConfirmCancel" class="submit-button" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; box-shadow: none; width: auto; padding: 10px 24px; font-weight: 600; border-radius: 12px; cursor: pointer; transition: all 0.2s;">ยกเลิก</button>
+        <button type="button" id="btnCustomConfirmOk" class="submit-button" style="background: #ef4444; color: #fff; width: auto; padding: 10px 30px; font-weight: 600; border-radius: 12px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);">ยืนยันการลบ</button>
       </div>
     </div>
   </div>
