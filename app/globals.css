@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card-background: #ffffff;
+  --card-border: rgba(241, 245, 249, 0.8);
+  --soft-shadow: 0 10px 30px -10px rgba(148, 163, 184, 0.05);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sarabun), var(--font-prompt), ui-sans-serif, system-ui;
+  background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.015) 0px, transparent 50%),
+                    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.015) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Custom Soft UI Utilities */
+.soft-card {
+  background-color: var(--card-background);
+  border: 1px solid var(--card-border);
+  border-radius: 1.5rem; /* rounded-3xl */
+  box-shadow: var(--soft-shadow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.soft-card:hover {
+  box-shadow: 0 20px 40px -15px rgba(148, 163, 184, 0.08);
+  transform: translateY(-2px);
+}
+
+.soft-input {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem; /* rounded-2xl */
+  transition: all 0.2s ease-in-out;
+}
+
+.soft-input:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.soft-input:focus {
+  background-color: #ffffff;
+  border-color: var(--primary-color, #4f46e5);
+  box-shadow: 0 0 0 4px var(--primary-glow, rgba(79, 70, 229, 0.1));
+  outline: none;
+}
+
+/* Theme variations matching system settings */
+body.theme-indigo {
+  --primary-color: #6366f1; /* softer Indigo */
+  --primary-hover: #4f46e5;
+  --primary-light: #f5f3ff;
+  --primary-glow: rgba(99, 102, 241, 0.12);
+}
+
+body.theme-blue {
+  --primary-color: #3b82f6; /* softer Blue */
+  --primary-hover: #2563eb;
+  --primary-light: #eff6ff;
+  --primary-glow: rgba(59, 130, 246, 0.12);
+}
+
+body.theme-emerald {
+  --primary-color: #10b981; /* softer Emerald */
+  --primary-hover: #059669;
+  --primary-light: #ecfdf5;
+  --primary-glow: rgba(16, 185, 129, 0.12);
+}
+
+body.theme-violet {
+  --primary-color: #8b5cf6; /* softer Violet */
+  --primary-hover: #7c3aed;
+  --primary-light: #f5f3ff;
+  --primary-glow: rgba(139, 92, 246, 0.12);
+}
+
+body.theme-rose {
+  --primary-color: #f43f5e; /* softer Rose */
+  --primary-hover: #e11d48;
+  --primary-light: #fff1f2;
+  --primary-glow: rgba(244, 63, 94, 0.12);
+}
+
+/* Dynamic customizable sidebar styling from Firestore settings */
+.sidebar-bg {
+  background-color: var(--sidebar-bg, #1b2536) !important;
+}
+
+.sidebar-text {
+  color: var(--sidebar-text, #94a3b8) !important;
+}
+
+.sidebar-active-text {
+  color: var(--sidebar-active-text, #ffffff) !important;
+}
+
+.sidebar-active-bg {
+  background-color: var(--sidebar-active-bg, #4f46e5) !important;
+}
+
+.sidebar-hover-bg:hover {
+  background-color: var(--sidebar-hover-bg, #334155) !important;
+  color: var(--sidebar-active-text, #ffffff) !important;
+}
+
+/* Specific styling for SVG icons in sidebar links to respect colors */
+.sidebar-link-item svg {
+  color: inherit !important;
+  opacity: 0.85;
+}
+
+/* Mobile: extra padding at bottom so content isn't hidden behind floating nav */
+@media (max-width: 1023px) {
+  main {
+    padding-bottom: 6rem !important;
+    padding-top: 3.5rem !important;
+  }
+}

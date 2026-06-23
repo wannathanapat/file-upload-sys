@@ -3389,8 +3389,15 @@
                   </select>
                 </div>
 
-                <div style="display:flex; gap: 8px; margin-top: 5px;">
-                  <button onclick="document.getElementById('adminStatusFilter').value=''; document.getElementById('adminJobsSearch').value=''; filterAdminJobs();" style="flex: 1; padding:12px; background:#f1f5f9; color:#475569; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">🔄 ล้างค่า</button>
+                <div style="display:flex; flex-direction:column; gap:6px; margin-top: 10px;">
+                  <label style="font-size:12px; font-weight:800; color:#64748b;">ช่างผู้รับผิดชอบ (Technician)</label>
+                  <select id="adminTechFilter" class="select-field" style="border-radius:12px; background:#ffffff; border: 1px solid #e2e8f0; margin-bottom: 0; padding: 10px 14px; font-size: 13px;" onchange="filterAdminJobs()">
+                    <option value="">ช่างทุกคน (All Technicians)</option>
+                  </select>
+                </div>
+
+                <div style="display:flex; gap: 8px; margin-top: 12px;">
+                  <button onclick="document.getElementById('adminStatusFilter').value=''; document.getElementById('adminTechFilter').value=''; document.getElementById('adminJobsSearch').value=''; filterAdminJobs();" style="flex: 1; padding:12px; background:#f1f5f9; color:#475569; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">🔄 ล้างค่า</button>
                   <button onclick="document.getElementById('adminFilterDropdown').classList.remove('show')" style="flex: 2; padding:12px; background:linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color:white; border:none; border-radius:12px; cursor:pointer; font-size:13px; font-weight:700; transition: all 0.2s;">นำไปใช้</button>
                 </div>
               </div>
@@ -3463,19 +3470,23 @@
           function filterAdminJobs() {
             let searchInput = document.getElementById('adminJobsSearch');
             let statusInput = document.getElementById('adminStatusFilter');
+            let techInput = document.getElementById('adminTechFilter');
             if (!searchInput || !statusInput) return;
             
             let search = searchInput.value.toLowerCase();
             let status = statusInput.value;
+            let tech = techInput ? techInput.value : '';
             let rows = document.querySelectorAll('.admin-job-row');
             
             rows.forEach(row => {
               let text = row.getAttribute('data-search') || '';
               let rowStatus = row.getAttribute('data-status') || '';
+              let rowTech = row.getAttribute('data-tech') || '';
               let matchSearch = text.includes(search);
               let matchStatus = status === "" || rowStatus === status;
+              let matchTech = tech === "" || rowTech === tech;
               
-              if (matchSearch && matchStatus) {
+              if (matchSearch && matchStatus && matchTech) {
                 row.style.display = '';
               } else {
                 row.style.display = 'none';
@@ -4453,11 +4464,18 @@
     }
 
     async function checkSession() {
-      const savedUser = localStorage.getItem('appUserSession');
-      if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        await showMainApp();
-      } else {
+      try {
+        const savedUser = localStorage.getItem('appUserSession');
+        if (savedUser) {
+          currentUser = JSON.parse(savedUser);
+          await showMainApp();
+        } else {
+          showLogin();
+          setTimeout(hideGlobalLoading, 500);
+        }
+      } catch (err) {
+        console.error("Session check error, clearing session:", err);
+        localStorage.removeItem('appUserSession');
         showLogin();
         setTimeout(hideGlobalLoading, 500);
       }
@@ -4483,22 +4501,24 @@
       updateGDriveUI();
       initTokenClient();
 
-      const firstName = currentUser.name.split(' ')[0] || '?';
+      const uName = (currentUser && currentUser.name) || 'User';
+      const uRole = (currentUser && currentUser.role) || '';
+      const firstName = uName.split(' ')[0] || '?';
       const initial = firstName.charAt(0).toUpperCase();
 
-      document.getElementById('welcomeUserText').textContent = 'ชื่อผู้ใช้: ' + currentUser.name + ' (' + currentUser.role + ')';
-      document.getElementById('techNameDisplay').textContent = currentUser.name;
+      document.getElementById('welcomeUserText').textContent = 'ชื่อผู้ใช้: ' + uName + (uRole ? ' (' + uRole + ')' : '');
+      document.getElementById('techNameDisplay').textContent = uName;
       let roleLabel = 'ช่างเทคนิค (Staff)';
-      if (currentUser.role === 'admin') roleLabel = 'ผู้ดูแลระบบ (Admin)';
-      else if (currentUser.role === 'auditor') roleLabel = 'ผู้ตรวจสอบ (Auditor)';
+      if (uRole === 'admin') roleLabel = 'ผู้ดูแลระบบ (Admin)';
+      else if (uRole === 'auditor') roleLabel = 'ผู้ตรวจสอบ (Auditor)';
       document.getElementById('techRoleDisplay').textContent = 'ตำแหน่ง: ' + roleLabel;
-      document.getElementById('submitterName').value = currentUser.name;
+      document.getElementById('submitterName').value = uName;
 
       // Update Profile / Menu UI with user info
-      document.getElementById('menuUserNameDisplay').textContent = currentUser.name;
+      document.getElementById('menuUserNameDisplay').textContent = uName;
       let badgeText = 'Staff';
-      if (currentUser.role === 'admin') badgeText = 'Admin';
-      else if (currentUser.role === 'auditor') badgeText = 'Auditor';
+      if (uRole === 'admin') badgeText = 'Admin';
+      else if (uRole === 'auditor') badgeText = 'Auditor';
       document.getElementById('menuRoleBadge').textContent = badgeText;
       document.getElementById('menuAvatar').innerHTML = initial + '<div class="status-dot"></div>';
 
@@ -6218,7 +6238,13 @@
 
       document.getElementById('detDate').textContent = dateStr;
       document.getElementById('detName').textContent = item.name;
-      document.getElementById('detType').textContent = item.work_type;
+      
+      let workTypeDisplay = item.work_type;
+      if (item.fail_detail && item.fail_detail !== '-') {
+        const detailText = item.fail_detail === 'entered' ? 'เข้าหน้างานแล้ว' : 'ยังไม่เข้าหน้างาน';
+        workTypeDisplay += ` (${detailText})`;
+      }
+      document.getElementById('detType').textContent = workTypeDisplay;
       document.getElementById('detStatus').textContent = statusText;
       document.getElementById('detStatus').className = 'detail-badge ' + badgeClass;
       document.getElementById('detNote').textContent = item.description || '-';
@@ -8103,6 +8129,25 @@
           if (btnDeleteSelected) btnDeleteSelected.style.display = 'none';
           return;
         }
+
+        // Populate technician filter dropdown dynamically
+        const techFilter = document.getElementById('adminTechFilter');
+        if (techFilter) {
+          const currentVal = techFilter.value;
+          const uniqueTechs = [...new Set(jobs.map(j => j.assigned_to).filter(Boolean))].sort();
+          techFilter.innerHTML = '<option value="">ช่างทุกคน (All Technicians)</option>';
+          uniqueTechs.forEach(tech => {
+            const opt = document.createElement('option');
+            opt.value = tech;
+            opt.textContent = tech;
+            techFilter.appendChild(opt);
+          });
+          if (uniqueTechs.includes(currentVal)) {
+            techFilter.value = currentVal;
+          } else {
+            techFilter.value = '';
+          }
+        }
         
         let html = `
           <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:left;">
@@ -8116,48 +8161,40 @@
                 <th style="padding:10px 8px;">ประเภทงาน</th>
                 <th style="padding:10px 8px;">ช่างผู้รับผิดชอบ</th>
                 <th style="padding:10px 8px; text-align:center;">สถานะ</th>
-                <th style="padding:10px 8px; text-align:center;">การจัดการ</th>
               </tr>
             </thead>
             <tbody>
         `;
         
         jobs.forEach(job => {
-          let statusText = job.status === 'pending' ? '⏳ ค้างส่ง' : '✅ ส่งแล้ว';
-          let statusBg = job.status === 'pending' ? '#fef3c7' : '#d1fae5';
+          let statusText = job.status === 'pending' ? 'ค้างส่ง' : 'ส่งแล้ว';
           let statusColor = job.status === 'pending' ? '#d97706' : '#059669';
           
-          let jobTypeBadgeColor = '#eff6ff';
           let jobTypeTextColor = '#2563eb';
           if (job.job_type.includes("ถอด")) {
-            jobTypeBadgeColor = '#f5f3ff';
             jobTypeTextColor = '#7c3aed';
           } else if (job.job_type.includes("ซ่อม")) {
-            jobTypeBadgeColor = '#ecfdf5';
             jobTypeTextColor = '#059669';
           }
           
           let searchData = `${job.job_id} ${job.customer_name} ${job.assigned_to}`.toLowerCase();
           html += `
-            <tr class="admin-job-row" data-search="${searchData}" data-status="${job.status}" style="border-bottom:1px solid #f1f5f9; hover:background-color:#f8fafc;">
+            <tr class="admin-job-row" data-search="${searchData}" data-status="${job.status}" data-tech="${job.assigned_to || ''}" style="border-bottom:1px solid #f1f5f9; hover:background-color:#f8fafc;">
               <td style="padding:12px 8px; text-align:center;">
                 <input type="checkbox" class="job-select-checkbox" value="${job.job_id}" onchange="updateSelectedJobsCount()" style="cursor:pointer; width:16px; height:16px;">
               </td>
               <td style="padding:12px 8px; font-weight:700; color:#1e293b;">${job.job_id}</td>
               <td style="padding:12px 8px; color:#475569;">${job.customer_name}</td>
               <td style="padding:12px 8px;">
-                <span style="background:${jobTypeBadgeColor}; color:${jobTypeTextColor}; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700; display:inline-block;">
+                <span style="color:${jobTypeTextColor}; font-size:11px; font-weight:700; display:inline-block;">
                   ${job.job_type}${job.sub_work_type ? ` (${job.sub_work_type})` : ''}
                 </span>
               </td>
               <td style="padding:12px 8px; font-weight:600; color:#1e293b;">${job.assigned_to}</td>
               <td style="padding:12px 8px; text-align:center;">
-                <span style="background:${statusBg}; color:${statusColor}; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700;">
+                <span style="color:${statusColor}; font-size:11px; font-weight:700;">
                   ${statusText}
                 </span>
-              </td>
-              <td style="padding:12px 8px; text-align:center;">
-                <button type="button" onclick="deleteAssignedJob('${job.job_id}')" style="background:none; border:none; color:#ef4444; cursor:pointer; font-weight:700; font-size:14px; padding:4px;" title="ลบงานจ่าย">🗑️</button>
               </td>
             </tr>
           `;
@@ -8168,6 +8205,8 @@
           </table>
         `;
         container.innerHTML = html;
+
+        filterAdminJobs();
         
         // Show/hide Delete All button
         const btnDeleteAll = document.getElementById('btnDeleteAllJobs');
@@ -8423,7 +8462,11 @@
       
       document.getElementById('assignedJobForm').reset();
       
-      const labels = ['labelInsSuccess', 'labelInsFail', 'labelDismantle1', 'labelDismantle2', 'labelDismantle3'];
+      const labels = [
+        'labelInsSuccess', 'labelInsFail', 
+        'labelDismantle1', 'labelDismantle2', 'labelDismantle3',
+        'labelFailDetailEntered', 'labelFailDetailNotEntered'
+      ];
       labels.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -8431,6 +8474,16 @@
           el.style.background = 'white';
         }
       });
+      
+      const insFailDetailSec = document.getElementById('insFailDetailSection');
+      if (insFailDetailSec) {
+        insFailDetailSec.style.display = 'none';
+      }
+      document.querySelectorAll('input[name="insFailDetail"]').forEach(el => {
+        el.required = false;
+        el.checked = false;
+      });
+      showHideSubmissionInputs(true, true);
       
       document.getElementById('modalPdfFileInfo').classList.remove('show');
       document.getElementById('modalVideoFileInfo').classList.remove('show');
@@ -8504,6 +8557,46 @@
       }
     }
     
+    function showHideSubmissionInputs(pdfRequired, showVideo) {
+      const pdfRequiredMark = document.getElementById('modalPdfRequiredMark');
+      if (pdfRequiredMark) {
+        pdfRequiredMark.style.display = pdfRequired ? 'inline' : 'none';
+      }
+      
+      const vidSection = document.getElementById('modalVideoSection');
+      if (vidSection) {
+        if (showVideo && currentModalJob && (currentModalJob.job_type === "งานติดตั้ง (INS)" || currentModalJob.job_type === "งานถอดติดตั้ง (AS)")) {
+          vidSection.style.display = 'block';
+        } else {
+          vidSection.style.display = 'none';
+        }
+      }
+    }
+
+    function updateInsFailDetailUI(value) {
+      const enteredLabel = document.getElementById('labelFailDetailEntered');
+      const notEnteredLabel = document.getElementById('labelFailDetailNotEntered');
+      
+      [enteredLabel, notEnteredLabel].forEach(lbl => {
+        if (lbl) {
+          lbl.style.borderColor = '#e2e8f0';
+          lbl.style.background = 'white';
+        }
+      });
+      
+      if (value === 'entered') {
+        enteredLabel.style.borderColor = '#3b82f6';
+        enteredLabel.style.background = '#eff6ff';
+        showHideSubmissionInputs(true, true);
+      } else if (value === 'not_entered') {
+        notEnteredLabel.style.borderColor = '#3b82f6';
+        notEnteredLabel.style.background = '#eff6ff';
+        showHideSubmissionInputs(false, false);
+      } else {
+        showHideSubmissionInputs(true, true);
+      }
+    }
+
     function updateInsStatusUI(status) {
       const successLabel = document.getElementById('labelInsSuccess');
       const failLabel = document.getElementById('labelInsFail');
@@ -8513,11 +8606,27 @@
         successLabel.style.background = '#ecfdf5';
         failLabel.style.borderColor = '#e2e8f0';
         failLabel.style.background = 'white';
+        
+        const failSec = document.getElementById('insFailDetailSection');
+        if (failSec) failSec.style.display = 'none';
+        document.querySelectorAll('input[name="insFailDetail"]').forEach(el => {
+          el.required = false;
+          el.checked = false;
+        });
+        showHideSubmissionInputs(true, true);
       } else {
         failLabel.style.borderColor = '#ef4444';
         failLabel.style.background = '#fdf2f2';
         successLabel.style.borderColor = '#e2e8f0';
         successLabel.style.background = 'white';
+        
+        const failSec = document.getElementById('insFailDetailSection');
+        if (failSec) failSec.style.display = 'block';
+        document.querySelectorAll('input[name="insFailDetail"]').forEach(el => {
+          el.required = true;
+          el.checked = false;
+        });
+        updateInsFailDetailUI('');
       }
     }
     
@@ -8554,6 +8663,33 @@
           const vidFile = document.getElementById('modalVideoUpload').files[0];
           const note = document.getElementById('modalNoteText').value;
           
+          let insStatus = "";
+          if (currentModalJob.job_type === "งานติดตั้ง (INS)") {
+            const selectedRadio = document.querySelector('input[name="insStatus"]:checked');
+            if (!selectedRadio) {
+              showToast("กรุณาเลือกสถานะการส่งงานด้วยนะครับ (สำเร็จ หรือ งานเฟล) เพื่อให้ระบบคัดแยกหมวดหมู่ได้ถูกต้อง 🟢🔴", "error");
+              return;
+            }
+            insStatus = selectedRadio.value;
+          }
+
+          let failDetail = "";
+          if (currentModalJob.job_type === "งานติดตั้ง (INS)" && insStatus === "fail") {
+            const selectedDetailRadio = document.querySelector('input[name="insFailDetail"]:checked');
+            if (!selectedDetailRadio) {
+              showToast("กรุณาเลือกรายละเอียดการไม่สำเร็จ (เข้าหน้างานแล้ว หรือ ยังไม่เข้าหน้างาน) ด้วยนะครับ 🏠🚗", "error");
+              return;
+            }
+            failDetail = selectedDetailRadio.value;
+          }
+
+          const pdfIsRequired = !(currentModalJob.job_type === "งานติดตั้ง (INS)" && insStatus === "fail" && failDetail === "not_entered");
+          
+          if (pdfIsRequired && !pdfFile) {
+            showToast("กรุณาเลือกไฟล์ PDF ใบงานก่อนส่งงานนะคร้าบ 📄", "error");
+            return;
+          }
+          
           if (pdfFile) {
             const pdfSizeMB = pdfFile.size / (1024 * 1024);
             if (pdfSizeMB > CFG_MAX_SIZE_PDF) {
@@ -8568,16 +8704,6 @@
               showToast(`ไฟล์วิดีโอประกอบใบงานของคุณมีขนาด ${vidSizeMB.toFixed(2)}MB ซึ่งเกินขนาดสูงสุดที่กำหนดไว้ (${CFG_MAX_SIZE_VIDEO}MB) แนะนำให้ปรับความละเอียดวิดีโอหรือบีบอัดไฟล์แล้วลองใหม่อีกครั้งนะคร้าบ 🎥`, "error");
               return;
             }
-          }
-          
-          let insStatus = "";
-          if (currentModalJob.job_type === "งานติดตั้ง (INS)") {
-            const selectedRadio = document.querySelector('input[name="insStatus"]:checked');
-            if (!selectedRadio) {
-              showToast("กรุณาเลือกสถานะการส่งงานด้วยนะครับ (สำเร็จ หรือ งานเฟล) เพื่อให้ระบบคัดแยกหมวดหมู่ได้ถูกต้อง 🟢🔴", "error");
-              return;
-            }
-            insStatus = selectedRadio.value;
           }
           
           let sub_work_type = "";
@@ -8602,7 +8728,12 @@
             baseOrderNo = currentModalJob.job_id.replace(/^(INS|AS)-/i, '');
           }
           const cleanCustomerName = currentModalJob.customer_name.replace(/[\\/:*?"<>|]/g, '');
-          const renamedPdfName = `${baseOrderNo} ${cleanCustomerName}.pdf`;
+          
+          let renamedPdfName = "-";
+          if (pdfFile) {
+            renamedPdfName = `${baseOrderNo} ${cleanCustomerName}.pdf`;
+          }
+          
           let renamedVidName = "";
           if (vidFile) {
             const vidExt = vidFile.name.substring(vidFile.name.lastIndexOf('.'));
@@ -8622,15 +8753,22 @@
               throw new Error("สิทธิ์การเข้าถึง Google Drive ของบริษัทหมดอายุชั่วคราว รบกวนแจ้งแอดมินช่วยกด 'ต่ออายุสิทธิ์' ในหน้าตั้งค่าเพื่อให้ทุกคนส่งงานต่อได้ตามปกตินะครับ 🚀");
             }
 
-            showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", renamedPdfName.replace(/\.[^/.]+$/, ""), "📂");
+            const folderNameForGDrive = pdfFile ? renamedPdfName : `${baseOrderNo} ${cleanCustomerName}.pdf`;
+            const folderProgressName = folderNameForGDrive.replace(/\.[^/.]+$/, "");
+
+            showProgressModal("กำลังเตรียมพื้นที่บน Google Drive", folderProgressName, "📂");
             updateProgress(20);
             
-            const targetFolderId = await getOrCreateTargetUploadFolder(accessToken, finalWorkCat, renamedPdfName, sub_work_type);
+            const targetFolderId = await getOrCreateTargetUploadFolder(accessToken, finalWorkCat, folderNameForGDrive, sub_work_type);
             
-            showProgressModal("กำลังอัปโหลดไฟล์ PDF ตรงไปยัง Google Drive", renamedPdfName, "📄");
-            updateProgress(50);
-            const pdfRes = await directUploadToGDrive(accessToken, pdfFile, targetFolderId, renamedPdfName);
-            pdfUrl = pdfRes.url;
+            if (pdfFile) {
+              showProgressModal("กำลังอัปโหลดไฟล์ PDF ตรงไปยัง Google Drive", renamedPdfName, "📄");
+              updateProgress(50);
+              const pdfRes = await directUploadToGDrive(accessToken, pdfFile, targetFolderId, renamedPdfName);
+              pdfUrl = pdfRes.url;
+            } else {
+              pdfUrl = "-";
+            }
 
             if (vidFile) {
               showProgressModal("กำลังอัปโหลดไฟล์วิดีโอตรงไปยัง Google Drive", renamedVidName, "🎥");
@@ -8656,7 +8794,8 @@
               job_id: currentModalJob.job_id,
               order_no: currentModalJob.order_no || "-",
               sub_work_type: sub_work_type,
-              assigned_to: currentUser.name
+              assigned_to: currentUser.name,
+              fail_detail: failDetail || '-'
             });
             
             if (!saveRes.success) throw new Error("ไม่สามารถบันทึกประวัติการส่งงานได้");
@@ -8667,7 +8806,8 @@
               file_url: pdfUrl,
               video_url: vidUrl || '-',
               note: note || '-',
-              sub_work_type: sub_work_type
+              sub_work_type: sub_work_type,
+              fail_detail: failDetail || '-'
             });
 
             updateProgress(100);
@@ -8676,17 +8816,21 @@
             if (CFG_TELEGRAM_STATUS === 'enabled' && CFG_TELEGRAM_BOT_TOKEN && CFG_TELEGRAM_CHAT_ID) {
               let telegramMsg = `<b>📢 มีงานส่งใหม่เข้ามาครับ! (อ้างอิงรหัสงาน: ${currentModalJob.job_id})</b>\n` +
                                 `👤 <b>ช่าง:</b> ${currentUser.name}\n` +
-                                `📂 <b>ประเภทงาน:</b> ${finalWorkCat}${sub_work_type ? ` (${sub_work_type})` : ''}\n` +
-                                `📄 <b>ไฟล์งาน:</b> ${renamedPdfName}\n`;
+                                `📂 <b>ประเภทงาน:</b> ${finalWorkCat}${sub_work_type ? ` (${sub_work_type})` : ''}\n`;
+              if (pdfFile) {
+                telegramMsg += `📄 <b>ไฟล์งาน:</b> ${renamedPdfName}\n`;
+              }
               if (vidFile) {
                 telegramMsg += `🎥 <b>ไฟล์วิดีโอ:</b> ${renamedVidName}\n`;
               }
               if (currentModalJob.order_no) {
                 telegramMsg += `🔢 <b>รหัสออเดอร์:</b> ${currentModalJob.order_no}\n`;
               }
-              telegramMsg += `📝 <b>หมายเหตุ:</b> ${note || '-'}\n` +
-                             `🔗 <a href="${pdfUrl}">ลิงก์ PDF</a>`;
-              if (vidFile && vidUrl) {
+              telegramMsg += `📝 <b>หมายเหตุ:</b> ${note || '-'}\n`;
+              if (pdfFile && pdfUrl && pdfUrl !== '-') {
+                telegramMsg += `🔗 <a href="${pdfUrl}">ลิงก์ PDF</a>`;
+              }
+              if (vidFile && vidUrl && vidUrl !== '-') {
                 telegramMsg += `\n🔗 <a href="${vidUrl}">ลิงก์ Video</a>`;
               }
               
@@ -8966,6 +9110,23 @@
             </label>
           </div>
         </div>
+
+        <!-- INS status detail selection for fail -->
+        <div id="insFailDetailSection" style="display: none; margin-bottom: 20px;">
+          <label class="field-label" style="margin-bottom: 10px;">รายละเอียดการไม่สำเร็จ <span class="required-mark">*</span></label>
+          <div style="display: flex; gap: 12px;">
+            <label style="flex: 1; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;" id="labelFailDetailEntered">
+              <input type="radio" name="insFailDetail" value="entered" style="display: none;" onchange="updateInsFailDetailUI('entered')">
+              <span style="font-size: 24px;">🏠</span>
+              <span style="font-size: 13px; font-weight: 700; color: #475569; text-align: center;">เข้าหน้างานแล้ว</span>
+            </label>
+            <label style="flex: 1; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.3s;" id="labelFailDetailNotEntered">
+              <input type="radio" name="insFailDetail" value="not_entered" style="display: none;" onchange="updateInsFailDetailUI('not_entered')">
+              <span style="font-size: 24px;">🚗</span>
+              <span style="font-size: 13px; font-weight: 700; color: #475569; text-align: center;">ยังไม่เข้าหน้างาน</span>
+            </label>
+          </div>
+        </div>
         
         <!-- Dismantle subcategory selection -->
         <div id="dismantleSubSection" style="display: none; margin-bottom: 20px;">
@@ -8988,7 +9149,7 @@
         
         <!-- File upload for PDF -->
         <div class="form-field">
-          <label class="field-label">ไฟล์ใบงาน (PDF เท่านั้น) <span class="required-mark">*</span></label>
+          <label class="field-label">ไฟล์ใบงาน (PDF เท่านั้น) <span class="required-mark" id="modalPdfRequiredMark">*</span></label>
           <div class="file-upload-zone">
             <input type="file" id="modalPdfUpload" accept="application/pdf" style="display: none;" onchange="handleModalFileChange('pdf')">
             <label for="modalPdfUpload" class="file-upload-label" style="padding: 20px 10px; border: 2px dashed #cbd5e1; border-radius: 12px; text-align: center; cursor: pointer; display: block;">

@@ -64,10 +64,19 @@
 ---
 
 ## 📁 Project File Map (สารบัญไฟล์ - AI Auto-Update Section)
-*(Tech Lead: ให้คุณบันทึกโครงสร้างไฟล์ หน้าที่ของแต่ละไฟล์ และความเกี่ยวข้องกันไว้ที่นี่ สรุปให้สั้นกระชับ เพื่อใช้เป็น Reference ในการทำงานครั้งต่อไป เริ่มจากการสแกนโปรเจกต์ในครั้งแรก)*
+*(Tech Lead: โครงสร้างโฟลเดอร์และไฟล์ของระบบที่ย้ายมายัง Next.js + TypeScript + Tailwind v4 เรียบร้อยแล้ว)*
 
-- **[index.html](file:///c:/Users/USER/Documents/file-upload-sys/index.html)**: ไฟล์หลักของหน้าตาและสคริปต์ระบบทั้งหมด (Single Page Application) บรรจุโครงสร้าง HTML, สไตล์ CSS, ดีไซน์คิวงาน/แท็บจ่ายงานสำหรับแอดมิน, ตัวเชื่อมต่อ Firebase Firestore, การเชื่อมต่อ Google Drive API, ฟังก์ชันสร้างโฟลเดอร์/ส่งวิดีโอรูปภาพแบบ Client-side, ระบบส่งข้อความ Telegram และ**เมนูแฮมเบอร์เกอร์ที่บรรจุลิงก์ตั้งค่าระบบกับโปรไฟล์สำหรับแอดมิน**
-- **[package.json](file:///c:/Users/USER/Documents/file-upload-sys/package.json)**: ไฟล์ควบคุมข้อมูลโปรเจกต์ บัญชีรายชื่อ dependencies (`firebase`, `ws`, `xlsx`) และสคริปต์สั่งรันและบิลด์ระบบของ Vite
-- **[public/coway-logo-new.png](file:///c:/Users/USER/Documents/file-upload-sys/public/coway-logo-new.png)**: ไฟล์รูปภาพโลโก้โควินทร์สำหรับหัวรายงานและหน้าจอแอปพลิเคชัน
-- **[.gitignore](file:///c:/Users/USER/Documents/file-upload-sys/.gitignore)**: ไฟล์ระบุกฎการยกเว้นเพื่อยกเว้นไฟล์และโฟลเดอร์ที่ไม่ต้องการบันทึกใน Git
-- **[ai-team-workspace.md](file:///c:/Users/USER/Documents/file-upload-sys/ai-team-workspace.md)**: ไฟล์คู่มือและสารบัญไฟล์สำหรับกำหนดทิศทางการประหยัด Token และกฎเหล็กของทีม AI ในการปฏิบัติงาน
+- **[app/layout.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/layout.tsx)**: ไฟล์โครงสร้างหลักของหน้าเว็บ กำหนดรูปแบบตัวอักษร Prompt/Sarabun และชุดรูปแบบธีมสีสากล
+- **[app/globals.css](file:///c:/Users/USER/Documents/file-upload-sys/app/globals.css)**: ไฟล์รวบรวมคำสั่งสไตล์ Tailwind CSS และการตั้งค่าสีธีมพาสเทล รวมถึงเครื่องมือพิเศษอย่าง `.soft-card` และ `.soft-input`
+- **[app/providers.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/providers.tsx)**: ตัวจัดเตรียม Context/State สำหรับ LIFF Login, ฐานข้อมูล Firebase Firestore, การแคชระบบ และโมดูลอินเทอร์เฟซ Confirm/Toast กลาง
+- **[app/page.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/page.tsx)**: หน้าเข้าสู่ระบบ (Login) สไตล์ Soft Minimal ที่รองรับการ Bypass แอดมินและการซิงก์สิทธิ์ผู้ใช้
+- **[app/dashboard/page.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/dashboard/page.tsx)**: หน้าหลักของแอดมินสำหรับตรวจงานและดูประวัติ โดยใช้ Capsule Pills navigation และ Stats cards มินิมอล
+- **[app/submit/page.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/submit/page.tsx)**: หน้าแสดงตารางและจัดส่งงานสำหรับช่างเทคนิค รองรับการกรอกข้อมูลงานติดตั้งไม่สำเร็จ (งานเฟล) แบบยืดหยุ่นไม่บังคับแนบไฟล์
+- **[app/import-jobs/page.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/import-jobs/page.tsx)**: หน้าต่างนำเข้าไฟล์ตารางจ่ายงานจาก Excel (`.xlsx`) และการจัดตารางจ่ายงานด้วย Batch Write
+- **[app/settings/page.tsx](file:///c:/Users/USER/Documents/file-upload-sys/app/settings/page.tsx)**: หน้าตั้งค่าการเชื่อมต่อ Google Drive, Telegram API, ขนาดจำกัดอัปโหลด และตัวจัดการสิทธิ์ช่างเทคนิค
+- **[components/sidebar.tsx](file:///c:/Users/USER/Documents/file-upload-sys/components/sidebar.tsx)**: เมนูด้านข้างสำหรับการควบคุมนำทางของผู้ใช้งานแบบปรับขนาดยืดหยุ่นตามหน้าจอ (Responsive Sidebar)
+- **[lib/firebase.ts](file:///c:/Users/USER/Documents/file-upload-sys/lib/firebase.ts)**: ระบบเชื่อมต่อ Firebase Firestore Client SDK
+- **[lib/gdrive.ts](file:///c:/Users/USER/Documents/file-upload-sys/lib/gdrive.ts)**: ฟังก์ชันเชื่อมต่อและส่งไฟล์อัปโหลดตรงเข้า Google Drive API
+- **[lib/telegram.ts](file:///c:/Users/USER/Documents/file-upload-sys/lib/telegram.ts)**: ระบบ Dispatcher ยิงแจ้งเตือนการส่งงานช่างเข้า Telegram Chat Group
+- **[lib/utils.ts](file:///c:/Users/USER/Documents/file-upload-sys/lib/utils.ts)**: ฟังก์ชันอำนวยความสะดวกในการจัดรูปแบบวันที่ไทย ตัวล้างชื่อช่าง และการตรวจสอบข้อมูล Excel
+- **[ai-team-workspace.md](file:///c:/Users/USER/Documents/file-upload-sys/ai-team-workspace.md)**: ไฟล์คู่มือปฏิบัติงานและสารบัญโปรเจกต์ของทีมพัฒนา AI Agent
