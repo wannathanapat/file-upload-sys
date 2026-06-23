@@ -3303,6 +3303,31 @@
           <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 15px; color: #1e293b;">📋 ผลการวิเคราะห์ไฟล์นำเข้า</h4>
           <div id="excelImportFilesList" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;"></div>
           
+          <!-- Detailed jobs preview table -->
+          <div id="excelImportJobsPreview" style="margin-top: 15px; margin-bottom: 20px; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <h5 style="font-size: 14px; font-weight: 800; color: #1e293b; margin: 0;" id="importSelectedCountText">เลือกนำเข้า 0 รายการ</h5>
+              <button type="button" onclick="toggleSelectAllImportJobs(this)" id="btnToggleSelectAllImport" style="background:#eff6ff; color:#2563eb; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; transition: background 0.2s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">เลือกทั้งหมด</button>
+            </div>
+            <div style="max-height: 320px; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.01);">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                <thead style="position: sticky; top: 0; background: #f8fafc; border-bottom: 2px solid #e2e8f0; z-index: 10; color: #64748b; font-weight: 700;">
+                  <tr>
+                    <th style="padding: 10px 8px; width: 50px; text-align: center;">นำเข้า</th>
+                    <th style="padding: 10px 8px;">รหัสงาน / ออเดอร์</th>
+                    <th style="padding: 10px 8px;">ประเภทงาน</th>
+                    <th style="padding: 10px 8px;">ช่างผู้รับผิดชอบ</th>
+                    <th style="padding: 10px 8px;">ชื่อลูกค้า</th>
+                    <th style="padding: 10px 8px;">ผลวิเคราะห์ฐานข้อมูล</th>
+                  </tr>
+                </thead>
+                <tbody id="excelImportJobsTableBody">
+                  <!-- Rows populated dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
           <div style="display: flex; gap: 12px;">
             <button type="button" id="btnConfirmImport" onclick="confirmExcelImport()" class="submit-button" style="flex: 2; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); box-shadow: 0 4px 15px rgba(59,130,246,0.3);">
               🚀 ยืนยันจ่ายงานลงระบบฐานข้อมูล
@@ -3400,6 +3425,13 @@
                 <button type="button" id="btnDeleteAllJobs" onclick="deleteAllAssignedJobs(); document.getElementById('adminActionsDropdown').classList.remove('show');" style="width:100%; text-align:left; background:none; border:none; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:#ef4444; display:none; align-items:center; gap:10px; border-radius:8px; transition: background 0.2s;" onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='none'">
                   <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor"></line></svg>
                   ลบทั้งหมด
+                </button>
+
+                <div style="border-top: 1px solid #f1f5f9; margin: 6px 0;"></div>
+
+                <!-- Migrate Tech Names -->
+                <button type="button" id="btnMigrateTechNames" onclick="runTechNameMigration(); document.getElementById('adminActionsDropdown').classList.remove('show');" style="width:100%; text-align:left; background:none; border:none; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:#3b82f6; display:flex; align-items:center; gap:10px; border-radius:8px; transition: background 0.2s;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='none'">
+                  <span>🔄</span> เปลี่ยนชื่อช่างในระบบ
                 </button>
               </div>
             </div>
@@ -7419,6 +7451,109 @@
       return null;
     }
 
+    function analyzeJobDuplicate(jobRow, activeJobs, historyData) {
+      const isIns = jobRow.job_type.includes("INS");
+      const orderNo = jobRow.order_no ? jobRow.order_no.trim() : "";
+      const jobId = jobRow.job_id ? jobRow.job_id.trim() : "";
+      
+      // 1. Check active assigned_jobs
+      const activeJobIdMatch = jobId ? activeJobs.find(j => j.job_id === jobId) : null;
+      const activeOrderNoMatch = orderNo ? activeJobs.find(j => j.order_no === orderNo) : null;
+      
+      // 2. Check history (submissions)
+      const historyJobIdMatch = jobId ? historyData.find(h => h.job_id === jobId) : null;
+      const historyOrderNoMatch = orderNo ? historyData.find(h => {
+        if (h.order_no === orderNo) return true;
+        if (h.file_name && h.file_name.includes(orderNo)) return true;
+        return false;
+      }) : null;
+      
+      if (isIns) {
+        if (activeJobIdMatch || historyJobIdMatch) {
+          return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำรหัสงานติดตั้งเดิม (ข้าม)', matchedItem: activeJobIdMatch || historyJobIdMatch };
+        }
+        if (activeOrderNoMatch || historyOrderNoMatch) {
+          return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: activeOrderNoMatch || historyOrderNoMatch };
+        }
+        return { duplicate: false, status: 'new', message: '✨ งานติดตั้งใหม่' };
+      } else {
+        // AS jobs
+        // A. Check exact Job ID first
+        if (activeJobIdMatch || historyJobIdMatch) {
+          return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำรหัสงานบริการเดิม (ข้าม)', matchedItem: activeJobIdMatch || historyJobIdMatch };
+        }
+        
+        // B. Check Order No
+        if (activeOrderNoMatch) {
+          return { 
+            duplicate: false, 
+            warning: true, 
+            status: 'pending_active', 
+            message: `⚠️ มีงานค้างในคิวช่าง (${activeOrderNoMatch.assigned_to})`, 
+            matchedItem: activeOrderNoMatch 
+          };
+        }
+        
+        if (historyOrderNoMatch) {
+          const dateStr = historyOrderNoMatch.submission_date 
+            ? new Date(historyOrderNoMatch.submission_date).toLocaleDateString('th-TH') 
+            : 'ไม่ระบุวันที่';
+          const prevFileName = historyOrderNoMatch.file_name || 'ใบงานเดิม';
+          return { 
+            duplicate: false, 
+            warning: true, 
+            status: 'history_active', 
+            message: `🔍 พบประวัติเดิม: ${prevFileName} (${dateStr})`, 
+            matchedItem: historyOrderNoMatch 
+          };
+        }
+        
+        return { duplicate: false, status: 'new', message: '✨ งานบริการใหม่' };
+      }
+    }
+
+    function getAnalysisBadgeHtml(analysis) {
+      if (analysis.status === 'duplicate') {
+        return `<span style="background:#fee2e2; color:#ef4444; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:700; display:inline-block;">${analysis.message}</span>`;
+      } else if (analysis.status === 'pending_active') {
+        return `<span style="background:#fef3c7; color:#d97706; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:700; display:inline-block;">${analysis.message}</span>`;
+      } else if (analysis.status === 'history_active') {
+        return `<span style="background:#dbeafe; color:#2563eb; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:700; display:inline-block; max-width:260px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${analysis.message}">${analysis.message}</span>`;
+      } else {
+        return `<span style="background:#d1fae5; color:#059669; padding:3px 8px; border-radius:12px; font-size:10px; font-weight:700; display:inline-block;">${analysis.message}</span>`;
+      }
+    }
+
+    function updateImportSelectionCount() {
+      const checkboxes = document.querySelectorAll('.import-job-select-cb');
+      const checkedBoxes = Array.from(checkboxes).filter(cb => cb.checked);
+      const btnConfirm = document.getElementById('btnConfirmImport');
+      
+      const selectedCount = checkedBoxes.length;
+      if (selectedCount === 0) {
+        btnConfirm.disabled = true;
+        btnConfirm.style.opacity = '0.5';
+      } else {
+        btnConfirm.disabled = false;
+        btnConfirm.style.opacity = '1';
+      }
+      
+      const checkedText = `เลือกนำเข้า ${selectedCount} จาก ${checkboxes.length} รายการ`;
+      document.getElementById('importSelectedCountText').textContent = checkedText;
+    }
+
+    function toggleSelectAllImportJobs(masterBtn) {
+      const checkboxes = document.querySelectorAll('.import-job-select-cb:not(:disabled)');
+      const anyUnchecked = Array.from(checkboxes).some(cb => !cb.checked);
+      
+      checkboxes.forEach(cb => {
+        cb.checked = anyUnchecked;
+      });
+      
+      masterBtn.textContent = anyUnchecked ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด";
+      updateImportSelectionCount();
+    }
+
     function initExcelDragDrop() {
       const dropZone = document.getElementById('excelDragDropArea');
       if (!dropZone) return;
@@ -7658,13 +7793,92 @@
         reader.readAsArrayBuffer(file);
       });
       
-      function checkAllProcessed() {
+      async function checkAllProcessed() {
         filesProcessed++;
         if (filesProcessed === totalFiles) {
           if (tempParsedJobs.length === 0) {
             document.getElementById('btnConfirmImport').disabled = true;
             document.getElementById('btnConfirmImport').style.opacity = '0.5';
-          } else {
+            return;
+          }
+          
+          const previewContainer = document.getElementById('excelImportJobsPreview');
+          const tableBody = document.getElementById('excelImportJobsTableBody');
+          const countText = document.getElementById('importSelectedCountText');
+          
+          previewContainer.style.display = 'block';
+          countText.textContent = "🔍 กำลังดึงข้อมูลเพื่อตรวจสอบความซ้ำซ้อนในระบบ...";
+          tableBody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 30px; color: #64748b;">
+                <div class="spinner" style="margin: 0 auto 10px auto; width: 24px; height: 24px;"></div>
+                กำลังตรวจสอบฐานข้อมูลและประวัติการส่งงาน...
+              </td>
+            </tr>
+          `;
+          
+          try {
+            // Fetch active assigned jobs from Firestore
+            let activeJobs = [];
+            const activeSnap = await firebaseDb.collection('assigned_jobs').get();
+            activeSnap.forEach(doc => activeJobs.push(doc.data()));
+            
+            let html = '';
+            tempParsedJobs.forEach((job, index) => {
+              const analysis = analyzeJobDuplicate(job, activeJobs, currentHistoryData || []);
+              job.analysis = analysis; // store analysis object
+              
+              let isChecked = '';
+              let isDisabled = '';
+              let rowStyle = '';
+              
+              if (analysis.status === 'new') {
+                isChecked = 'checked';
+                job.selected = true;
+              } else if (analysis.status === 'duplicate') {
+                isDisabled = 'disabled';
+                rowStyle = 'background: #fdf2f2; opacity: 0.85;';
+                job.selected = false;
+              } else {
+                // Warning status (pending_active or history_active)
+                rowStyle = 'background: #fffbeb;';
+                job.selected = false;
+              }
+              
+              const badgeHtml = getAnalysisBadgeHtml(analysis);
+              const labelId = job.order_no ? `ออเดอร์: #${job.order_no}` : job.job_id;
+              const subIdText = job.order_no ? `<div style="font-size:10px; color:#64748b; font-family:monospace; margin-top:2px;">รหัสงาน: ${job.job_id}</div>` : '';
+              
+              html += `
+                <tr style="border-bottom: 1px solid #f1f5f9; ${rowStyle}">
+                  <td style="padding: 10px 8px; text-align: center; vertical-align: middle;">
+                    <input type="checkbox" class="import-job-select-cb" data-index="${index}" ${isChecked} ${isDisabled} onchange="updateImportSelectionCount()" style="cursor: pointer; width: 16px; height: 16px;">
+                  </td>
+                  <td style="padding: 10px 8px; vertical-align: middle;">
+                    <strong style="color: #1e293b;">${labelId}</strong>
+                    ${subIdText}
+                  </td>
+                  <td style="padding: 10px 8px; vertical-align: middle; font-weight: 600; color: #475569;">${job.job_type}</td>
+                  <td style="padding: 10px 8px; vertical-align: middle; font-weight: 600; color: #1e293b;">${job.assigned_to}</td>
+                  <td style="padding: 10px 8px; vertical-align: middle; color: #475569;">${job.customer_name}</td>
+                  <td style="padding: 10px 8px; vertical-align: middle;">${badgeHtml}</td>
+                </tr>
+              `;
+            });
+            
+            tableBody.innerHTML = html;
+            document.getElementById('btnToggleSelectAllImport').textContent = "เลือกทั้งหมด";
+            updateImportSelectionCount();
+            
+          } catch (err) {
+            console.error("Error matching import duplicates:", err);
+            tableBody.innerHTML = `
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 20px; color: #ef4444; font-weight: 700;">
+                  เกิดข้อผิดพลาดในการตรวจสอบฐานข้อมูล: ${err.message}
+                </td>
+              </tr>
+            `;
             document.getElementById('btnConfirmImport').disabled = false;
             document.getElementById('btnConfirmImport').style.opacity = '1';
           }
@@ -7696,11 +7910,17 @@
     }
 
     async function confirmExcelImport() {
-      if (tempParsedJobs.length === 0) return;
+      const checkboxes = document.querySelectorAll('.import-job-select-cb:checked');
+      const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-index')));
+      
+      if (selectedIndices.length === 0) {
+        showToast("กรุณาเลือกอย่างน้อย 1 รายการเพื่อนำเข้า", "warning");
+        return;
+      }
       
       const confirmSave = await showCustomConfirm(
         "🚀 ยืนยันการนำเข้าและจ่ายงาน",
-        `ระบบตรวจพบงานทั้งหมด ${tempParsedJobs.length} รายการ ต้องการจ่ายงานลงในระบบใช่หรือไม่? งานเดิมที่มี ID ชนกันจะถูกอัปเดตใหม่`,
+        `ต้องการจ่ายงานคิวงานที่เลือกจำนวน ${selectedIndices.length} รายการ ลงในระบบใช่หรือไม่?`,
         { icon: "📊", okText: "ยืนยันนำเข้า", cancelText: "ยกเลิก" }
       );
       
@@ -7713,9 +7933,14 @@
         let count = 0;
         let batchCount = 0;
         
-        for (const job of tempParsedJobs) {
-          const docRef = firebaseDb.collection('assigned_jobs').doc(job.job_id);
-          batch.set(docRef, job, { merge: true });
+        for (const index of selectedIndices) {
+          const job = tempParsedJobs[index];
+          // Remove analysis metadata before saving to DB to keep document clean
+          const jobToSave = { ...job };
+          delete jobToSave.analysis;
+          
+          const docRef = firebaseDb.collection('assigned_jobs').doc(jobToSave.job_id);
+          batch.set(docRef, jobToSave, { merge: true });
           count++;
           
           if (count === 400) {
@@ -7732,7 +7957,7 @@
         }
         
         hideGlobalLoading();
-        showToast(`นำเข้าคิวงานประจำวันสำเร็จ ${batchCount} รายการ! 🎉`, "success");
+        showToast(`นำเข้าคิวงานช่างสำเร็จจำนวน ${batchCount} รายการเรียบร้อยแล้วครับ! 🎉`, "success");
         cancelExcelImport();
         loadAssignedJobsForAdmin();
       } catch (err) {
@@ -7747,6 +7972,105 @@
       document.getElementById('excelImportResult').style.display = 'none';
       document.getElementById('excelFileSelector').value = '';
       document.getElementById('excelImportFilesList').innerHTML = '';
+      document.getElementById('excelImportJobsPreview').style.display = 'none';
+      document.getElementById('excelImportJobsTableBody').innerHTML = '';
+    }
+
+    async function runTechNameMigration() {
+      const confirmRun = await showCustomConfirm(
+        "🔄 ยืนยันการปรับเปลี่ยนชื่อช่างในระบบ",
+        "ระบบจะทำการอัปเดตประวัติการส่งงานเก่าทั้งหมด และเชื่อมโยงงานเก่าเข้ากับชื่อบัญชีใหม่ของช่างแต่ละท่านโดยอัตโนมัติ ต้องการดำเนินการใช่หรือไม่?",
+        { icon: "🔄", okText: "เริ่มดำเนินการ", cancelText: "ยกเลิก" }
+      );
+      if (!confirmRun) return;
+
+      showGlobalLoading("กำลังปรับปรุงประวัติและข้อมูลช่างในระบบ...");
+      
+      const nameMap = {
+        'CT-CHAYAPHON W.': 'CT8711017 - [DSC] CT-CHR-CHAYAPHON W.',
+        'CT-SATHAPHON T.': 'CT8710995 - [DSC] CT-CHR-SATHAPHON T.',
+        'CT-NATTHAWAT S.': 'CT8711048 - [DSC] CT-CHR-NATTHAWAT S.',
+        'CT-SIRIKORN P.': 'CT8711067 - [DSC] CT-CHR-SIRIKORN P.',
+        'CT-NATTHAWAT W.': 'CT8711038 - [DSC] CT-CHR-NATTHAWAT W.',
+        'CT-NARUEPON K.': 'CT8700288 - [DSC] CT-CHR-NARUEPON K.',
+        'ACI-PHOLSAK T.': 'CT8711046 - [DSC] ACI-CHR-PHOLSAK T.',
+        'CT-CHIANGRAI': 'CT8700872 - [DSC] CT-CHR-CHIANGRAI'
+      };
+
+      try {
+        // 1. Fetch and migrate submissions (history)
+        const subSnapshot = await firebaseDb.collection('submissions').get();
+        let subCount = 0;
+        let batch = firebaseDb.batch();
+        let opCount = 0;
+
+        subSnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const oldName = data.name ? data.name.trim() : "";
+          const oldAssignedTo = data.assigned_to ? data.assigned_to.trim() : "";
+          
+          let needsUpdate = false;
+          const updatePayload = {};
+          
+          if (nameMap[oldName]) {
+            updatePayload.name = nameMap[oldName];
+            needsUpdate = true;
+          }
+          if (nameMap[oldAssignedTo]) {
+            updatePayload.assigned_to = nameMap[oldAssignedTo];
+            needsUpdate = true;
+          }
+          
+          if (needsUpdate) {
+            batch.update(docSnap.ref, updatePayload);
+            subCount++;
+            opCount++;
+            
+            if (opCount === 400) {
+              batch.commit();
+              batch = firebaseDb.batch();
+              opCount = 0;
+            }
+          }
+        });
+
+        // 2. Fetch and migrate assigned_jobs (queue)
+        const jobsSnapshot = await firebaseDb.collection('assigned_jobs').get();
+        let jobsCount = 0;
+
+        jobsSnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const oldAssignedTo = data.assigned_to ? data.assigned_to.trim() : "";
+          
+          if (nameMap[oldAssignedTo]) {
+            batch.update(docSnap.ref, { assigned_to: nameMap[oldAssignedTo] });
+            jobsCount++;
+            opCount++;
+            
+            if (opCount === 400) {
+              batch.commit();
+              batch = firebaseDb.batch();
+              opCount = 0;
+            }
+          }
+        });
+
+        if (opCount > 0) {
+          await batch.commit();
+        }
+        
+        hideGlobalLoading();
+        showToast(`🎉 อัปเดตประวัติสำเร็จ ${subCount} รายการ และคิวงาน ${jobsCount} รายการเรียบร้อยครับ!`, "success");
+        
+        // Reload data in client
+        loadHistory();
+        loadAssignedJobsForAdmin();
+        
+      } catch (err) {
+        hideGlobalLoading();
+        console.error("Migration failed:", err);
+        showToast("ไม่สามารถย้ายข้อมูลได้: " + err.message, "error");
+      }
     }
 
     async function loadAssignedJobsForAdmin() {
