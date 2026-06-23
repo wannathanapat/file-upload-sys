@@ -4483,7 +4483,7 @@
 
       const navImportJobs = document.getElementById('nav-import-jobs');
       if (navImportJobs) {
-        navImportJobs.style.display = (currentUser && currentUser.role === 'admin') ? 'flex' : 'none';
+        navImportJobs.style.display = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'auditor')) ? 'flex' : 'none';
       }
 
       // Show/Hide admin-only links in Hamburger drawer
@@ -4515,7 +4515,7 @@
         }
       }
 
-      if (currentUser && currentUser.role === 'admin') {
+      if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'auditor')) {
         initExcelDragDrop();
       }
 
@@ -4577,8 +4577,8 @@
         return;
       }
 
-      // Access control: only admins can view import-jobs
-      if (tabId === 'import-jobs' && (!currentUser || currentUser.role !== 'admin')) {
+      // Access control: only admins/auditors can view import-jobs
+      if (tabId === 'import-jobs' && (!currentUser || (currentUser.role !== 'admin' && currentUser.role !== 'auditor'))) {
         showToast("คุณไม่มีสิทธิ์เข้าถึงหน้านำเข้าคิวงาน", "error");
         switchTab('dashboard');
         return;
