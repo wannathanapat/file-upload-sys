@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Sidebar from '@/components/sidebar';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '../providers';
 import { getDb } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
@@ -27,7 +27,8 @@ import {
   XCircle,
   MapPin,
   Truck,
-  FileImage
+  FileImage,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -37,7 +38,7 @@ import {
   getValidAccessToken
 } from '@/lib/gdrive';
 import { sendTelegramDirect } from '@/lib/telegram';
-import { convertImagesToPdf } from '@/lib/image-pdf';
+import { convertImagesToPdf, compressPdfFile } from '@/lib/image-pdf';
 
 const ImagePreview = ({ file, onRemove }: { file: File; onRemove: () => void }) => {
   const [url, setUrl] = useState<string>('');
@@ -66,15 +67,29 @@ const ImagePreview = ({ file, onRemove }: { file: File; onRemove: () => void }) 
   );
 };
 
+const formatDisplayName = (fullName: string): string => {
+  if (!fullName) return '';
+  const parts = fullName.split('-');
+  return parts[parts.length - 1].trim();
+};
+
 function SubmitPageInner() {
-  const { currentUser, showToast, systemSettings, gdrivePrefs, setLoading, setLoadingText } = useApp();
+  const { currentUser, showToast, showConfirm, systemSettings, gdrivePrefs, setLoading, setLoadingText } = useApp();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const activeTab = searchParams.get('tab') || 'dashboard';
 
   // Data lists
   const [assignedJobs, setAssignedJobs] = useState<JobRow[]>([]);
   const [personalHistory, setPersonalHistory] = useState<SubmissionData[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+
+  // States for Admin/Auditor to submit on behalf of tech
+  const [technicians, setTechnicians] = useState<string[]>([]);
+  const [selectedTech, setSelectedTech] = useState<string>('');
+
+  const isAdminOrAuditor = currentUser?.role === 'admin' || currentUser?.role === 'auditor';
+  const targetTechName = (isAdminOrAuditor ? selectedTech : currentUser?.name?.trim()) || '';
 
   // Statistics for Technician Dashboard
   const totalPersonal = personalHistory.length;
@@ -100,17 +115,31 @@ function SubmitPageInner() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStepName, setUploadStepName] = useState('');
 
+  // PDF Compression states
+  const [isCompressingPdf, setIsCompressingPdf] = useState(false);
+  const [compressProgress, setCompressProgress] = useState(0);
+
   const fetchJobs = async () => {
     if (!currentUser) return;
+    
+    // For admin/auditor, if they haven't selected a tech, don't query
+    if (isAdminOrAuditor && !selectedTech) {
+      setAssignedJobs([]);
+      setPersonalHistory([]);
+      setDataLoading(false);
+      return;
+    }
+
     setDataLoading(true);
     try {
       const db = getDb();
+      const techToQuery = targetTechName || '';
       
       // 1. Fetch pending assigned jobs for this tech
       const jobsSnap = await getDocs(
         query(
           collection(db, 'assigned_jobs'), 
-          where('assigned_to', '==', currentUser.name.trim()),
+          where('assigned_to', '==', techToQuery),
           where('status', '==', 'pending')
         )
       );
@@ -124,7 +153,7 @@ function SubmitPageInner() {
       const historySnap = await getDocs(
         query(
           collection(db, 'submissions'),
-          where('name', '==', currentUser.name.trim())
+          where('name', '==', techToQuery)
         )
       );
       const historyList: SubmissionData[] = [];
@@ -144,8 +173,30 @@ function SubmitPageInner() {
   };
 
   useEffect(() => {
-    fetchJobs();
+    const fetchTechs = async () => {
+      if (currentUser?.role === 'admin' || currentUser?.role === 'auditor') {
+        try {
+          const db = getDb();
+          const usersSnap = await getDocs(query(collection(db, 'users')));
+          const techList: string[] = [];
+          usersSnap.forEach(docSnap => {
+            const u = docSnap.data();
+            if (u.role === 'staff' && u.name) {
+              techList.push(u.name);
+            }
+          });
+          setTechnicians(techList);
+        } catch (e) {
+          console.error("Error fetching technicians:", e);
+        }
+      }
+    };
+    fetchTechs();
   }, [currentUser]);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [currentUser, selectedTech]);
 
   const openSubmitModal = (job: JobRow) => {
     setActiveJob(job);
@@ -162,7 +213,7 @@ function SubmitPageInner() {
     setActiveJob(null);
   };
 
-  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -173,8 +224,41 @@ function SubmitPageInner() {
       const pdf = Array.from(files).find(file => file.type === 'application/pdf');
       if (pdf) {
         const sizeMB = pdf.size / (1024 * 1024);
-        if (sizeMB > (systemSettings.max_size_pdf || 20)) {
-          showToast(`ไฟล์ PDF ของคุณมีขนาด ${sizeMB.toFixed(2)}MB ซึ่งเกินขีดจำกัดที่แอดมินกำหนด (${systemSettings.max_size_pdf || 20}MB)`, "error");
+        const limit = systemSettings.max_size_pdf || 20;
+        if (sizeMB > limit) {
+          const confirm = await showConfirm(
+            "ไฟล์เอกสารมีขนาดใหญ่เกินไป",
+            `ไฟล์ PDF ของคุณมีขนาด ${sizeMB.toFixed(2)}MB ซึ่งเกินขีดจำกัดที่กำหนด (${limit}MB) คุณต้องการให้ระบบช่วยบีบอัดไฟล์ PDF นี้ให้อัตโนมัติเพื่อให้ขนาดเล็กลงและส่งงานได้หรือไม่?`,
+            { okText: "บีบอัดไฟล์อัตโนมัติ", cancelText: "ยกเลิก" }
+          );
+          
+          if (confirm) {
+            setIsCompressingPdf(true);
+            setCompressProgress(0);
+            
+            // We use setTimeout to let the UI update and show the spinner before launching the compression
+            setTimeout(async () => {
+              try {
+                const compressed = await compressPdfFile(pdf, 0.6, 1.5, (current, total) => {
+                  setCompressProgress(Math.round((current / total) * 100));
+                });
+                
+                const compressedSizeMB = compressed.size / (1024 * 1024);
+                if (compressedSizeMB > limit) {
+                  showToast(`บีบอัดแล้วขนาดไฟล์ยังเกินกำหนด (${compressedSizeMB.toFixed(2)}MB) กรุณาลดจำนวนหน้าลงครับ`, "error");
+                } else {
+                  setPdfFile(compressed);
+                  setImageFiles([]);
+                  showToast(`บีบอัดไฟล์ PDF สำเร็จ! ขนาดลดลงเหลือ ${compressedSizeMB.toFixed(2)}MB ✨`, "success");
+                }
+              } catch (err: any) {
+                console.error(err);
+                showToast("การบีบอัดไฟล์ขัดข้อง: " + err.message, "error");
+              } finally {
+                setIsCompressingPdf(false);
+              }
+            }, 300);
+          }
           return;
         }
         setPdfFile(pdf);
@@ -357,7 +441,7 @@ function SubmitPageInner() {
       const submissionDateStr = new Date().toISOString();
       const submissionPayload: SubmissionData = {
         submission_date: submissionDateStr,
-        name: currentUser.name,
+        name: targetTechName,
         work_type: finalWorkCat,
         file_name: renamedPdfName,
         file_url: pdfUrl,
@@ -368,7 +452,7 @@ function SubmitPageInner() {
         job_id: activeJob.job_id,
         order_no: activeJob.order_no || '-',
         sub_work_type: dismantleSub || '',
-        assigned_to: currentUser.name,
+        assigned_to: targetTechName,
         fail_detail: failDetail || '-'
       };
 
@@ -400,7 +484,7 @@ function SubmitPageInner() {
         }
         
         telegramMsg += `• <b>ประเภทงาน:</b> ${finalWorkCat}${dismantleSub ? ` (${dismantleSub})` : ''}\n` +
-                       `• <b>ช่างเทคนิค:</b> ${currentUser.name}\n\n`;
+                       `• <b>ช่างเทคนิค:</b> ${targetTechName}\n\n`;
 
         if (pdfFile && pdfUrl && pdfUrl !== '-') {
           telegramMsg += `• <b>ไฟล์ PDF:</b> 📄 <a href="${pdfUrl}">${renamedPdfName}</a>\n`;
@@ -436,20 +520,109 @@ function SubmitPageInner() {
 
       <main className="flex-grow pt-24 pb-6 px-4 lg:p-8 overflow-y-auto">
 
-
-        {/* ── Tab: Personal Dashboard ── */}
-        {activeTab === 'dashboard' && (
-          <div className="space-y-6">
-            {/* Welcome Section */}
-            <div className="bg-gradient-to-r from-indigo-500/90 via-purple-500/90 to-pink-500/90 backdrop-blur-md border border-white/20 rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/10 relative overflow-hidden">
-              <div className="absolute right-0 bottom-0 opacity-10 translate-y-1/4 translate-x-1/4 scale-150">
-                <CheckCircle2 className="w-64 h-64" />
+        {/* Dropdown Selector for Admin/Auditor */}
+        {isAdminOrAuditor && (
+          <div className="glass-card p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <Users className="w-5 h-5" />
               </div>
-              <div className="relative z-10">
-                <h2 className="text-xl font-bold Prompt mb-1">สวัสดีครับ ช่าง {currentUser?.name} 👋</h2>
-                <p className="text-xs opacity-90 Sarabun">ยินดีต้อนรับเข้าสู่ระบบปฏิบัติการช่าง วันนี้มีงานส่งสะสมทั้งหมด {totalPersonal} รายการ</p>
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 Prompt">ส่งงานแทนช่างเทคนิค</h3>
+                <p className="text-[10px] text-slate-400 Sarabun">เลือกชื่อช่างเทคนิคที่ต้องการลงงานแทนระบบ</p>
               </div>
             </div>
+            <div className="w-full sm:w-72">
+              <select
+                value={selectedTech}
+                onChange={(e) => setSelectedTech(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 transition font-bold Prompt cursor-pointer"
+              >
+                <option value="">-- เลือกช่างเทคนิค --</option>
+                {technicians.map((t) => (
+                  <option key={t} value={t}>
+                    {formatDisplayName(t)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Tab switcher row for Admin/Auditor */}
+        {isAdminOrAuditor && selectedTech && (
+          <div className="flex gap-2 mb-6 bg-slate-100/70 p-1 rounded-2xl w-fit border border-slate-200/20">
+            <button
+              type="button"
+              onClick={() => router.push('/submit?tab=dashboard')}
+              className={`px-4.5 py-2.5 rounded-xl font-bold text-xs Prompt flex items-center gap-2 cursor-pointer transition ${
+                activeTab === 'dashboard'
+                  ? 'bg-white text-indigo-650 shadow-sm border border-slate-200/20'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              แผงควบคุมผลงาน
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/submit?tab=queue')}
+              className={`px-4.5 py-2.5 rounded-xl font-bold text-xs Prompt flex items-center gap-2 cursor-pointer transition ${
+                activeTab === 'queue'
+                  ? 'bg-white text-amber-600 shadow-sm border border-slate-200/20'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <ScanLine className="w-3.5 h-3.5" />
+              คิวงานค้างส่ง
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push('/submit?tab=history')}
+              className={`px-4.5 py-2.5 rounded-xl font-bold text-xs Prompt flex items-center gap-2 cursor-pointer transition ${
+                activeTab === 'history'
+                  ? 'bg-white text-indigo-655 shadow-sm border border-slate-200/20'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              ประวัติส่งงาน
+            </button>
+          </div>
+        )}
+
+        {/* If Admin/Auditor and haven't selected a technician */}
+        {isAdminOrAuditor && !selectedTech ? (
+          <div className="glass-card p-12 text-center flex flex-col items-center justify-center gap-4 border-dashed border-2 border-slate-200 animate-fadeIn">
+            <div className="w-16 h-16 rounded-full bg-slate-100/80 flex items-center justify-center text-slate-400">
+              <Users className="w-8 h-8 animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 Prompt">โปรดเลือกช่างเทคนิคเพื่อดำเนินการ</h3>
+              <p className="text-xs text-slate-400 Sarabun mt-1">เลือกช่างเทคนิคจากเมนูด้านบน เพื่อส่งงานค้างและบันทึกประวัติการส่งงานแทน</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* ── Tab: Personal Dashboard ── */}
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                {/* Welcome Section */}
+                <div className="bg-gradient-to-r from-indigo-500/90 via-purple-500/90 to-pink-500/90 backdrop-blur-md border border-white/20 rounded-3xl p-6 text-white shadow-lg shadow-indigo-500/10 relative overflow-hidden">
+                  <div className="absolute right-0 bottom-0 opacity-10 translate-y-1/4 translate-x-1/4 scale-150">
+                    <CheckCircle2 className="w-64 h-64" />
+                  </div>
+                  <div className="relative z-10">
+                    <h2 className="text-xl font-bold Prompt mb-1">
+                      {isAdminOrAuditor ? `ส่งงานแทน ช่าง ${formatDisplayName(selectedTech)}` : `สวัสดีครับ ช่าง ${currentUser?.name}`} 👋
+                    </h2>
+                    <p className="text-xs opacity-90 Sarabun">
+                      {isAdminOrAuditor 
+                        ? `บันทึกข้อมูลและส่งงานเข้าระบบในนามช่าง มีคิวงานค้างส่งทั้งหมด ${assignedJobs.length} รายการ`
+                        : `ยินดีต้อนรับเข้าสู่ระบบปฏิบัติการช่าง วันนี้มีงานส่งสะสมทั้งหมด ${totalPersonal} รายการ`}
+                    </p>
+                  </div>
+                </div>
 
             {/* 5 KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -752,6 +925,8 @@ function SubmitPageInner() {
             )}
           </section>
         )}
+      </>
+    )}
 
       </main>
 
@@ -781,6 +956,37 @@ function SubmitPageInner() {
                 />
               </div>
               <span className="text-xs font-bold text-indigo-600 Prompt">{uploadProgress}%</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* PDF compression progress overlay */}
+      <AnimatePresence>
+        {isCompressingPdf && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          >
+            <div className="bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full border border-slate-100 text-center animate-fadeIn">
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-4 animate-spin">
+                ⏳
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 Prompt mb-1 font-bold">กำลังบีบอัดไฟล์ PDF</h3>
+              <p className="text-xs text-slate-500 Sarabun mb-6 leading-relaxed">กำลังปรับขนาดและลดขนาดหน้าเอกสาร...</p>
+              
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
+                <motion.div 
+                  className="bg-indigo-600 h-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${compressProgress}%` }}
+                  transition={{ duration: 0.2 }}
+                />
+              </div>
+              <span className="text-xs font-bold text-indigo-650 Prompt">{compressProgress}%</span>
             </div>
           </motion.div>
         )}

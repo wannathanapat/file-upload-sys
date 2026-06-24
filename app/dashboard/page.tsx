@@ -111,6 +111,12 @@ function CustomSelect({ value, onChange, options, placeholder }: CustomSelectPro
   );
 }
 
+const formatDisplayName = (fullName: string): string => {
+  if (!fullName) return '';
+  const parts = fullName.split('-');
+  return parts[parts.length - 1].trim();
+};
+
 function DashboardContent() {
   const { currentUser, showToast, showConfirm, systemSettings, gdrivePrefs } = useApp();
   const searchParams = useSearchParams();
@@ -142,7 +148,7 @@ function DashboardContent() {
   const [showAllHistory, setShowAllHistory] = useState(false);
   
   // Queue Table Filter
-  const [queueTechFilter, setQueueTechFilter] = useState('');
+  const [queueTechFilter, setQueueTechFilter] = useState(searchParams.get('tech') || '');
 
   // Detail Modal State
   const [selectedSub, setSelectedSub] = useState<SubmissionData | null>(null);
@@ -226,6 +232,12 @@ function DashboardContent() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const tech = searchParams.get('tech') || '';
+    setTechFilter(tech);
+    setQueueTechFilter(tech);
+  }, [searchParams]);
 
 
 
@@ -523,10 +535,14 @@ function DashboardContent() {
     const techSubs = submissions.filter(s => s.name === name);
     const approved = techSubs.filter(s => s.status === 'ตรวจแล้ว').length;
     const rate = techSubs.length > 0 ? Math.round((approved / techSubs.length) * 100) : 0;
-    return { name, total: techSubs.length, approved, rate };
-  }).sort((a, b) => b.total - a.total);
+    const pendingJobs = assignedJobs.filter(j => j.assigned_to === name && j.status === 'pending').length;
+    return { name, total: techSubs.length, approved, rate, pendingJobs };
+  });
 
-  const top5Techs = techStats.slice(0, 5);
+  const techStatsSubmitted = [...techStats].sort((a, b) => b.total - a.total);
+  const techStatsPending = [...techStats].sort((a, b) => b.pendingJobs - a.pendingJobs);
+
+  const top5Techs = techStatsSubmitted.slice(0, 5);
   const maxTechTotal = top5Techs[0]?.total || 1;
 
   // Donut chart data
@@ -694,7 +710,7 @@ function DashboardContent() {
                     <span className="text-[10px] font-black text-slate-400 w-4 text-center">{i + 1}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-[10px] font-bold text-slate-700 Prompt truncate">{tech.name}</span>
+                        <span className="text-[10px] font-bold text-slate-700 Prompt truncate">{formatDisplayName(tech.name)}</span>
                         <span className="text-[10px] font-black text-slate-500 ml-1 flex-shrink-0">{tech.total}</span>
                       </div>
                       <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -739,7 +755,7 @@ function DashboardContent() {
                         {item.name?.charAt(0) || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold text-slate-700 Prompt truncate">{item.name}</p>
+                        <p className="text-[10px] font-bold text-slate-700 Prompt truncate">{formatDisplayName(item.name)}</p>
                         <p className="text-[9px] text-slate-400 truncate">{item.work_type}</p>
                       </div>
                       <div className="text-right flex-shrink-0">
@@ -758,34 +774,81 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* ── Leaderboard Strip ────────────────────────────────────────────── */}
-        {!loading && techStats.length > 0 && (
+        {/* ── Leaderboard Strip (Submitted Works) ────────────────────────────────────────────── */}
+        {!loading && techStatsSubmitted.length > 0 && (
           <div className="glass-card p-5 mb-6">
             <h3 className="text-xs font-bold text-slate-700 Prompt mb-4 flex items-center gap-2">
               <span className="w-1.5 h-4 bg-indigo-500 rounded-full inline-block shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-              🏆 Leaderboard ช่างเทคนิค
+              🏆 Leaderboard ช่างส่งงานสะสม
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-              {techStats.slice(0, 5).map((tech, i) => (
+            <div className="flex flex-wrap gap-3">
+              {techStatsSubmitted.slice(0, 10).map((tech, i) => (
                 <motion.button
                   key={i}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => router.push(`/dashboard?view=history&tech=${encodeURIComponent(tech.name)}`)}
-                  className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-200/50 bg-white/40 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer text-center group"
+                  className="flex-1 min-w-[120px] max-w-[200px] flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-200/50 bg-white/40 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer text-center group"
                 >
                   <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black ${
                     i === 0 ? 'bg-amber-100 text-amber-600' :
-                    i === 1 ? 'bg-slate-100 text-slate-600' :
+                    i === 1 ? 'bg-slate-100 text-slate-650' :
                     i === 2 ? 'bg-orange-100 text-orange-600' :
                     'bg-slate-50 text-slate-400'
                   }`}>
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
                   </div>
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-700 Prompt leading-tight group-hover:text-indigo-700 transition">{tech.name}</p>
-                    <p className="text-base font-black text-slate-800">{tech.total} <span className="text-[9px] font-semibold text-slate-400">งาน</span></p>
-                    <p className="text-[9px] text-emerald-600 font-bold">{tech.rate}% ผ่าน</p>
+                  <div className="w-full truncate">
+                    <p className="text-[10px] font-bold text-slate-700 Prompt leading-tight group-hover:text-indigo-700 transition truncate" title={formatDisplayName(tech.name)}>
+                      {formatDisplayName(tech.name)}
+                    </p>
+                    <p className="text-sm font-black text-slate-800 mt-1">{tech.total} <span className="text-[8px] font-semibold text-slate-400">งาน</span></p>
+                    <p className="text-[9px] text-emerald-600 font-bold mt-0.5">{tech.rate}% ผ่าน</p>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Pending Works Box (สรุปงานค้างส่งช่างเทคนิค) ────────────────────────────────────────────── */}
+        {!loading && techStatsPending.length > 0 && (
+          <div className="glass-card p-5 mb-6">
+            <h3 className="text-xs font-bold text-slate-700 Prompt mb-4 flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-amber-500 rounded-full inline-block shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+              ⏳ สรุปงานค้างส่งช่างเทคนิค
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {techStatsPending.slice(0, 10).map((tech, i) => (
+                <motion.button
+                  key={i}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => router.push(`/dashboard?view=queue&tech=${encodeURIComponent(tech.name)}`)}
+                  className="flex-1 min-w-[120px] max-w-[200px] flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-200/50 bg-white/40 hover:border-amber-200 hover:bg-amber-50/30 transition-all duration-200 cursor-pointer text-center group"
+                >
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                    tech.pendingJobs > 5
+                      ? 'bg-rose-500/10 border border-rose-500/20 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.25)] animate-pulse'
+                      : tech.pendingJobs > 0
+                      ? 'bg-amber-500/10 border border-amber-500/20 text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.25)]'
+                      : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.25)]'
+                  }`}>
+                    {tech.pendingJobs > 5 ? (
+                      <AlertCircle className="w-5 h-5 drop-shadow-[0_0_4px_rgba(244,63,94,0.5)]" />
+                    ) : tech.pendingJobs > 0 ? (
+                      <Clock className="w-5 h-5 drop-shadow-[0_0_4px_rgba(245,158,11,0.5)]" />
+                    ) : (
+                      <CheckCircle2 className="w-5 h-5 drop-shadow-[0_0_4px_rgba(16,185,129,0.5)]" />
+                    )}
+                  </div>
+                  <div className="w-full truncate">
+                    <p className="text-[10px] font-bold text-slate-700 Prompt leading-tight group-hover:text-amber-700 transition truncate" title={formatDisplayName(tech.name)}>
+                      {formatDisplayName(tech.name)}
+                    </p>
+                    <p className={`text-sm font-black mt-1 ${tech.pendingJobs > 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                      {tech.pendingJobs} <span className="text-[8px] font-semibold text-slate-400">งานค้าง</span>
+                    </p>
                   </div>
                 </motion.button>
               ))}
@@ -916,7 +979,7 @@ function DashboardContent() {
                                   onChange={(val) => setTechFilter(val)}
                                   options={[
                                     { value: '', label: 'ช่างทุกคน' },
-                                    ...technicians.map(t => ({ value: t, label: t }))
+                                    ...technicians.map(t => ({ value: t, label: formatDisplayName(t) }))
                                   ]}
                                 />
                               </div>
@@ -987,7 +1050,7 @@ function DashboardContent() {
                                 onChange={(val) => setQueueTechFilter(val)}
                                 options={[
                                   { value: '', label: 'ช่างทุกคน' },
-                                  ...technicians.map(t => ({ value: t, label: t }))
+                                  ...technicians.map(t => ({ value: t, label: formatDisplayName(t) }))
                                 ]}
                               />
                             </div>
@@ -1038,7 +1101,7 @@ function DashboardContent() {
                             className="hover:bg-slate-50/75 cursor-pointer transition-colors duration-150"
                           >
                             <td className="p-4 pl-6 font-medium whitespace-nowrap text-slate-500">{formatThaiDate(sub.submission_date)}</td>
-                            <td className="p-4 font-bold text-slate-800 Prompt">{sub.name}</td>
+                            <td className="p-4 font-bold text-slate-800 Prompt">{formatDisplayName(sub.name)}</td>
                             <td className="p-4">
                               <span className={`font-bold ${
                                 sub.work_type.includes('ติดตั้ง') ? 'text-indigo-600' :
@@ -1112,7 +1175,7 @@ function DashboardContent() {
                           <td className="p-4 font-mono font-medium text-slate-500">{job.order_no || '-'}</td>
                           <td className="p-4 font-bold text-slate-700 Prompt">{job.customer_name}</td>
                           <td className="p-4 font-bold"><span className={typeColorClass}>{job.job_type}{job.sub_work_type ? ` (${job.sub_work_type})` : ''}</span></td>
-                          <td className="p-4 font-bold text-slate-800 Prompt">{job.assigned_to}</td>
+                          <td className="p-4 font-bold text-slate-800 Prompt">{formatDisplayName(job.assigned_to)}</td>
                           <td className="p-4 text-center pr-6 font-extrabold text-[11px] Prompt">
                             <span className={job.status === 'pending' ? 'text-amber-600' : 'text-emerald-600'}>
                               {job.status === 'pending' ? 'ค้างส่ง' : 'ส่งแล้ว'}
@@ -1231,7 +1294,7 @@ function DashboardContent() {
                   </div>
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ผู้ส่งงาน (ช่าง)</span>
-                    <p className="text-xs font-bold text-slate-800 mt-1">{selectedSub.name}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-1">{formatDisplayName(selectedSub.name)}</p>
                   </div>
                 </div>
 
