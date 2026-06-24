@@ -448,13 +448,13 @@ function DashboardContent() {
       if (url.includes('id=')) {
         const match = url.match(/id=([^&]+)/);
         if (match && match[1]) {
-          return `https://drive.google.com/file/d/${match[1]}/preview`;
+          return `/api/gdrive/proxy?fileId=${match[1]}`;
         }
       }
       if (url.includes('/file/d/')) {
         const match = url.match(/\/file\/d\/([^/]+)/);
         if (match && match[1]) {
-          return `https://drive.google.com/file/d/${match[1]}/preview`;
+          return `/api/gdrive/proxy?fileId=${match[1]}`;
         }
       }
     }
@@ -467,13 +467,13 @@ function DashboardContent() {
       if (url.includes('id=')) {
         const match = url.match(/id=([^&]+)/);
         if (match && match[1]) {
-          return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+          return `/api/gdrive/proxy?fileId=${match[1]}`;
         }
       }
       if (url.includes('/file/d/')) {
         const match = url.match(/\/file\/d\/([^/]+)/);
         if (match && match[1]) {
-          return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+          return `/api/gdrive/proxy?fileId=${match[1]}`;
         }
       }
     }
@@ -484,7 +484,7 @@ function DashboardContent() {
     if (!name && !url) return false;
     const filename = name || url;
     const ext = filename.split('.').pop()?.toLowerCase();
-    return ['mp4', 'webm', 'ogg'].includes(ext || '');
+    return ['mp4', 'webm', 'ogg', 'mov', 'mkv', 'avi'].includes(ext || '');
   };
 
   const handleUpdateStatusDirect = async (newStatus: string) => {
@@ -1584,11 +1584,14 @@ function DashboardContent() {
                     />
                   )
                 ) : (
-                  <iframe 
-                    src={getPreviewUrl(previewFile.url)} 
-                    className="w-full h-full border-0" 
-                    allowFullScreen
-                  />
+                  <div className="w-full h-full overflow-hidden relative rounded-2xl bg-[#525659]">
+                    <iframe 
+                      src={`${getPreviewUrl(previewFile.url)}#toolbar=0&view=FitH`} 
+                      className="absolute top-0 left-0 border-0" 
+                      style={{ width: 'calc(100% + 20px)', height: 'calc(100% + 20px)' }}
+                      allowFullScreen
+                    />
+                  </div>
                 )}
               </div>
               
