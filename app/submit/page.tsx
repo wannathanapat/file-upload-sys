@@ -904,10 +904,12 @@ function SubmitPageInner() {
 
           // Save notification record to Firestore first (for history page)
           const { addDoc, serverTimestamp } = await import('firebase/firestore');
+          const submitterUsername = currentUser?.username || currentUser?.name || '';
           const notifRef = await addDoc(collection(db, 'notifications'), {
             title: pushTitle,
             body: pushBody,
             type: 'job_submit',
+            user_id: submitterUsername,          // used for per-user notification filtering
             job_id: activeJob.job_id,
             order_no: activeJob.order_no || '-',
             work_category: finalWorkCat,
@@ -920,10 +922,16 @@ function SubmitPageInner() {
             sent_count: 0,
           });
 
-          // Read tokens client-side (avoids Admin SDK gRPC quota issues)
+          // Read tokens: notify admin/auditor + the submitting technician only
           const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
           const fcmTokens: string[] = tokensSnap.docs
-            .map(d => d.data().token as string)
+            .map(d => d.data())
+            .filter(d =>
+              d.role === 'admin' ||
+              d.role === 'auditor' ||
+              d.username === submitterUsername
+            )
+            .map(d => d.token as string)
             .filter(Boolean);
 
           if (fcmTokens.length > 0) {

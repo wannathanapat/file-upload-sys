@@ -368,9 +368,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           router.push('/submit');
         }
       } else {
-        // Prevent staff from accessing admin routes
-        const adminRoutes = ['/dashboard', '/import-jobs', '/settings', '/notifications'];
-        if (currentUser.role === 'staff' && adminRoutes.includes(pathname)) {
+        // Prevent staff from accessing admin-only routes
+        const adminOnlyRoutes = ['/dashboard', '/import-jobs', '/settings', '/broadcast'];
+        if (currentUser.role === 'staff' && adminOnlyRoutes.includes(pathname)) {
           router.push('/submit');
         }
       }
@@ -400,11 +400,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     }
   }, [systemSettings.app_favicon]);
 
-  // 5. Register FCM token when admin/auditor logs in and push is enabled
+  // 5. Register FCM token when any logged-in user loads and push is enabled
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!currentUser) return;
-    if (currentUser.role !== 'admin' && currentUser.role !== 'auditor') return;
     if (systemSettings.push_status !== 'enabled') return;
     if (!systemSettings.push_vapid_key) return;
 

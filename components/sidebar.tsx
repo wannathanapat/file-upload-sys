@@ -20,6 +20,7 @@ import {
   Clock,
   ChevronRight,
   Bell,
+  Megaphone,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -66,12 +67,14 @@ function SidebarInner() {
     { name: 'รายการงานค้างส่ง', path: '/dashboard?view=queue', icon: Clock },
     { name: 'ส่งงานแทนช่าง', path: '/submit?tab=dashboard', icon: ScanLine },
     { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
+    { name: 'บรอดคาสต์ประชาสัมพันธ์', path: '/broadcast', icon: Megaphone },
     { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
     { name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings },
   ] : [
     { name: 'แผงควบคุมผลงาน', path: '/submit?tab=dashboard', icon: LayoutDashboard },
     { name: 'รายการงานค้างส่ง', path: '/submit?tab=queue', icon: ScanLine },
     { name: 'ประวัติการส่งงาน', path: '/submit?tab=history', icon: History },
+    { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -187,6 +190,7 @@ function SidebarInner() {
       '/import-jobs': 'นำเข้าและจัดสรรงาน',
       '/settings': 'ตั้งค่าระบบหลัก',
       '/notifications': 'ประวัติ Push Notification',
+      '/broadcast': 'ส่งประกาศและข่าวสาร',
       '/submit?tab=dashboard': 'ผลงานและสถิติสะสม',
       '/submit?tab=queue': 'ใบงานที่ต้องจัดส่ง',
       '/submit?tab=history': 'ประวัติส่งงานของฉัน'
@@ -200,6 +204,7 @@ function SidebarInner() {
       '/submit?tab=queue': { bg: 'bg-blue-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.35)]' },
       '/submit?tab=history': { bg: 'bg-purple-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(168,85,247,0.35)]' },
       '/notifications': { bg: 'bg-amber-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(245,158,11,0.35)]' },
+      '/broadcast': { bg: 'bg-rose-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(244,63,94,0.35)]' },
       '/import-jobs': { bg: 'bg-blue-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.35)]' },
       '/settings': { bg: 'bg-slate-700 text-white', shadow: 'shadow-[0_8px_20px_rgba(51,65,85,0.35)]' },
     };

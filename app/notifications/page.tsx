@@ -26,7 +26,8 @@ interface NotifDoc {
   id: string;
   title: string;
   body: string;
-  type: 'job_submit' | 'test' | string;
+  type: 'job_submit' | 'test' | 'broadcast' | string;
+  user_id?: string;         // submitter username (job_submit only)
   job_id?: string;
   order_no?: string;
   work_category?: string;
@@ -37,6 +38,11 @@ interface NotifDoc {
   sent: boolean;
   sent_count?: number;
   created_at?: any;
+  // broadcast-specific
+  category?: string;        // emoji category
+  category_label?: string;
+  target?: string;          // 'all' | 'admin_auditor' | 'staff'
+  created_by?: string;
 }
 
 const PAGE_SIZE = 20;
@@ -53,6 +59,7 @@ function formatDate(ts: any): string {
 function typeLabel(type: string) {
   if (type === 'job_submit') return { label: 'ส่งงาน', color: 'bg-indigo-100 text-indigo-700', icon: <CheckCircle2 size={11} /> };
   if (type === 'test') return { label: 'ทดสอบ', color: 'bg-amber-100 text-amber-700', icon: <AlertCircle size={11} /> };
+  if (type === 'broadcast') return { label: 'ประชาสัมพันธ์', color: 'bg-rose-100 text-rose-700', icon: <Bell size={11} /> };
   return { label: type, color: 'bg-slate-100 text-slate-600', icon: <Bell size={11} /> };
 }
 
@@ -66,7 +73,7 @@ function NotificationsInner() {
   const [loading, setLoading] = useState(true);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'job_submit' | 'test'>('all');
+  const [filter, setFilter] = useState<'all' | 'job_submit' | 'broadcast' | 'test'>('all');
   const [selected, setSelected] = useState<NotifDoc | null>(null);
 
   const fetchNotifications = useCallback(async (reset = false) => {
@@ -88,7 +95,16 @@ function NotificationsInner() {
       }
 
       const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() } as NotifDoc));
+      const allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() } as NotifDoc));
+
+      // Role-based filtering:
+      // - admin/auditor: see everything
+      // - staff: see only their own job_submit + all broadcasts
+      const isStaff = currentUser?.role === 'staff';
+      const myUsername = currentUser?.username || currentUser?.name || '';
+      const docs = isStaff
+        ? allDocs.filter(n => n.type === 'broadcast' || n.user_id === myUsername)
+        : allDocs;
       const filtered = filter === 'all' ? docs : docs.filter(n => n.type === filter);
 
       setNotifications(prev => reset ? filtered : [...prev, ...filtered]);
@@ -184,7 +200,7 @@ function NotificationsInner() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {(['all', 'job_submit', 'test'] as const).map(f => (
+            {(['all', 'job_submit', 'broadcast', 'test'] as const).map(f => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -194,7 +210,7 @@ function NotificationsInner() {
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'
                 }`}
               >
-                {f === 'all' ? 'ทั้งหมด' : f === 'job_submit' ? 'ส่งงาน' : 'ทดสอบ'}
+                {f === 'all' ? 'ทั้งหมด' : f === 'job_submit' ? 'ส่งงาน' : f === 'broadcast' ? '📢 ประกาศ' : 'ทดสอบ'}
               </button>
             ))}
 
