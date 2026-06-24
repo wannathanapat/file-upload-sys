@@ -1020,38 +1020,14 @@ function DashboardContent() {
                   />
                 </div>
 
-                {/* Filter Pill Button */}
+                {/* Filter Icon Button */}
                 <button
                   onClick={() => setShowFilterPanel(!showFilterPanel)}
-                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center gap-1.5 cursor-pointer active:scale-95 text-xs font-bold Prompt"
+                  className="p-2 bg-white hover:bg-slate-50 text-slate-500 hover:text-indigo-600 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95 text-xs font-bold Prompt"
+                  title="ตัวกรอง"
                 >
-                  <Filter className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Filter</span>
-                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showFilterPanel ? 'rotate-180' : ''}`} />
+                  <Filter className="w-4 h-4 text-blue-500" />
                 </button>
-
-                {/* Action buttons (only in queue view for Admins/Auditors) */}
-                {viewMode === 'queue' && (currentUser?.role === 'admin' || currentUser?.role === 'auditor') && (
-                  <>
-                    <button
-                      onClick={handleDeleteSelectedQueue}
-                      disabled={selectedQueueIds.size === 0}
-                      className="px-4 py-2 bg-rose-100 hover:bg-rose-200 disabled:opacity-50 disabled:hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-full transition Prompt flex items-center gap-1.5 cursor-pointer h-[34px]"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>ลบงานจ่ายที่เลือก ({selectedQueueIds.size})</span>
-                    </button>
-                    
-                    <button
-                      onClick={handleDeleteAllQueue}
-                      disabled={filteredQueue.length === 0}
-                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-full transition Prompt flex items-center gap-1.5 shadow-md shadow-rose-200 cursor-pointer active:scale-95 h-[34px]"
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5 text-white/90" />
-                      <span>ล้างคิวงานวันนี้ทั้งหมด</span>
-                    </button>
-                  </>
-                )}
 
                 {/* Dropdown Filter Panel */}
                 <AnimatePresence>
@@ -1166,6 +1142,44 @@ function DashboardContent() {
                                   ...technicians.map(t => ({ value: t, label: formatDisplayName(t) }))
                                 ]}
                               />
+                            </div>
+                          )}
+                          {/* Queue Action Buttons inside Filter Dropdown (only for Admins/Auditors in queue view) */}
+                          {viewMode === 'queue' && isAdmin && (
+                            <div className="flex items-center justify-between border-t border-slate-100 pt-3.5 mt-2">
+                              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider Prompt">การจัดการคิวงาน</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowFilterPanel(false);
+                                    handleDeleteSelectedQueue();
+                                  }}
+                                  disabled={selectedQueueIds.size === 0}
+                                  className="p-2 bg-rose-50 hover:bg-rose-100 disabled:opacity-50 disabled:hover:bg-rose-50 text-rose-600 rounded-xl transition duration-150 cursor-pointer flex items-center justify-center border border-rose-100/50"
+                                  title={`ลบงานจ่ายที่เลือก (${selectedQueueIds.size} รายการ)`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  {selectedQueueIds.size > 0 && (
+                                    <span className="ml-1 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-600 text-white leading-none">
+                                      {selectedQueueIds.size}
+                                    </span>
+                                  )}
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowFilterPanel(false);
+                                    handleDeleteAllQueue();
+                                  }}
+                                  disabled={filteredQueue.length === 0}
+                                  className="p-2 bg-rose-600 hover:bg-rose-700 disabled:bg-rose-600/50 text-white rounded-xl transition duration-150 shadow-md shadow-rose-200 cursor-pointer flex items-center justify-center"
+                                  title="ล้างคิวงานวันนี้ทั้งหมด"
+                                >
+                                  <AlertTriangle className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
