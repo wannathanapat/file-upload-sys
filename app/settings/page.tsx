@@ -261,6 +261,15 @@ export default function SettingsPage() {
       return;
     }
 
+    // Pre-check: browser must have already granted notification permission
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        showToast("กรุณากด Allow เพื่ออนุญาตการแจ้งเตือนในเบราว์เซอร์ก่อนนะครับ 🔔", "error");
+        return;
+      }
+    }
+
     setLoading(true);
     setLoadingText("กำลังส่งแจ้งเตือนทดสอบ...");
     try {
@@ -280,7 +289,11 @@ export default function SettingsPage() {
         throw new Error(result.error || result.message || 'ส่งแจ้งเตือนไม่สำเร็จ');
       }
       
-      showToast(`ทดสอบส่งสำเร็จแล้ว! ส่งไปยัง ${result.successCount || 0} อุปกรณ์ 🎉`, "success");
+      if (result.successCount === 0) {
+        showToast(result.message || "ไม่มีอุปกรณ์รับแจ้งเตือน — บันทึกการตั้งค่าก่อน แล้วรีเฟรชหน้าเว็บ กด Allow เมื่อเบราว์เซอร์ขอสิทธิ์นะครับ", "error");
+      } else {
+        showToast(`ทดสอบส่งสำเร็จแล้ว! ส่งไปยัง ${result.successCount} อุปกรณ์ 🎉`, "success");
+      }
     } catch (err: any) {
       console.error(err);
       showToast("ทดสอบส่งแจ้งเตือนล้มเหลว: " + err.message, "error");
@@ -288,6 +301,7 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
 
 
   // Google Drive connection using Authorization Code Flow (gets refresh_token via backend)
