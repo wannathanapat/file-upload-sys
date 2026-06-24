@@ -9,12 +9,12 @@
 }
 
 html {
-  font-size: 106.25%; /* Global font scaling to 17px base for better readability */
+  font-size: 118.75%; /* Global font scaling to ~19px base for clear, premium readability */
 }
 
-@media (max-width: 767px) {
+@media (max-width: 1024px) {
   html {
-    font-size: 106.25%; /* Keep base scaling on mobile */
+    font-size: 125%; /* Scale base to ~20px on mobile and tablet devices */
   }
 }
 
@@ -155,15 +155,6 @@ body.theme-rose {
 @media (max-width: 767px) {
   input, select, textarea {
     font-size: 16px !important;
-  }
-  h1 {
-    font-size: 1.35rem !important;
-  }
-  h2 {
-    font-size: 1.15rem !important;
-  }
-  h3 {
-    font-size: 0.95rem !important;
   }
   p, span, td, th {
     letter-spacing: -0.01em;
