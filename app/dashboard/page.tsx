@@ -1264,14 +1264,10 @@ function DashboardContent() {
                             </td>
                             <td className="p-4 font-medium max-w-[200px] truncate text-slate-600" title={sub.file_name}>{sub.file_name || '-'}</td>
                             <td className="p-4 pr-6">
-                              <span className={`font-bold text-xs Prompt flex items-center gap-1.5 ${
+                              <span className={`font-bold text-xs Prompt ${
                                 statusVal === 'ตรวจแล้ว' ? 'text-emerald-600' :
                                 statusVal === 'แก้ไข' ? 'text-rose-600' : 'text-amber-600'
                               }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${
-                                  statusVal === 'ตรวจแล้ว' ? 'bg-emerald-500' :
-                                  statusVal === 'แก้ไข' ? 'bg-rose-500' : 'bg-amber-500'
-                                }`} />
                                 {statusVal}
                               </span>
                             </td>
