@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, getApp, cert, App } from 'firebase-admin/app';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
 
-// Initialize a dedicated Firebase Admin app for push notifications
-function getPushAdminApp(serviceAccountJson: string): App {
-  const appName = 'push-notify-admin';
+// Get or create a named Firebase Admin app using the given service account JSON string
+function getAdminApp(serviceAccountJson: string, appName: string): App {
   const existing = getApps().find(a => a.name === appName);
   if (existing) return existing;
 
@@ -13,82 +12,113 @@ function getPushAdminApp(serviceAccountJson: string): App {
   return initializeApp({ credential: cert(serviceAccount) }, appName);
 }
 
-// Shared default app (for reading system_settings without a service account)
-function getDefaultAdminApp(): App {
-  const existing = getApps().find(a => a.name === '[DEFAULT]');
-  if (existing) return existing;
-  // No env credentials available — return null and handle gracefully below
-  return initializeApp();
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { title, body: msgBody, url } = body as { title: string; body?: string; url?: string };
+    const {
+      title,
+      body: msgBody,
+      url,
+      serviceAccountJson: bodyServiceAccountJson,
+    } = body as {
+      title: string;
+      body?: string;
+      url?: string;
+      serviceAccountJson?: string;
+    };
 
     if (!title) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 });
     }
 
-    // --- 1. Read system_settings from Firestore ---
-    // We use the default Admin app which is initialized automatically on Firebase Hosting/Cloud Run.
-    // For local dev, we bootstrap with service account after we read it once from the client-side
-    // stored value (passed in the request body if available) or from env.
-    let defaultApp: App;
+    // ----------------------------------------------------------------
+    // Step 1: Resolve serviceAccountJson
+    // Priority: body > Firestore (via env-based default admin app)
+    // ----------------------------------------------------------------
+    let resolvedServiceAccountJson: string = bodyServiceAccountJson?.trim() ?? '';
+
+    if (!resolvedServiceAccountJson) {
+      // Try reading from Firestore via a default admin app (env-based credentials)
+      // This works on Firebase Hosting / Cloud Run where ADC is set up automatically
+      try {
+        const defaultApps = getApps();
+        const defaultApp = defaultApps.find(a => a.name === '[DEFAULT]');
+        if (!defaultApp) {
+          return NextResponse.json(
+            {
+              error:
+                'No service account credentials provided. ' +
+                'Pass serviceAccountJson in the request body, or configure GOOGLE_APPLICATION_CREDENTIALS.',
+            },
+            { status: 500 }
+          );
+        }
+
+        const settingsDoc = await getFirestore(defaultApp)
+          .collection('app_config')
+          .doc('system_settings')
+          .get();
+
+        if (!settingsDoc.exists) {
+          return NextResponse.json({ error: 'system_settings not found in Firestore' }, { status: 500 });
+        }
+
+        const settings = settingsDoc.data()!;
+        resolvedServiceAccountJson = settings.push_service_account ?? '';
+
+        if (settings.push_status !== 'enabled') {
+          return NextResponse.json({ message: 'Push notification is disabled', successCount: 0 });
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return NextResponse.json(
+          { error: `Cannot load service account from Firestore: ${msg}` },
+          { status: 500 }
+        );
+      }
+    }
+
+    if (!resolvedServiceAccountJson) {
+      return NextResponse.json(
+        { error: 'push_service_account is empty. Please configure it in Settings → Push Notification.' },
+        { status: 500 }
+      );
+    }
+
+    // ----------------------------------------------------------------
+    // Step 2: Init dedicated push admin app + read all FCM tokens
+    // ----------------------------------------------------------------
+    let pushApp: App;
     try {
-      defaultApp = getDefaultAdminApp();
-    } catch {
+      pushApp = getAdminApp(resolvedServiceAccountJson, 'push-notify-admin');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       return NextResponse.json(
-        { error: 'Firebase Admin not initialized. Set up GOOGLE_APPLICATION_CREDENTIALS or run on Firebase hosting.' },
+        { error: `Invalid Service Account JSON: ${msg}` },
         { status: 500 }
       );
     }
 
-    const settingsDoc = await getFirestore(defaultApp)
-      .collection('app_config')
-      .doc('system_settings')
-      .get();
-
-    if (!settingsDoc.exists) {
-      return NextResponse.json({ error: 'system_settings not found in Firestore' }, { status: 500 });
-    }
-
-    const settings = settingsDoc.data()!;
-    const pushStatus: string = settings.push_status ?? 'disabled';
-    const pushServiceAccount: string = settings.push_service_account ?? '';
-
-    if (pushStatus !== 'enabled') {
-      return NextResponse.json({ message: 'Push notification is disabled', successCount: 0 });
-    }
-
-    if (!pushServiceAccount) {
-      return NextResponse.json(
-        { error: 'push_service_account not configured in system settings' },
-        { status: 500 }
-      );
-    }
-
-    // --- 2. Initialize dedicated push app with service account from Firestore ---
-    const pushApp = getPushAdminApp(pushServiceAccount);
-    const pushMessaging = getMessaging(pushApp);
     const pushFirestore = getFirestore(pushApp);
+    const pushMessaging = getMessaging(pushApp);
 
-    // --- 3. Load all registered tokens ---
     const tokensSnap = await pushFirestore.collection('notification_tokens').get();
 
     if (tokensSnap.empty) {
-      return NextResponse.json({ message: 'No registered devices', successCount: 0 });
+      return NextResponse.json({ message: 'No registered devices yet. Please open the app on a device first.', successCount: 0 });
     }
 
     const tokens: string[] = tokensSnap.docs
-      .map(d => (d.data().token as string))
+      .map(d => d.data().token as string)
       .filter(Boolean);
 
     if (tokens.length === 0) {
       return NextResponse.json({ message: 'No valid tokens', successCount: 0 });
     }
 
-    // --- 4. Send in batches of 500 (FCM limit) ---
+    // ----------------------------------------------------------------
+    // Step 3: Send notifications in batches of 500 (FCM limit)
+    // ----------------------------------------------------------------
     const BATCH_SIZE = 500;
     let successCount = 0;
     const staleTokens: string[] = [];
@@ -101,7 +131,6 @@ export async function POST(req: NextRequest) {
         notification: {
           title,
           body: msgBody ?? '',
-          imageUrl: undefined,
         },
         webpush: {
           notification: {
@@ -117,7 +146,7 @@ export async function POST(req: NextRequest) {
       const response = await pushMessaging.sendEachForMulticast(message);
       successCount += response.successCount;
 
-      // Collect stale/invalid tokens
+      // Collect stale / invalid tokens for cleanup
       response.responses.forEach((res, idx: number) => {
         if (!res.success) {
           const errCode = (res.error as any)?.code ?? '';
@@ -131,7 +160,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // --- 5. Auto-clean stale tokens ---
+    // ----------------------------------------------------------------
+    // Step 4: Auto-clean stale tokens
+    // ----------------------------------------------------------------
     if (staleTokens.length > 0) {
       const cleanupBatch = pushFirestore.batch();
       for (const staleToken of staleTokens) {

@@ -270,7 +270,8 @@ export default function SettingsPage() {
         body: JSON.stringify({
           title: '🔔 ทดสอบการแจ้งเตือน Push Notification',
           body: `ระบบส่งแจ้งเตือนทำงานได้เป็นปกติแล้วครับ! ทดสอบเมื่อเวลา ${new Date().toLocaleTimeString('th-TH')}`,
-          url: '/dashboard'
+          url: '/dashboard',
+          serviceAccountJson: pushServiceAccount.trim(),
         })
       });
       
@@ -287,6 +288,7 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
 
   // Google Drive connection using Authorization Code Flow (gets refresh_token via backend)
   const handleConnectGDrive = () => {
