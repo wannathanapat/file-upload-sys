@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import Sidebar from '@/components/sidebar';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '../providers';
@@ -28,7 +28,10 @@ import {
   MapPin,
   Truck,
   FileImage,
-  Users
+  Users,
+  Search,
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -67,6 +70,72 @@ const ImagePreview = ({ file, onRemove }: { file: File; onRemove: () => void }) 
   );
 };
 
+interface CustomSelectProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}
+
+function CustomSelect({ value, onChange, options, placeholder }: CustomSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value);
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 transition flex items-center justify-between Prompt cursor-pointer font-bold"
+      >
+        <span className="truncate">{selectedOption ? selectedOption.label : placeholder || ''}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute left-0 right-0 mt-1.5 z-50 max-h-60 overflow-y-auto bg-white border border-slate-100 rounded-2xl shadow-[0_10px_25px_rgba(0,0,0,0.1)] p-1.5 space-y-0.5"
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition duration-150 Prompt cursor-pointer ${
+                  value === opt.value
+                    ? 'bg-indigo-500 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 const formatDisplayName = (fullName: string): string => {
   if (!fullName) return '';
   const parts = fullName.split('-');
@@ -83,6 +152,73 @@ function SubmitPageInner() {
   const [assignedJobs, setAssignedJobs] = useState<JobRow[]>([]);
   const [personalHistory, setPersonalHistory] = useState<SubmissionData[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+
+  // States for Queue Search & Filter
+  const [queueSearch, setQueueSearch] = useState('');
+  const [isQueueSearchExpanded, setIsQueueSearchExpanded] = useState(false);
+  const [showQueueFilterPanel, setShowQueueFilterPanel] = useState(false);
+  const [queueTypeFilter, setQueueTypeFilter] = useState('');
+  const queueSearchInputRef = useRef<HTMLInputElement>(null);
+
+  // States for History Search & Filter
+  const [historySearch, setHistorySearch] = useState('');
+  const [isHistorySearchExpanded, setIsHistorySearchExpanded] = useState(false);
+  const [showHistoryFilterPanel, setShowHistoryFilterPanel] = useState(false);
+  const [historyTypeFilter, setHistoryTypeFilter] = useState('');
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+  const historySearchInputRef = useRef<HTMLInputElement>(null);
+
+  // Computed filtered lists
+  const filteredQueue = assignedJobs.filter(job => {
+    const q = queueSearch.toLowerCase();
+    const matchSearch = 
+      (job.job_id && job.job_id.toLowerCase().includes(q)) ||
+      (job.customer_name && job.customer_name.toLowerCase().includes(q)) ||
+      (job.order_no && job.order_no.toLowerCase().includes(q));
+
+    let matchType = true;
+    if (queueTypeFilter) {
+      if (queueTypeFilter === 'งานติดตั้ง (INS)') {
+        matchType = !job.job_type.includes('ถอด') && !job.job_type.includes('ซ่อม');
+      } else if (queueTypeFilter === 'งานถอดติดตั้ง (AS)') {
+        matchType = job.job_type.includes('ถอด');
+      } else if (queueTypeFilter === 'งานซ่อม (AS)') {
+        matchType = job.job_type.includes('ซ่อม');
+      }
+    }
+
+    return matchSearch && matchType;
+  });
+
+  const filteredHistory = personalHistory.filter(item => {
+    const q = historySearch.toLowerCase();
+    const matchSearch = 
+      (item.description && item.description.toLowerCase().includes(q)) ||
+      (item.work_type && item.work_type.toLowerCase().includes(q)) ||
+      (item.file_name && item.file_name.toLowerCase().includes(q)) ||
+      (item.job_id && item.job_id.toLowerCase().includes(q)) ||
+      (item.order_no && item.order_no.toLowerCase().includes(q));
+
+    const matchType = !historyTypeFilter || item.work_type === historyTypeFilter;
+    const itemStatus = item.status || 'รอตรวจ';
+    const matchStatus = !historyStatusFilter || itemStatus === historyStatusFilter;
+
+    let matchDate = true;
+    if (historyDateFrom || historyDateTo) {
+      try {
+        const itemDateStr = new Date(item.submission_date).toLocaleDateString('en-CA'); // YYYY-MM-DD
+        if (historyDateFrom && itemDateStr < historyDateFrom) matchDate = false;
+        if (historyDateTo && itemDateStr > historyDateTo) matchDate = false;
+      } catch (_) {
+        matchDate = false;
+      }
+    }
+
+    return matchSearch && matchType && matchStatus && matchDate;
+  });
+
 
   // States for Admin/Auditor to submit on behalf of tech
   const [technicians, setTechnicians] = useState<string[]>([]);
@@ -757,9 +893,112 @@ function SubmitPageInner() {
                     งานค้างส่ง
                   </h2>
                   <span className="text-[10px] text-slate-400 font-extrabold Prompt font-mono">
-                    จำนวน {assignedJobs.length} รายการ
+                    จำนวน {filteredQueue.length} รายการ
                   </span>
                 </div>
+              </div>
+
+              {/* Search & Filter Buttons */}
+              <div className="flex items-center gap-2 relative">
+                {/* Search Button (Expanding) */}
+                <div 
+                  onMouseEnter={() => setIsQueueSearchExpanded(true)}
+                  onMouseLeave={() => {
+                    if (!queueSearch && document.activeElement !== queueSearchInputRef.current) {
+                      setIsQueueSearchExpanded(false);
+                    }
+                  }}
+                  className="relative flex items-center bg-white border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-300"
+                >
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsQueueSearchExpanded(!isQueueSearchExpanded);
+                      if (!isQueueSearchExpanded) {
+                        setTimeout(() => queueSearchInputRef.current?.focus(), 100);
+                      }
+                    }}
+                    className="p-2 text-slate-500 hover:text-indigo-600 rounded-full transition-all cursor-pointer flex items-center justify-center animate-none"
+                    title="ค้นหา"
+                  >
+                    <Search className="w-4 h-4 text-blue-500" />
+                  </button>
+                  <motion.input
+                    ref={queueSearchInputRef}
+                    type="text"
+                    value={queueSearch}
+                    onChange={(e) => setQueueSearch(e.target.value)}
+                    onFocus={() => setIsQueueSearchExpanded(true)}
+                    onBlur={() => {
+                      if (!queueSearch) setIsQueueSearchExpanded(false);
+                    }}
+                    initial={false}
+                    animate={{ width: isQueueSearchExpanded ? '150px' : '0px', opacity: isQueueSearchExpanded ? 1 : 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    placeholder="ค้นหาใบงาน..."
+                    className="bg-transparent border-0 text-slate-800 text-xs focus:outline-none focus:ring-0 placeholder-slate-400 font-medium overflow-hidden h-8 font-sans"
+                    style={{ paddingLeft: isQueueSearchExpanded ? '4px' : '0px', paddingRight: isQueueSearchExpanded ? '8px' : '0px' }}
+                  />
+                </div>
+
+                {/* Filter Icon Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowQueueFilterPanel(!showQueueFilterPanel)}
+                  className="p-2 bg-white hover:bg-slate-50 text-slate-500 hover:text-indigo-600 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95 text-xs font-bold Prompt"
+                  title="ตัวกรอง"
+                >
+                  <Filter className="w-4 h-4 text-blue-500" />
+                </button>
+
+                {/* Dropdown Filter Panel */}
+                <AnimatePresence>
+                  {showQueueFilterPanel && (
+                    <>
+                      {/* Backdrop overlay to close when clicking outside */}
+                      <div 
+                        className="fixed inset-0 z-20 cursor-default"
+                        onClick={() => setShowQueueFilterPanel(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        className="absolute right-0 top-11 z-30 w-72 bg-white border border-slate-100 rounded-3xl p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] flex flex-col gap-4 text-xs font-semibold font-sans"
+                      >
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                          <div className="flex items-center gap-1.5 text-slate-700 font-bold Prompt">
+                            <Filter className="w-3.5 h-3.5 text-blue-500" />
+                            <span>ตัวเลือกตัวกรอง</span>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setShowQueueFilterPanel(false)}
+                            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">ประเภทงาน (Type)</label>
+                            <CustomSelect
+                              value={queueTypeFilter}
+                              onChange={(val) => setQueueTypeFilter(val)}
+                              options={[
+                                { value: '', label: 'ประเภทงานทั้งหมด' },
+                                { value: 'งานติดตั้ง (INS)', label: 'งานติดตั้ง (INS)' },
+                                { value: 'งานซ่อม (AS)', label: 'งานซ่อม (AS)' },
+                                { value: 'งานถอดติดตั้ง (AS)', label: 'งานถอดติดตั้ง (AS)' }
+                              ]}
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
               </div>
 
             </div>
@@ -769,13 +1008,15 @@ function SubmitPageInner() {
                 <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3" />
                 <p className="text-xs text-slate-500 Prompt">กำลังโหลดคิวงานช่าง...</p>
               </div>
-            ) : assignedJobs.length === 0 ? (
+            ) : filteredQueue.length === 0 ? (
               <div className="glass-card p-12 text-center text-slate-500 border-dashed">
-                ✨ วันนี้คุณส่งงานครบถ้วนหมดแล้ว ยอดเยี่ยมมากครับ!
+                {assignedJobs.length === 0 
+                  ? "✨ วันนี้คุณส่งงานครบถ้วนหมดแล้ว ยอดเยี่ยมมากครับ!"
+                  : "🔍 ไม่พบรายการงานค้างส่งตามเงื่อนไขที่เลือก"}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {assignedJobs.map((job) => {
+                {filteredQueue.map((job) => {
                   let badgeColor = 'bg-indigo-500';
                   let icon = '📦';
                   let jobLabelName = 'งานติดตั้ง';
@@ -829,8 +1070,9 @@ function SubmitPageInner() {
                       </div>
 
                       <button
+                        type="button"
                         onClick={() => openSubmitModal(job)}
-                        className="px-4.5 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white rounded-2xl text-xs font-bold transition duration-200 shrink-0 Prompt flex items-center gap-1.5 shadow-[0_4px_12px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_16px_rgba(99,102,241,0.4)] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                        className="px-4.5 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white rounded-2xl text-xs font-bold transition duration-200 shrink-0 Prompt flex items-center gap-1.5 shadow-[0_4px_12px_rgba(99,102,241,0.25)] hover:shadow-[0_6px_16px_rgba(99,102,241,0.4)] hover:scale-[1.02] active:scale-[0.98] cursor-pointer animate-none"
                       >
                         <FileUp className="w-3.5 h-3.5" />
                         <span>ส่งงาน</span>
@@ -856,25 +1098,172 @@ function SubmitPageInner() {
                     ประวัติการส่งงาน
                   </h2>
                   <span className="text-[10px] text-slate-400 font-extrabold Prompt font-mono">
-                    ส่งแล้ว {personalHistory.length} รายการ
+                    ส่งแล้ว {filteredHistory.length} รายการ
                   </span>
                 </div>
               </div>
 
+              {/* Search & Filter Buttons */}
+              <div className="flex items-center gap-2 relative">
+                {/* Search Button (Expanding) */}
+                <div 
+                  onMouseEnter={() => setIsHistorySearchExpanded(true)}
+                  onMouseLeave={() => {
+                    if (!historySearch && document.activeElement !== historySearchInputRef.current) {
+                      setIsHistorySearchExpanded(false);
+                    }
+                  }}
+                  className="relative flex items-center bg-white border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-300"
+                >
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setIsHistorySearchExpanded(!isHistorySearchExpanded);
+                      if (!isHistorySearchExpanded) {
+                        setTimeout(() => historySearchInputRef.current?.focus(), 100);
+                      }
+                    }}
+                    className="p-2 text-slate-500 hover:text-indigo-600 rounded-full transition-all cursor-pointer flex items-center justify-center animate-none"
+                    title="ค้นหา"
+                  >
+                    <Search className="w-4 h-4 text-blue-500" />
+                  </button>
+                  <motion.input
+                    ref={historySearchInputRef}
+                    type="text"
+                    value={historySearch}
+                    onChange={(e) => setHistorySearch(e.target.value)}
+                    onFocus={() => setIsHistorySearchExpanded(true)}
+                    onBlur={() => {
+                      if (!historySearch) setIsHistorySearchExpanded(false);
+                    }}
+                    initial={false}
+                    animate={{ width: isHistorySearchExpanded ? '150px' : '0px', opacity: isHistorySearchExpanded ? 1 : 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    placeholder="ค้นหาใบงาน..."
+                    className="bg-transparent border-0 text-slate-800 text-xs focus:outline-none focus:ring-0 placeholder-slate-400 font-medium overflow-hidden h-8 font-sans"
+                    style={{ paddingLeft: isHistorySearchExpanded ? '4px' : '0px', paddingRight: isHistorySearchExpanded ? '8px' : '0px' }}
+                  />
+                </div>
+
+                {/* Filter Icon Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowHistoryFilterPanel(!showHistoryFilterPanel)}
+                  className="p-2 bg-white hover:bg-slate-50 text-slate-500 hover:text-indigo-600 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95 text-xs font-bold Prompt"
+                  title="ตัวกรอง"
+                >
+                  <Filter className="w-4 h-4 text-blue-500" />
+                </button>
+
+                {/* Dropdown Filter Panel */}
+                <AnimatePresence>
+                  {showHistoryFilterPanel && (
+                    <>
+                      {/* Backdrop overlay to close when clicking outside */}
+                      <div 
+                        className="fixed inset-0 z-20 cursor-default"
+                        onClick={() => setShowHistoryFilterPanel(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        className="absolute right-0 top-11 z-30 w-72 bg-white border border-slate-100 rounded-3xl p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] flex flex-col gap-4 text-xs font-semibold font-sans"
+                      >
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                          <div className="flex items-center gap-1.5 text-slate-700 font-bold Prompt">
+                            <Filter className="w-3.5 h-3.5 text-blue-500" />
+                            <span>ตัวเลือกตัวกรอง</span>
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => setShowHistoryFilterPanel(false)}
+                            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          {/* Work Type Filter */}
+                          <div>
+                            <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">ประเภทงาน (Type)</label>
+                            <CustomSelect
+                              value={historyTypeFilter}
+                              onChange={(val) => setHistoryTypeFilter(val)}
+                              options={[
+                                { value: '', label: 'ประเภทงานทั้งหมด' },
+                                { value: 'งานติดตั้ง (INS)', label: 'งานติดตั้ง (INS)' },
+                                { value: 'งานซ่อม (AS)', label: 'งานซ่อม (AS)' },
+                                { value: 'งานถอดติดตั้ง (AS)', label: 'งานถอดติดตั้ง (AS)' },
+                                { value: 'งานเฟล (Fail)', label: 'งานเฟล (Fail)' },
+                                { value: 'งานคืน (Return)', label: 'งานคืน (Return)' }
+                              ]}
+                            />
+                          </div>
+
+                          {/* Status Filter */}
+                          <div>
+                            <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">สถานะการตรวจสอบ</label>
+                            <CustomSelect
+                              value={historyStatusFilter}
+                              onChange={(val) => setHistoryStatusFilter(val)}
+                              options={[
+                                { value: '', label: 'สถานะทั้งหมด' },
+                                { value: 'รอตรวจ', label: 'รอตรวจ' },
+                                { value: 'ตรวจแล้ว', label: 'ตรวจแล้ว' },
+                                { value: 'แก้ไข', label: 'แก้ไข' }
+                              ]}
+                            />
+                          </div>
+
+                          {/* Date Filter */}
+                          <div>
+                            <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">วันที่ส่งใบงาน (Date)</label>
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 text-[10px] w-6 shrink-0 Prompt font-extrabold text-right">จาก</span>
+                                <input 
+                                  type="date" 
+                                  value={historyDateFrom} 
+                                  onChange={(e) => setHistoryDateFrom(e.target.value)} 
+                                  className="w-full h-[38px] bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-0 text-xs focus:outline-none focus:border-indigo-500 Prompt cursor-pointer font-bold date-filter-input font-sans" 
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400 text-[10px] w-6 shrink-0 Prompt font-extrabold text-right">ถึง</span>
+                                <input 
+                                  type="date" 
+                                  value={historyDateTo} 
+                                  onChange={(e) => setHistoryDateTo(e.target.value)} 
+                                  className="w-full h-[38px] bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-0 text-xs focus:outline-none focus:border-indigo-500 Prompt cursor-pointer font-bold date-filter-input font-sans" 
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             {dataLoading ? (
               <div className="w-full h-20 flex items-center justify-center">
                 <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : personalHistory.length === 0 ? (
+            ) : filteredHistory.length === 0 ? (
               <div className="glass-card p-6 text-center text-slate-400 text-xs Prompt">
-                ยังไม่มีประวัติการส่งงานในระบบ
+                {personalHistory.length === 0 
+                  ? "ยังไม่มีประวัติการส่งงานในระบบ"
+                  : "🔍 ไม่พบประวัติการส่งงานตามเงื่อนไขที่เลือก"}
               </div>
             ) : (
               <div className="glass-card overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs">
+                  <table className="w-full border-collapse text-left text-xs font-sans">
                     <thead>
                       <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 font-bold tracking-wider uppercase Prompt">
                         <th className="p-4 pl-6">วันที่</th>
@@ -885,7 +1274,7 @@ function SubmitPageInner() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-600 Sarabun font-medium">
-                      {personalHistory.map((item, idx) => {
+                      {filteredHistory.map((item, idx) => {
                         const statusVal = item.status || 'รอตรวจ';
                         return (
                           <tr key={idx} className="hover:bg-slate-50/50 transition">
