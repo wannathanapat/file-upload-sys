@@ -26,7 +26,8 @@ import {
   X,
   XCircle,
   MapPin,
-  Truck
+  Truck,
+  FileImage
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -36,6 +37,34 @@ import {
   getValidAccessToken
 } from '@/lib/gdrive';
 import { sendTelegramDirect } from '@/lib/telegram';
+import { convertImagesToPdf } from '@/lib/image-pdf';
+
+const ImagePreview = ({ file, onRemove }: { file: File; onRemove: () => void }) => {
+  const [url, setUrl] = useState<string>('');
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+
+  if (!url) return null;
+  return (
+    <div className="relative aspect-square group rounded-xl overflow-hidden border border-slate-200/60 bg-white shadow-xs">
+      <img
+        src={url}
+        alt="preview"
+        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+      />
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-1 right-1 w-5.5 h-5.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+};
 
 function SubmitPageInner() {
   const { currentUser, showToast, systemSettings, gdrivePrefs, setLoading, setLoadingText } = useApp();
@@ -63,6 +92,7 @@ function SubmitPageInner() {
   const [dismantleSub, setDismantleSub] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   
   // Upload progress indicators
@@ -124,6 +154,7 @@ function SubmitPageInner() {
     setDismantleSub(null);
     setNote('');
     setPdfFile(null);
+    setImageFiles([]);
     setVideoFile(null);
   };
 
@@ -131,16 +162,50 @@ function SubmitPageInner() {
     setActiveJob(null);
   };
 
-  const handlePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const sizeMB = file.size / (1024 * 1024);
-      if (sizeMB > (systemSettings.max_size_pdf || 20)) {
-        showToast(`ไฟล์ PDF ของคุณมีขนาด ${sizeMB.toFixed(2)}MB ซึ่งเกินขีดจำกัดที่แอดมินกำหนด (${systemSettings.max_size_pdf || 20}MB)`, "error");
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    // Check if any file is a PDF
+    const hasPdf = Array.from(files).some(file => file.type === 'application/pdf');
+
+    if (hasPdf) {
+      const pdf = Array.from(files).find(file => file.type === 'application/pdf');
+      if (pdf) {
+        const sizeMB = pdf.size / (1024 * 1024);
+        if (sizeMB > (systemSettings.max_size_pdf || 20)) {
+          showToast(`ไฟล์ PDF ของคุณมีขนาด ${sizeMB.toFixed(2)}MB ซึ่งเกินขีดจำกัดที่แอดมินกำหนด (${systemSettings.max_size_pdf || 20}MB)`, "error");
+          return;
+        }
+        setPdfFile(pdf);
+        setImageFiles([]);
+      }
+    } else {
+      const incomingImages = Array.from(files).filter(file => file.type.startsWith('image/'));
+      if (incomingImages.length === 0) {
+        showToast("กรุณาเลือกไฟล์ PDF หรือรูปภาพเท่านั้นครับ 📄📸", "error");
         return;
       }
-      setPdfFile(file);
+
+      const totalCount = imageFiles.length + incomingImages.length;
+      if (totalCount > 20) {
+        showToast("คุณสามารถอัปโหลดรูปภาพได้สูงสุด 20 รูปครับ ⚠️", "error");
+        const remainingSlots = 20 - imageFiles.length;
+        if (remainingSlots > 0) {
+          const allowedImages = incomingImages.slice(0, remainingSlots);
+          setImageFiles(prev => [...prev, ...allowedImages]);
+          setPdfFile(null);
+        }
+        return;
+      }
+
+      setImageFiles(prev => [...prev, ...incomingImages]);
+      setPdfFile(null);
     }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setImageFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,8 +257,8 @@ function SubmitPageInner() {
       return;
     }
 
-    if (pdfIsRequired && !pdfFile) {
-      showToast("กรุณาแนบไฟล์ PDF ใบงานด้วยนะครับ 📄", "error");
+    if (pdfIsRequired && !pdfFile && imageFiles.length === 0) {
+      showToast("กรุณาแนบไฟล์ PDF หรือรูปภาพใบงานด้วยนะครับ 📄📸", "error");
       return;
     }
 
@@ -230,7 +295,9 @@ function SubmitPageInner() {
 
       // Rename rules
       const cleanCustomerName = activeJob.customer_name.replace(/[\\/:*?"<>|]/g, '');
-      const folderNameForGDrive = pdfFile ? `${baseOrderNo} ${cleanCustomerName}.pdf` : `${baseOrderNo} ${cleanCustomerName}`;
+      const folderNameForGDrive = (pdfFile || imageFiles.length > 0)
+        ? `${baseOrderNo} ${cleanCustomerName}.pdf`
+        : `${baseOrderNo} ${cleanCustomerName}`;
       
       const targetFolderId = await getOrCreateTargetUploadFolder(
         accessToken, 
@@ -241,13 +308,33 @@ function SubmitPageInner() {
 
       let pdfUrl = '-';
       let renamedPdfName = '-';
-      
-      if (pdfFile) {
-        setUploadProgress(40);
-        renamedPdfName = `${baseOrderNo} ${cleanCustomerName}.pdf`;
-        setUploadStepName(`กำลังอัปโหลดไฟล์ PDF: ${renamedPdfName}...`);
+      let fileToUpload: File | null = pdfFile;
+
+      if (imageFiles.length > 0) {
+        setUploadProgress(30);
+        setUploadStepName("กำลังแปลงรูปภาพและบีบอัดเป็นไฟล์ PDF...");
         
-        const pdfUploadRes = await directUploadToGDrive(accessToken, pdfFile, targetFolderId, renamedPdfName);
+        try {
+          const pdfBlob = await convertImagesToPdf(imageFiles, (current, total) => {
+            setUploadStepName(`กำลังแปลงรูปภาพเป็น PDF (${current}/${total} รูป)...`);
+            setUploadProgress(30 + Math.round((current / total) * 10));
+          });
+          
+          renamedPdfName = `${baseOrderNo} ${cleanCustomerName}.pdf`;
+          fileToUpload = new File([pdfBlob], renamedPdfName, { type: 'application/pdf' });
+        } catch (convErr: any) {
+          console.error("PDF conversion error:", convErr);
+          throw new Error("ไม่สามารถแปลงรูปภาพเป็น PDF ได้ กรุณาลองใหม่อีกครั้งครับ: " + convErr.message);
+        }
+      } else if (pdfFile) {
+        renamedPdfName = `${baseOrderNo} ${cleanCustomerName}.pdf`;
+      }
+
+      if (fileToUpload) {
+        setUploadProgress(45);
+        setUploadStepName(`กำลังอัปโหลดไฟล์เอกสารส่งงาน: ${renamedPdfName}...`);
+        
+        const pdfUploadRes = await directUploadToGDrive(accessToken, fileToUpload, targetFolderId, renamedPdfName);
         pdfUrl = pdfUploadRes.url;
       }
 
@@ -881,32 +968,78 @@ function SubmitPageInner() {
                   </div>
                 )}
 
-                {/* 4. PDF File Upload (Conditional visibility/requirement) */}
+                {/* 4. Document File Upload (PDF or Images) */}
                 {pdfIsRequired && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider Prompt">
-                      ไฟล์ใบส่งงาน (PDF เท่านั้น) <span className="text-rose-500">*</span>
+                      ไฟล์เอกสารส่งงาน (PDF หรือรูปภาพ) <span className="text-rose-500">*</span>
                     </label>
                     <div className="border border-dashed border-indigo-200 bg-indigo-50/10 hover:bg-indigo-50/20 backdrop-blur-md rounded-2xl p-4 text-center relative transition-all duration-200 cursor-pointer">
                       <input
                         type="file"
-                        accept="application/pdf"
-                        onChange={handlePdfChange}
+                        accept="application/pdf,image/*"
+                        multiple
+                        onChange={handleDocumentChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
                       <div className="flex flex-col items-center gap-1 pointer-events-none">
                         <div className="w-10 h-10 bg-indigo-500 text-white rounded-full flex items-center justify-center mb-1 icon-glow-indigo">
                           <FileUp className="w-5 h-5" />
                         </div>
-                        <span className="text-xs font-bold text-indigo-700/90 Prompt">อัปโหลดไฟล์เอกสารใบส่งงาน (PDF)</span>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">ขนาดสูงสุด {systemSettings.max_size_pdf || 20}MB</span>
+                        <span className="text-xs font-bold text-indigo-700/90 Prompt">
+                          คลิกเพื่ออัปโหลดไฟล์เอกสาร (PDF หรือรูปภาพ)
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-medium">
+                          เลือก PDF 1 ไฟล์ (สูงสุด {systemSettings.max_size_pdf || 20}MB) หรือเลือกไฟล์รูปภาพ (สูงสุด 20 รูป)
+                        </span>
                       </div>
                     </div>
 
                     {pdfFile && (
-                      <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex justify-between items-center">
-                        <span className="text-[11px] font-bold text-indigo-700 truncate max-w-[200px]" title={pdfFile.name}>{pdfFile.name}</span>
-                        <span className="text-[10px] text-indigo-500 font-bold shrink-0">{(pdfFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                      <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex justify-between items-center animate-fadeIn">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileUp className="w-4 h-4 text-indigo-500 shrink-0" />
+                          <span className="text-[11px] font-bold text-indigo-700 truncate max-w-[200px]" title={pdfFile.name}>
+                            {pdfFile.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="text-[10px] text-indigo-500 font-bold">{(pdfFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                          <button
+                            type="button"
+                            onClick={() => setPdfFile(null)}
+                            className="text-slate-400 hover:text-rose-500 transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {imageFiles.length > 0 && (
+                      <div className="space-y-2 animate-fadeIn">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] text-slate-400 font-bold Prompt flex items-center gap-1">
+                            <FileImage className="w-3.5 h-3.5 text-indigo-500" />
+                            รูปภาพที่เลือกไว้ ({imageFiles.length}/20 รูป)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setImageFiles([])}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-600 transition cursor-pointer"
+                          >
+                            ล้างทั้งหมด
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2 bg-slate-50/60 border border-slate-100/80 rounded-2xl p-3">
+                          {imageFiles.map((file, index) => (
+                            <ImagePreview
+                              key={index}
+                              file={file}
+                              onRemove={() => handleRemoveImage(index)}
+                            />
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
