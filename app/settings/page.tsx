@@ -261,7 +261,7 @@ export default function SettingsPage() {
       return;
     }
 
-    // Pre-check: browser must have already granted notification permission
+    // Pre-check: browser must have granted notification permission
     if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') {
@@ -271,8 +271,25 @@ export default function SettingsPage() {
     }
 
     setLoading(true);
-    setLoadingText("กำลังส่งแจ้งเตือนทดสอบ...");
+    setLoadingText("กำลังอ่านรายการอุปกรณ์...");
     try {
+      // Read FCM tokens using client-side Firestore SDK (avoids Admin SDK gRPC quota issues)
+      const db = getDb();
+      const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
+      const tokens: string[] = tokensSnap.docs
+        .map(d => (d.data().token as string))
+        .filter(Boolean);
+
+      if (tokens.length === 0) {
+        showToast(
+          "ยังไม่มีอุปกรณ์ลงทะเบียน — กรุณาบันทึกการตั้งค่าก่อน แล้วรีเฟรชหน้าเว็บ กด Allow เมื่อเบราว์เซอร์ขอสิทธิ์ครับ",
+          "error"
+        );
+        return;
+      }
+
+      setLoadingText(`กำลังส่งแจ้งเตือนทดสอบไปยัง ${tokens.length} อุปกรณ์...`);
+
       const response = await fetch('/api/push-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -281,18 +298,28 @@ export default function SettingsPage() {
           body: `ระบบส่งแจ้งเตือนทำงานได้เป็นปกติแล้วครับ! ทดสอบเมื่อเวลา ${new Date().toLocaleTimeString('th-TH')}`,
           url: '/dashboard',
           serviceAccountJson: pushServiceAccount.trim(),
+          tokens,  // pass tokens directly — API won't need to read from Firestore
         })
       });
-      
+
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || result.message || 'ส่งแจ้งเตือนไม่สำเร็จ');
       }
-      
-      if (result.successCount === 0) {
-        showToast(result.message || "ไม่มีอุปกรณ์รับแจ้งเตือน — บันทึกการตั้งค่าก่อน แล้วรีเฟรชหน้าเว็บ กด Allow เมื่อเบราว์เซอร์ขอสิทธิ์นะครับ", "error");
+
+      if ((result.successCount ?? 0) === 0) {
+        showToast(result.message || "ส่งแจ้งเตือนไม่สำเร็จ — ลองรีเฟรชและ Allow แจ้งเตือนใหม่อีกครั้งนะครับ", "error");
       } else {
         showToast(`ทดสอบส่งสำเร็จแล้ว! ส่งไปยัง ${result.successCount} อุปกรณ์ 🎉`, "success");
+      }
+
+      // Clean up stale tokens returned by API
+      if (result.staleTokens && result.staleTokens.length > 0) {
+        const db = getDb();
+        await Promise.all(
+          result.staleTokens.map((t: string) => deleteDoc(doc(db, 'notification_tokens', t)))
+        );
+        console.log(`[push-notify] Cleaned up ${result.staleTokens.length} stale token(s) from Firestore`);
       }
     } catch (err: any) {
       console.error(err);
@@ -301,6 +328,7 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
 
 
 

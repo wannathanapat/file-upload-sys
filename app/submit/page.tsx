@@ -896,16 +896,30 @@ function SubmitPageInner() {
           (activeJob.order_no && activeJob.order_no !== '-' ? ` | ออเดอร์: ${activeJob.order_no}` : '') +
           ` | ${finalWorkCat} | ช่าง: ${targetTechName}`;
 
-        fetch('/api/push-notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: '📥 แจ้งเตือนงานส่งใหม่',
-            body: pushBody,
-            url: '/dashboard',
-            serviceAccountJson: systemSettings.push_service_account,
-          }),
-        }).catch(e => console.warn('[push-notify] Failed to send push notification:', e));
+        // Read tokens client-side (avoids Admin SDK gRPC quota issues)
+        try {
+          const db = getDb();
+          const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
+          const fcmTokens: string[] = tokensSnap.docs
+            .map(d => d.data().token as string)
+            .filter(Boolean);
+
+          if (fcmTokens.length > 0) {
+            fetch('/api/push-notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: '📥 แจ้งเตือนงานส่งใหม่',
+                body: pushBody,
+                url: '/dashboard',
+                serviceAccountJson: systemSettings.push_service_account,
+                tokens: fcmTokens,
+              }),
+            }).catch(e => console.warn('[push-notify] Failed to send push notification:', e));
+          }
+        } catch (e) {
+          console.warn('[push-notify] Failed to read FCM tokens:', e);
+        }
       }
 
       closeSubmitModal();

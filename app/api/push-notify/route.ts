@@ -1,49 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp, getApps, cert, deleteApp, App } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
 
 // ---------------------------------------------------------------------------
-// Module-level singleton map  — persists across Next.js requests in the same
-// Node.js process, preventing duplicate gRPC channel creation (RESOURCE_EXHAUSTED)
+// Module-level singleton  — keyed by project_id from the service account
+// Prevents duplicate Firebase Admin app initialization across requests
 // ---------------------------------------------------------------------------
 const adminAppCache = new Map<string, App>();
 
-function getPushAdminApp(serviceAccountJson: string): App {
-  // Use project_id as stable cache key
-  let projectId: string;
+function getPushAdminApp(serviceAccountJson: string): { app: App; projectId: string } {
   let serviceAccount: Record<string, unknown>;
   try {
     serviceAccount = JSON.parse(serviceAccountJson);
-    projectId = serviceAccount.project_id as string;
   } catch {
-    throw new Error('Service Account JSON ไม่ถูกต้อง ตรวจสอบว่า copy ครบทั้ง JSON block ครับ');
+    throw new Error('Service Account JSON ไม่ถูกต้อง — ตรวจสอบว่า copy ครบทั้ง JSON block นะครับ');
   }
 
-  if (!projectId) {
-    throw new Error('Service Account JSON ไม่มี project_id');
-  }
+  const projectId = serviceAccount.project_id as string;
+  if (!projectId) throw new Error('Service Account JSON ไม่มี project_id');
 
   const cacheKey = `push-notify-${projectId}`;
 
   const cached = adminAppCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return { app: cached, projectId };
 
-  // Also check getApps() registry (in case of HMR re-imports)
   const existing = getApps().find(a => a.name === cacheKey);
   if (existing) {
     adminAppCache.set(cacheKey, existing);
-    return existing;
+    return { app: existing, projectId };
   }
 
   const app = initializeApp({ credential: cert(serviceAccount as any) }, cacheKey);
   adminAppCache.set(cacheKey, app);
-  return app;
+  return { app, projectId };
 }
 
 // ---------------------------------------------------------------------------
 // POST /api/push-notify
-// Body: { title, body?, url?, serviceAccountJson? }
+//
+// Body:
+//   title            string   (required)
+//   body             string?
+//   url              string?
+//   serviceAccountJson string  (required)
+//   tokens           string[] (required — read client-side by the caller to avoid
+//                             gRPC RESOURCE_EXHAUSTED from Admin SDK Firestore)
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
@@ -52,111 +53,51 @@ export async function POST(req: NextRequest) {
       title,
       body: msgBody,
       url,
-      serviceAccountJson: bodyServiceAccountJson,
+      serviceAccountJson,
+      tokens,
     } = body as {
       title: string;
       body?: string;
       url?: string;
       serviceAccountJson?: string;
+      tokens?: string[];
     };
 
     if (!title) {
       return NextResponse.json({ error: 'title is required' }, { status: 400 });
     }
 
-    // ----------------------------------------------------------------
-    // 1. Resolve serviceAccountJson — body takes priority over Firestore
-    // ----------------------------------------------------------------
-    let resolvedServiceAccountJson: string = bodyServiceAccountJson?.trim() ?? '';
-
-    if (!resolvedServiceAccountJson) {
-      // Fallback: read from Firestore via default admin app (env-based / Cloud Run ADC)
-      const defaultApp = getApps().find(a => a.name === '[DEFAULT]');
-      if (!defaultApp) {
-        return NextResponse.json(
-          { error: 'ไม่พบ Service Account JSON กรุณาส่ง serviceAccountJson ใน request หรือตั้งค่า GOOGLE_APPLICATION_CREDENTIALS' },
-          { status: 500 }
-        );
-      }
-      try {
-        const settingsDoc = await getFirestore(defaultApp)
-          .collection('app_config')
-          .doc('system_settings')
-          .get();
-
-        const settings = settingsDoc.data() ?? {};
-        if (settings.push_status !== 'enabled') {
-          return NextResponse.json({ message: 'Push notification ปิดอยู่', successCount: 0 });
-        }
-        resolvedServiceAccountJson = settings.push_service_account ?? '';
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return NextResponse.json({ error: `อ่าน service account จาก Firestore ไม่ได้: ${msg}` }, { status: 500 });
-      }
-    }
-
-    if (!resolvedServiceAccountJson) {
+    if (!serviceAccountJson?.trim()) {
       return NextResponse.json(
-        { error: 'ยังไม่ได้ตั้งค่า Service Account JSON กรุณาตั้งค่าในหน้า Settings → Push Notification' },
-        { status: 500 }
+        { error: 'ยังไม่ได้ตั้งค่า Service Account JSON — กรุณาตั้งค่าในหน้า Settings → Push Notification' },
+        { status: 400 }
       );
     }
 
+    // tokens must be provided by the caller (read from Firestore via client SDK)
+    if (!tokens || tokens.length === 0) {
+      return NextResponse.json({
+        message: 'ยังไม่มีอุปกรณ์ลงทะเบียนรับแจ้งเตือน — กรุณารีเฟรชหน้าเว็บแล้วกด Allow เมื่อเบราว์เซอร์ขอสิทธิ์ครับ',
+        successCount: 0,
+      });
+    }
+
     // ----------------------------------------------------------------
-    // 2. Init (or reuse) Firebase Admin app
+    // 1. Init (or reuse) Firebase Admin app for FCM sending only
     // ----------------------------------------------------------------
-    let pushApp: App;
+    let app: App;
     try {
-      pushApp = getPushAdminApp(resolvedServiceAccountJson);
+      ({ app } = getPushAdminApp(serviceAccountJson.trim()));
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       return NextResponse.json({ error: `Service Account JSON ผิดพลาด: ${msg}` }, { status: 500 });
     }
 
-    // ----------------------------------------------------------------
-    // 3. Read FCM tokens from Firestore
-    // ----------------------------------------------------------------
-    const pushFirestore = getFirestore(pushApp);
-    let tokensSnap;
-    try {
-      tokensSnap = await pushFirestore.collection('notification_tokens').get();
-    } catch (e: unknown) {
-      const raw = e instanceof Error ? e.message : String(e);
-      // Friendlier message for quota / permission errors
-      if (raw.includes('RESOURCE_EXHAUSTED') || raw.includes('Quota')) {
-        return NextResponse.json(
-          { error: 'Firebase Firestore quota เต็มชั่วคราว (RESOURCE_EXHAUSTED) ลองอีกครั้งในสักครู่นะครับ หรือตรวจสอบ Firestore Usage ใน Firebase Console' },
-          { status: 429 }
-        );
-      }
-      if (raw.includes('PERMISSION_DENIED')) {
-        return NextResponse.json(
-          { error: 'Service Account ไม่มีสิทธิ์อ่าน Firestore — กรุณาตรวจสอบ IAM Role ของ Service Account ให้มี Cloud Datastore User หรือ Firebase Admin SDK Administrator Service Agent' },
-          { status: 403 }
-        );
-      }
-      return NextResponse.json({ error: `Firestore error: ${raw}` }, { status: 500 });
-    }
-
-    if (tokensSnap.empty) {
-      return NextResponse.json({
-        message: 'ยังไม่มีอุปกรณ์ลงทะเบียนแจ้งเตือน — กรุณาเปิดแอปในเบราว์เซอร์แล้วกด "Allow" เมื่อขอสิทธิ์แจ้งเตือนก่อนนะครับ',
-        successCount: 0,
-      });
-    }
-
-    const tokens: string[] = tokensSnap.docs
-      .map(d => d.data().token as string)
-      .filter(Boolean);
-
-    if (tokens.length === 0) {
-      return NextResponse.json({ message: 'ไม่พบ Token ที่ใช้ได้', successCount: 0 });
-    }
+    const pushMessaging = getMessaging(app);
 
     // ----------------------------------------------------------------
-    // 4. Send in batches of 500 (FCM limit)
+    // 2. Send FCM in batches of 500 (FCM multicast limit)
     // ----------------------------------------------------------------
-    const pushMessaging = getMessaging(pushApp);
     const BATCH_SIZE = 500;
     let successCount = 0;
     const staleTokens: string[] = [];
@@ -181,7 +122,20 @@ export async function POST(req: NextRequest) {
         },
       };
 
-      const response = await pushMessaging.sendEachForMulticast(message);
+      let response;
+      try {
+        response = await pushMessaging.sendEachForMulticast(message);
+      } catch (e: unknown) {
+        const raw = e instanceof Error ? e.message : String(e);
+        if (raw.includes('RESOURCE_EXHAUSTED') || raw.includes('Quota')) {
+          return NextResponse.json(
+            { error: 'FCM API quota เต็มชั่วคราว (RESOURCE_EXHAUSTED) ลองอีกครั้งในสักครู่นะครับ' },
+            { status: 429 }
+          );
+        }
+        throw e;
+      }
+
       successCount += response.successCount;
 
       response.responses.forEach((res, idx: number) => {
@@ -198,22 +152,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------------------
-    // 5. Clean up stale tokens automatically
+    // 3. Return stale tokens to caller so client can clean them up
     // ----------------------------------------------------------------
-    if (staleTokens.length > 0) {
-      const cleanupBatch = pushFirestore.batch();
-      for (const t of staleTokens) {
-        cleanupBatch.delete(pushFirestore.collection('notification_tokens').doc(t));
-      }
-      await cleanupBatch.commit();
-      console.log(`[push-notify] Cleaned up ${staleTokens.length} stale token(s)`);
-    }
-
     return NextResponse.json({
-      message: 'ส่งแจ้งเตือนสำเร็จ',
+      message: successCount > 0 ? 'ส่งแจ้งเตือนสำเร็จ' : 'ส่งแจ้งเตือนไม่สำเร็จ (token อาจหมดอายุ)',
       successCount,
       totalTokens: tokens.length,
-      staleTokensCleaned: staleTokens.length,
+      staleTokens, // caller can delete these from Firestore
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error';
