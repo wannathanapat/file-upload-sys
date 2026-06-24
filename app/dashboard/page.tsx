@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import Sidebar from '@/components/sidebar';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '../providers';
@@ -39,10 +39,77 @@ import {
   History,
   Zap,
   RefreshCw,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { deleteTargetUploadFolder, getValidAccessToken } from '@/lib/gdrive';
+
+interface CustomSelectProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}
+
+function CustomSelect({ value, onChange, options, placeholder }: CustomSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value);
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 transition flex items-center justify-between Prompt cursor-pointer font-bold"
+      >
+        <span className="truncate">{selectedOption ? selectedOption.label : placeholder || ''}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute left-0 right-0 mt-1.5 z-50 max-h-60 overflow-y-auto bg-white border border-slate-100 rounded-2xl shadow-[0_10px_25px_rgba(0,0,0,0.1)] p-1.5 space-y-0.5"
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition duration-150 Prompt cursor-pointer ${
+                  value === opt.value
+                    ? 'bg-indigo-500 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 function DashboardContent() {
   const { currentUser, showToast, showConfirm, systemSettings, gdrivePrefs } = useApp();
@@ -52,6 +119,9 @@ function DashboardContent() {
   
   // No more activeTab state, we derive what to show based on viewMode
   const activeTab = viewMode === 'history' ? 'submissions' : 'queue';
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
   
   // Data lists
   const [submissions, setSubmissions] = useState<SubmissionData[]>([]);
@@ -82,6 +152,7 @@ function DashboardContent() {
   const [editType, setEditType] = useState('งานติดตั้ง (INS)');
   const [editNote, setEditNote] = useState('');
   const [editFileName, setEditFileName] = useState('');
+  const [previewFile, setPreviewFile] = useState<{ type: 'pdf' | 'video', url: string, name: string } | null>(null);
   
   // Stats
   const [stats, setStats] = useState({
@@ -269,6 +340,89 @@ function DashboardContent() {
     }
   };
 
+  const getPreviewUrl = (url: string) => {
+    if (!url || url === '-') return '';
+    if (url.includes('drive.google.com')) {
+      if (url.includes('id=')) {
+        const match = url.match(/id=([^&]+)/);
+        if (match && match[1]) {
+          return `https://drive.google.com/file/d/${match[1]}/preview`;
+        }
+      }
+      if (url.includes('/file/d/')) {
+        const match = url.match(/\/file\/d\/([^/]+)/);
+        if (match && match[1]) {
+          return `https://drive.google.com/file/d/${match[1]}/preview`;
+        }
+      }
+    }
+    return url;
+  };
+
+  const getDirectStreamUrl = (url: string) => {
+    if (!url || url === '-') return '';
+    if (url.includes('drive.google.com')) {
+      if (url.includes('id=')) {
+        const match = url.match(/id=([^&]+)/);
+        if (match && match[1]) {
+          return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+        }
+      }
+      if (url.includes('/file/d/')) {
+        const match = url.match(/\/file\/d\/([^/]+)/);
+        if (match && match[1]) {
+          return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+        }
+      }
+    }
+    return url;
+  };
+
+  const isNativeVideo = (url: string, name: string) => {
+    if (!name && !url) return false;
+    const filename = name || url;
+    const ext = filename.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'ogg'].includes(ext || '');
+  };
+
+  const handleUpdateStatusDirect = async (newStatus: string) => {
+    if (!selectedSub) return;
+    setModalLoading(true);
+
+    try {
+      const db = getDb();
+      const subRef = doc(db, 'submissions', selectedSub.submission_date);
+      
+      const updatedData = {
+        status: newStatus
+      };
+
+      await updateDoc(subRef, updatedData);
+
+      const updatedList = [...submissions];
+      const matchIndex = updatedList.findIndex(s => s.submission_date === selectedSub.submission_date);
+      if (matchIndex !== -1) {
+        updatedList[matchIndex] = { ...selectedSub, ...updatedData };
+        setSubmissions(updatedList);
+        
+        const total = updatedList.length;
+        const approved = updatedList.filter(s => s.status === 'ตรวจแล้ว').length;
+        const pending = updatedList.filter(s => s.status === 'รอตรวจ' || !s.status).length;
+        const rejected = updatedList.filter(s => s.status === 'แก้ไข').length;
+        setStats({ total, approved, pending, rejected });
+      }
+
+      showToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อยแล้ว ✨`, "success");
+      setSelectedSub(prev => prev ? { ...prev, ...updatedData } : null);
+      setEditStatus(newStatus);
+    } catch (err: any) {
+      console.error(err);
+      showToast("บันทึกข้อมูลไม่สำเร็จ: " + err.message, "error");
+    } finally {
+      setModalLoading(false);
+    }
+  };
+
   // Delete submission and revert job queue status in Firestore
   const handleDeleteSub = async () => {
     if (!selectedSub) return;
@@ -419,42 +573,40 @@ function DashboardContent() {
     <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50/50 font-sans">
       <Sidebar />
 
-      <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
+      <main className="flex-1 pt-24 pb-6 px-4 lg:p-6 overflow-y-auto">
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-800 Prompt">{viewMode === 'history' ? 'ประวัติส่งงานทั้งหมด' : 'แดชบอร์ดภาพรวมระบบ'}</h1>
-            <p className="text-xs text-slate-500 Sarabun">ภาพรวมระบบส่งงานช่าง · อัปเดต {new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</p>
-          </div>
-          <button
-            onClick={fetchData}
-            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold shadow-xs transition Prompt flex items-center gap-2 cursor-pointer active:scale-95 group"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-500 group-hover:rotate-180 transition-transform duration-500" />
-            <span>รีเฟรชข้อมูล</span>
-          </button>
-        </header>
+        {viewMode === 'overview' && (
+          <header className="mb-4 flex flex-row justify-end items-center gap-4">
+            <button
+              onClick={fetchData}
+              className="p-1.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95 group"
+              title="รีเฟรชข้อมูลล่าสุด"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+            </button>
+          </header>
+        )}
 
-        {viewMode !== 'history' && (
+        {viewMode === 'overview' && (
           <>
             {/* ── KPI Cards Strip ─────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
           {[
-            { label: 'ส่งงานรวม', value: stats.total, unit: 'งาน', icon: <BarChart3 className="w-5 h-5" />, bg: 'bg-indigo-50', text: 'text-indigo-600', sub: `คิว: ${queuePendingCount} ค้าง` },
-            { label: 'ตรวจแล้ว', value: stats.approved, unit: 'งาน', icon: <CheckCircle2 className="w-5 h-5" />, bg: 'bg-emerald-50', text: 'text-emerald-600', sub: `${donutApproved}% อนุมัติ` },
-            { label: 'รอตรวจสอบ', value: stats.pending, unit: 'รายการ', icon: <Clock className="w-5 h-5" />, bg: 'bg-amber-50', text: 'text-amber-600', sub: stats.pending > 5 ? '⚠️ ต้องรีบตรวจ' : 'ปกติ' },
-            { label: 'แจ้งแก้ไข', value: stats.rejected, unit: 'รายการ', icon: <AlertCircle className="w-5 h-5" />, bg: 'bg-rose-50', text: 'text-rose-600', sub: 'ต้องติดตามช่าง' },
-            { label: 'ส่งวันนี้', value: todayCount, unit: 'งาน', icon: <Zap className="w-5 h-5" />, bg: 'bg-violet-50', text: 'text-violet-600', sub: todayStr },
-            { label: 'ช่างในระบบ', value: technicians.length, unit: 'คน', icon: <Users className="w-5 h-5" />, bg: 'bg-sky-50', text: 'text-sky-600', sub: 'users ที่ active' },
+            { label: 'ส่งงานรวม', value: stats.total, unit: 'งาน', icon: <BarChart3 className="w-4 h-4" />, bg: 'bg-indigo-500', text: 'text-white', glow: 'icon-glow-indigo', sub: `คิว: ${queuePendingCount} ค้าง` },
+            { label: 'ตรวจแล้ว', value: stats.approved, unit: 'งาน', icon: <CheckCircle2 className="w-4 h-4" />, bg: 'bg-emerald-500', text: 'text-white', glow: 'icon-glow-emerald', sub: `${donutApproved}% อนุมัติ` },
+            { label: 'รอตรวจสอบ', value: stats.pending, unit: 'รายการ', icon: <Clock className="w-4 h-4" />, bg: 'bg-amber-500', text: 'text-white', glow: 'icon-glow-amber', sub: stats.pending > 5 ? '⚠️ ต้องรีบตรวจ' : 'ปกติ' },
+            { label: 'แจ้งแก้ไข', value: stats.rejected, unit: 'รายการ', icon: <AlertCircle className="w-4 h-4" />, bg: 'bg-rose-500', text: 'text-white', glow: 'icon-glow-rose', sub: 'ต้องติดตามช่าง' },
+            { label: 'ส่งวันนี้', value: todayCount, unit: 'งาน', icon: <Zap className="w-4 h-4" />, bg: 'bg-violet-500', text: 'text-white', glow: 'icon-glow-violet', sub: todayStr },
+            { label: 'ช่างในระบบ', value: technicians.length, unit: 'คน', icon: <Users className="w-4 h-4" />, bg: 'bg-sky-500', text: 'text-white', glow: 'icon-glow-sky', sub: 'Active ในระบบ' },
           ].map((kpi, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className="bg-white rounded-2xl border border-slate-100/80 shadow-xs p-4 flex flex-col gap-2 hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5"
+              className="glass-card p-4 flex flex-col gap-2"
             >
-              <div className={`w-9 h-9 ${kpi.bg} ${kpi.text} rounded-xl flex items-center justify-center`}>
+              <div className={`w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center`}>
                 {kpi.icon}
               </div>
               <div>
@@ -470,7 +622,7 @@ function DashboardContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
           {/* Donut Chart */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6 flex flex-col gap-4">
+          <div className="glass-card p-6 flex flex-col gap-4">
             <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
               <span className="w-1.5 h-4 bg-indigo-500 rounded-full inline-block" />
               สัดส่วนสถานะงานทั้งหมด
@@ -524,7 +676,7 @@ function DashboardContent() {
           </div>
 
           {/* Top 5 Technician Bar Chart */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6 flex flex-col gap-4">
+          <div className="glass-card p-6 flex flex-col gap-4">
             <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
               <span className="w-1.5 h-4 bg-violet-500 rounded-full inline-block" />
               Top 5 ช่างส่งงานมากสุด
@@ -562,7 +714,7 @@ function DashboardContent() {
           </div>
 
           {/* Activity Feed */}
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-6 flex flex-col gap-3 overflow-hidden">
+          <div className="glass-card p-6 flex flex-col gap-3 overflow-hidden">
             <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
               <span className="w-1.5 h-4 bg-amber-500 rounded-full inline-block" />
               กิจกรรมล่าสุด
@@ -580,9 +732,9 @@ function DashboardContent() {
                   return (
                     <div key={i} className="flex items-start gap-2.5 py-2 border-b border-slate-50 last:border-0">
                       <div className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 text-[10px] font-black mt-0.5 ${
-                        statusVal === 'ตรวจแล้ว' ? 'bg-emerald-100 text-emerald-700' :
-                        statusVal === 'แก้ไข' ? 'bg-rose-100 text-rose-700' :
-                        'bg-amber-100 text-amber-700'
+                        statusVal === 'ตรวจแล้ว' ? 'bg-emerald-500 text-white icon-glow-emerald' :
+                        statusVal === 'แก้ไข' ? 'bg-rose-500 text-white icon-glow-rose' :
+                        'bg-amber-500 text-white icon-glow-amber'
                       }`}>
                         {item.name?.charAt(0) || '?'}
                       </div>
@@ -592,9 +744,9 @@ function DashboardContent() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
-                          statusVal === 'ตรวจแล้ว' ? 'bg-emerald-50 text-emerald-600' :
-                          statusVal === 'แก้ไข' ? 'bg-rose-50 text-rose-600' :
-                          'bg-amber-50 text-amber-600'
+                          statusVal === 'ตรวจแล้ว' ? 'bg-emerald-500/20 text-emerald-700' :
+                          statusVal === 'แก้ไข' ? 'bg-rose-500/20 text-rose-700' :
+                          'bg-amber-500/20 text-amber-700'
                         }`}>{statusVal}</span>
                         <p className="text-[8px] text-slate-300 mt-0.5">{getRelativeTime(item.submission_date)}</p>
                       </div>
@@ -607,10 +759,10 @@ function DashboardContent() {
         </div>
 
         {/* ── Leaderboard Strip ────────────────────────────────────────────── */}
-        {viewMode !== 'history' && !loading && techStats.length > 0 && (
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-xs p-5 mb-6">
+        {!loading && techStats.length > 0 && (
+          <div className="glass-card p-5 mb-6">
             <h3 className="text-xs font-bold text-slate-700 Prompt mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-amber-400 rounded-full inline-block" />
+              <span className="w-1.5 h-4 bg-indigo-500 rounded-full inline-block shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
               🏆 Leaderboard ช่างเทคนิค
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -620,7 +772,7 @@ function DashboardContent() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => router.push(`/dashboard?view=history&tech=${encodeURIComponent(tech.name)}`)}
-                  className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer text-center group"
+                  className="flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-200/50 bg-white/40 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer text-center group"
                 >
                   <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black ${
                     i === 0 ? 'bg-amber-100 text-amber-600' :
@@ -644,96 +796,208 @@ function DashboardContent() {
         )}
 
         {/* ── Table Section: Tabs + Filters + Tables ───────────────────────── */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xs overflow-hidden">
+        {viewMode !== 'overview' && (
+          <div className="glass-card overflow-hidden">
 
           {/* Tab + Filter Header */}
-          <div className="p-5 border-b border-slate-100 flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-5 border-b border-slate-100">
+            <div className="flex items-center justify-between gap-3 w-full">
               {/* Tab Buttons */}
-              <div className="bg-slate-100/70 p-1 rounded-2xl flex gap-1 w-fit border border-slate-200/20">
-                {viewMode !== 'history' ? (
-                  <div className="px-4 py-2 rounded-xl font-bold text-xs Prompt flex items-center gap-2 bg-white text-amber-600 shadow-xs border border-slate-200/20">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    คิวงานค้างส่ง
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                      {filteredQueue.length}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="px-4 py-2 rounded-xl font-bold text-xs Prompt flex items-center gap-2 bg-white text-indigo-600 shadow-xs border border-slate-200/20">
-                    <History className="w-3.5 h-3.5" />
-                    ประวัติส่งงานทั้งหมด
-                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                      {filteredSubmissions.length}
-                    </span>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <div className="bg-slate-100/70 p-1 rounded-2xl flex gap-1 w-fit border border-slate-200/20">
+                  {viewMode === 'queue' ? (
+                    <div className="px-4 py-2 rounded-xl font-bold text-xs Prompt flex items-center gap-2 bg-white text-amber-600 shadow-xs border border-slate-200/20">
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      คิวงานค้างส่ง
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                        {filteredQueue.length}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="px-4 py-2 rounded-xl font-bold text-xs Prompt flex items-center gap-2 bg-white text-indigo-600 shadow-xs border border-slate-200/20">
+                      <History className="w-3.5 h-3.5" />
+                      ประวัติส่งงาน
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
+                        {filteredSubmissions.length}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Search */}
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="ค้นหา รหัสงาน, ชื่อลูกค้า, ช่าง..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200/80 text-slate-800 rounded-xl pl-10 pr-4 py-2 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white transition Prompt"
-                />
-              </div>
-            </div>
-
-            {/* Filter chips */}
-            <div className="flex flex-wrap items-center gap-2">
-              {activeTab === 'submissions' ? (
-                <>
-                  <select
-                    value={techFilter}
-                    onChange={(e) => setTechFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 transition appearance-none Prompt cursor-pointer"
-                  >
-                    <option value="">ช่างทุกคน</option>
-                    {technicians.map((t, idx) => <option key={idx} value={t}>{t}</option>)}
-                  </select>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 transition appearance-none Prompt cursor-pointer"
-                  >
-                    <option value="">สถานะทั้งหมด</option>
-                    <option value="รอตรวจ">รอตรวจ</option>
-                    <option value="ตรวจแล้ว">ตรวจแล้ว</option>
-                    <option value="แก้ไข">แก้ไข</option>
-                  </select>
-                  <select
-                    value={typeFilter}
-                    onChange={(e) => setTypeFilter(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 transition appearance-none Prompt cursor-pointer"
-                  >
-                    <option value="">ประเภทงานทั้งหมด</option>
-                    <option value="งานติดตั้ง (INS)">งานติดตั้ง (INS)</option>
-                    <option value="งานซ่อม (AS)">งานซ่อม (AS)</option>
-                    <option value="งานถอดติดตั้ง (AS)">งานถอดติดตั้ง (AS)</option>
-                    <option value="งานเฟล (Fail)">งานเฟล (Fail)</option>
-                    <option value="งานคืน (Return)">งานคืน (Return)</option>
-                  </select>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 Prompt cursor-pointer" />
-                    <span className="text-slate-400 text-xs">—</span>
-                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 Prompt cursor-pointer" />
-                  </div>
-                </>
-              ) : (
-                <select
-                  value={queueTechFilter}
-                  onChange={(e) => setQueueTechFilter(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-indigo-500 transition appearance-none Prompt cursor-pointer"
+              {/* Search & Filter Buttons */}
+              <div className="flex items-center gap-2 relative">
+                {/* Search Button (Expanding) */}
+                <div 
+                  onMouseEnter={() => setIsSearchExpanded(true)}
+                  onMouseLeave={() => {
+                    if (!searchQuery && document.activeElement !== searchInputRef.current) {
+                      setIsSearchExpanded(false);
+                    }
+                  }}
+                  className="relative flex items-center bg-white border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-300"
                 >
-                  <option value="">ช่างทุกคน</option>
-                  {technicians.map((t, idx) => <option key={idx} value={t}>{t}</option>)}
-                </select>
-              )}
+                  <button 
+                    onClick={() => {
+                      setIsSearchExpanded(!isSearchExpanded);
+                      if (!isSearchExpanded) {
+                        setTimeout(() => searchInputRef.current?.focus(), 100);
+                      }
+                    }}
+                    className="p-2 text-slate-500 hover:text-indigo-600 rounded-full transition-all cursor-pointer flex items-center justify-center"
+                    title="ค้นหา"
+                  >
+                    <Search className="w-4 h-4 text-blue-500" />
+                  </button>
+                  <motion.input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => setIsSearchExpanded(true)}
+                    onBlur={() => {
+                      if (!searchQuery) setIsSearchExpanded(false);
+                    }}
+                    initial={false}
+                    animate={{ width: isSearchExpanded ? '150px' : '0px', opacity: isSearchExpanded ? 1 : 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    placeholder="ค้นหาใบงาน..."
+                    className="bg-transparent border-0 text-slate-800 text-xs focus:outline-none focus:ring-0 placeholder-slate-400 font-medium overflow-hidden h-8"
+                    style={{ paddingLeft: isSearchExpanded ? '4px' : '0px', paddingRight: isSearchExpanded ? '8px' : '0px' }}
+                  />
+                </div>
+
+                {/* Filter Pill Button */}
+                <button
+                  onClick={() => setShowFilterPanel(!showFilterPanel)}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center gap-1.5 cursor-pointer active:scale-95 text-xs font-bold Prompt"
+                >
+                  <Filter className="w-3.5 h-3.5 text-blue-500" />
+                  <span>Filter</span>
+                  <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showFilterPanel ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Filter Panel */}
+                <AnimatePresence>
+                  {showFilterPanel && (
+                    <>
+                      {/* Backdrop overlay to close when clicking outside */}
+                      <div 
+                        className="fixed inset-0 z-20 cursor-default"
+                        onClick={() => setShowFilterPanel(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                        className="absolute right-0 top-11 z-30 w-72 bg-white border border-slate-100 rounded-3xl p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] flex flex-col gap-4 text-xs font-semibold"
+                      >
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                          <div className="flex items-center gap-1.5 text-slate-700 font-bold Prompt">
+                            <Filter className="w-3.5 h-3.5 text-blue-500" />
+                            <span>ตัวเลือกตัวกรอง & ค้นหา</span>
+                          </div>
+                          <button 
+                            onClick={() => setShowFilterPanel(false)}
+                            className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-4">
+                          {activeTab === 'submissions' ? (
+                            <>
+                              {/* Tech Filter */}
+                              <div>
+                                <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">ช่างผู้รับผิดชอบ / CT Name</label>
+                                <CustomSelect
+                                  value={techFilter}
+                                  onChange={(val) => setTechFilter(val)}
+                                  options={[
+                                    { value: '', label: 'ช่างทุกคน' },
+                                    ...technicians.map(t => ({ value: t, label: t }))
+                                  ]}
+                                />
+                              </div>
+
+                              {/* Status Filter */}
+                              <div>
+                                <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">สถานะการตรวจสอบ</label>
+                                <CustomSelect
+                                  value={statusFilter}
+                                  onChange={(val) => setStatusFilter(val)}
+                                  options={[
+                                    { value: '', label: 'สถานะทั้งหมด' },
+                                    { value: 'รอตรวจ', label: 'รอตรวจ' },
+                                    { value: 'ตรวจแล้ว', label: 'ตรวจแล้ว' },
+                                    { value: 'แก้ไข', label: 'แก้ไข' }
+                                  ]}
+                                />
+                              </div>
+
+                              {/* Work Type Filter */}
+                              <div>
+                                <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">ประเภทงาน (Type)</label>
+                                <CustomSelect
+                                  value={typeFilter}
+                                  onChange={(val) => setTypeFilter(val)}
+                                  options={[
+                                    { value: '', label: 'ประเภทงานทั้งหมด' },
+                                    { value: 'งานติดตั้ง (INS)', label: 'งานติดตั้ง (INS)' },
+                                    { value: 'งานซ่อม (AS)', label: 'งานซ่อม (AS)' },
+                                    { value: 'งานถอดติดตั้ง (AS)', label: 'งานถอดติดตั้ง (AS)' },
+                                    { value: 'งานเฟล (Fail)', label: 'งานเฟล (Fail)' },
+                                    { value: 'งานคืน (Return)', label: 'งานคืน (Return)' }
+                                  ]}
+                                />
+                              </div>
+
+                              {/* Date Filter */}
+                              <div>
+                                <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">วันที่ส่งใบงาน (Date)</label>
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-slate-400 text-[10px] w-6 shrink-0 Prompt font-extrabold text-right">จาก</span>
+                                    <input 
+                                      type="date" 
+                                      value={dateFrom} 
+                                      onChange={(e) => setDateFrom(e.target.value)} 
+                                      className="w-full h-[38px] bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-0 text-xs focus:outline-none focus:border-indigo-500 Prompt cursor-pointer font-bold date-filter-input" 
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-slate-400 text-[10px] w-6 shrink-0 Prompt font-extrabold text-right">ถึง</span>
+                                    <input 
+                                      type="date" 
+                                      value={dateTo} 
+                                      onChange={(e) => setDateTo(e.target.value)} 
+                                      className="w-full h-[38px] bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-0 text-xs focus:outline-none focus:border-indigo-500 Prompt cursor-pointer font-bold date-filter-input" 
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            /* Queue View Filter */
+                            <div>
+                              <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">ช่างผู้รับผิดชอบ / CT Name</label>
+                              <CustomSelect
+                                value={queueTechFilter}
+                                onChange={(val) => setQueueTechFilter(val)}
+                                options={[
+                                  { value: '', label: 'ช่างทุกคน' },
+                                  ...technicians.map(t => ({ value: t, label: t }))
+                                ]}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
 
@@ -753,14 +1017,13 @@ function DashboardContent() {
                       <th className="p-4">ช่างผู้ส่ง</th>
                       <th className="p-4">ประเภทงาน</th>
                       <th className="p-4">ชื่อไฟล์ใบงาน</th>
-                      <th className="p-4">สถานะ</th>
-                      <th className="p-4 text-center pr-6">รายละเอียด</th>
+                      <th className="p-4 pr-6">สถานะ</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700 Sarabun">
                     {displayedSubmissions.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-12 text-center text-slate-400">
+                        <td colSpan={5} className="p-12 text-center text-slate-400">
                           <Search className="w-8 h-8 mx-auto mb-2 text-slate-300 animate-pulse" />
                           <p className="font-semibold text-xs text-slate-500 Prompt">ไม่พบข้อมูลที่ตรงกับตัวกรอง</p>
                         </td>
@@ -769,7 +1032,11 @@ function DashboardContent() {
                       displayedSubmissions.map((sub, idx) => {
                         const statusVal = sub.status || 'รอตรวจ';
                         return (
-                          <tr key={idx} className="hover:bg-slate-50/50 transition">
+                          <tr 
+                            key={idx} 
+                            onClick={() => openSubDetail(sub, idx)}
+                            className="hover:bg-slate-50/75 cursor-pointer transition-colors duration-150"
+                          >
                             <td className="p-4 pl-6 font-medium whitespace-nowrap text-slate-500">{formatThaiDate(sub.submission_date)}</td>
                             <td className="p-4 font-bold text-slate-800 Prompt">{sub.name}</td>
                             <td className="p-4">
@@ -783,7 +1050,7 @@ function DashboardContent() {
                               </span>
                             </td>
                             <td className="p-4 font-medium max-w-[200px] truncate text-slate-600" title={sub.file_name}>{sub.file_name || '-'}</td>
-                            <td className="p-4">
+                            <td className="p-4 pr-6">
                               <span className={`font-bold text-xs Prompt flex items-center gap-1.5 ${
                                 statusVal === 'ตรวจแล้ว' ? 'text-emerald-600' :
                                 statusVal === 'แก้ไข' ? 'text-rose-600' : 'text-amber-600'
@@ -794,14 +1061,6 @@ function DashboardContent() {
                                 }`} />
                                 {statusVal}
                               </span>
-                            </td>
-                            <td className="p-4 text-center pr-6">
-                              <button
-                                onClick={() => openSubDetail(sub, idx)}
-                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition cursor-pointer"
-                              >
-                                <Eye className="w-4 h-4 mx-auto" />
-                              </button>
                             </td>
                           </tr>
                         );
@@ -868,17 +1127,18 @@ function DashboardContent() {
             </div>
           )}
         </div>
+        )}
       </main>
 
       {/* ── Detail & Edit Modal ──────────────────────────────────────────── */}
       <AnimatePresence>
         {selectedSub && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
               onClick={closeSubDetail}
             />
 
@@ -886,12 +1146,12 @@ function DashboardContent() {
               initial={{ opacity: 0, y: 30, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="relative bg-white rounded-3xl p-6 shadow-2xl max-w-lg w-full border border-slate-100 max-h-[90vh] overflow-y-auto flex flex-col gap-5 z-10"
+              className="relative bg-white/80 backdrop-blur-lg rounded-[2rem] p-6 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] max-w-lg w-full border border-white/60 max-h-[90vh] overflow-y-auto flex flex-col gap-5 z-10"
             >
               {modalLoading && (
                 <div className="absolute inset-0 z-30 bg-white/70 backdrop-blur-xs flex flex-col items-center justify-center rounded-3xl">
                   <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3" />
-                  <p className="text-xs font-semibold text-slate-600 Prompt">กำลังอัปเดตข้อมูลบนคลาวด์...</p>
+                  <p className="text-xs font-semibold text-slate-650 Prompt">กำลังอัปเดตข้อมูลบนคลาวด์...</p>
                 </div>
               )}
 
@@ -906,39 +1166,55 @@ function DashboardContent() {
                   </h2>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">รหัสงาน: {selectedSub.job_id || '-'}</p>
                 </div>
-                <button onClick={closeSubDetail} className="text-slate-400 hover:text-slate-600 text-lg p-1.5 hover:bg-slate-100 rounded-full transition">✕</button>
+                <button onClick={closeSubDetail} className="text-slate-400 hover:text-slate-600 text-lg p-1.5 hover:bg-slate-100/50 rounded-full transition cursor-pointer">✕</button>
               </div>
 
-              <div className={`p-4 rounded-2xl border flex items-center justify-between transition ${
-                selectedSub.status === 'ตรวจแล้ว' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' :
-                selectedSub.status === 'แก้ไข' ? 'bg-rose-50 border-rose-200 text-rose-800' :
-                'bg-amber-50/70 border-amber-200 text-amber-800'
-              }`}>
+              {/* Glassmorphic Row: Date and 3-Pill Status Selector */}
+              <div className="bg-white/50 backdrop-blur-xs p-4.5 rounded-2xl border border-white/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs transition">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase Prompt">วันเวลาที่ส่งงาน</span>
-                  <p className="text-sm font-bold Sarabun leading-relaxed mt-0.5">{formatThaiDate(selectedSub.submission_date)}</p>
+                  <span className="text-[10px] font-extrabold text-slate-400 tracking-wider uppercase Prompt">วันเวลาที่ส่งงาน</span>
+                  <p className="text-xs font-bold text-slate-700 Sarabun leading-relaxed mt-0.5">{formatThaiDate(selectedSub.submission_date)}</p>
                 </div>
-                {isEditingSub ? (
-                  <select
-                    value={editStatus}
-                    onChange={(e) => setEditStatus(e.target.value)}
-                    className="bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 transition cursor-pointer appearance-none"
-                  >
-                    <option value="รอตรวจ">รอตรวจ</option>
-                    <option value="ตรวจแล้ว">ตรวจแล้ว</option>
-                    <option value="แก้ไข">แก้ไข</option>
-                  </select>
-                ) : (
-                  <span className={`px-4 py-1.5 rounded-full font-bold text-xs shadow-xs Prompt bg-white border ${
-                    selectedSub.status === 'ตรวจแล้ว' ? 'border-emerald-200 text-emerald-600' :
-                    selectedSub.status === 'แก้ไข' ? 'border-rose-200 text-rose-600' :
-                    'border-amber-200 text-amber-600'
-                  }`}>{selectedSub.status || 'รอตรวจ'}</span>
-                )}
+                
+                <div className="flex flex-col gap-1 sm:w-auto w-full">
+                  <span className="text-[9px] font-extrabold text-slate-400 tracking-wider uppercase Prompt mb-0.5">สถานะการตรวจสอบ</span>
+                  <div className="grid grid-cols-3 gap-1 bg-slate-200/50 p-1 rounded-2xl w-full sm:w-[240px]">
+                    <button
+                      onClick={() => isEditingSub ? setEditStatus('รอตรวจ') : handleUpdateStatusDirect('รอตรวจ')}
+                      className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer Prompt text-center ${
+                        (isEditingSub ? editStatus : (selectedSub.status || 'รอตรวจ')) === 'รอตรวจ'
+                          ? 'bg-amber-500 text-white shadow-sm shadow-amber-200'
+                          : 'bg-white/60 hover:bg-white text-amber-600'
+                      }`}
+                    >
+                      รอตรวจ
+                    </button>
+                    <button
+                      onClick={() => isEditingSub ? setEditStatus('ตรวจแล้ว') : handleUpdateStatusDirect('ตรวจแล้ว')}
+                      className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer Prompt text-center ${
+                        (isEditingSub ? editStatus : selectedSub.status) === 'ตรวจแล้ว'
+                          ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-200'
+                          : 'bg-white/60 hover:bg-white text-emerald-600'
+                      }`}
+                    >
+                      ตรวจแล้ว
+                    </button>
+                    <button
+                      onClick={() => isEditingSub ? setEditStatus('แก้ไข') : handleUpdateStatusDirect('แก้ไข')}
+                      className={`py-1.5 px-2 rounded-xl text-[10px] font-extrabold transition cursor-pointer Prompt text-center ${
+                        (isEditingSub ? editStatus : selectedSub.status) === 'แก้ไข'
+                          ? 'bg-rose-500 text-white shadow-sm shadow-rose-200'
+                          : 'bg-white/60 hover:bg-white text-rose-600'
+                      }`}
+                    >
+                      แก้ไข
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-4 text-xs font-semibold Sarabun">
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="grid grid-cols-2 gap-4 bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ประเภทงาน</span>
                     {isEditingSub ? (
@@ -950,25 +1226,25 @@ function DashboardContent() {
                         <option value="งานคืน (Return)">งานคืน (Return)</option>
                       </select>
                     ) : (
-                      <p className="text-sm font-bold text-slate-800 mt-1">{selectedSub.work_type}</p>
+                      <p className="text-xs font-bold text-slate-800 mt-1">{selectedSub.work_type}</p>
                     )}
                   </div>
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ผู้ส่งงาน (ช่าง)</span>
-                    <p className="text-sm font-bold text-slate-800 mt-1">{selectedSub.name}</p>
+                    <p className="text-xs font-bold text-slate-800 mt-1">{selectedSub.name}</p>
                   </div>
                 </div>
 
                 {selectedSub.fail_detail && selectedSub.fail_detail !== '-' && (
-                  <div className="bg-rose-50/50 p-4 rounded-2xl border border-rose-100">
+                  <div className="bg-rose-500/10 backdrop-blur-xs p-4 rounded-2xl border border-rose-200/50 shadow-2xs">
                     <span className="block text-[10px] text-rose-500 font-bold uppercase Prompt">รายละเอียดการเฟล</span>
-                    <p className="text-sm font-bold text-rose-700 mt-1">
+                    <p className="text-xs font-bold text-rose-700 mt-1">
                       {selectedSub.fail_detail === 'entered' ? '🏠 เข้าหน้างานแล้ว' : '🚗 ยังไม่เข้าหน้างาน'}
                     </p>
                   </div>
                 )}
 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
                   <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ชื่อเอกสารใบงาน</span>
                   {isEditingSub ? (
                     <input type="text" value={editFileName} onChange={(e) => setEditFileName(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition Prompt" />
@@ -977,7 +1253,7 @@ function DashboardContent() {
                   )}
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
                   <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">หมายเหตุ / อาการเสีย</span>
                   {isEditingSub ? (
                     <textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition min-h-[60px] Prompt" />
@@ -988,30 +1264,36 @@ function DashboardContent() {
 
                 {!isEditingSub && (
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between gap-3">
+                    <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs flex flex-col justify-between gap-3">
                       <div>
                         <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">เอกสาร PDF ใบงาน</span>
-                        <p className="text-[10px] text-slate-500 mt-0.5 truncate">{selectedSub.file_name}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5 truncate">{selectedSub.file_name}</p>
                       </div>
                       {selectedSub.file_url && selectedSub.file_url !== '-' ? (
-                        <a href={selectedSub.file_url} target="_blank" rel="noreferrer" className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer">
-                          <ExternalLink className="w-3.5 h-3.5" /><span>ดูไฟล์ PDF</span>
-                        </a>
+                        <button 
+                          onClick={() => setPreviewFile({ type: 'pdf', url: selectedSub.file_url, name: selectedSub.file_name || 'เอกสารใบงาน' })}
+                          className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /><span>ดูไฟล์ PDF</span>
+                        </button>
                       ) : (
-                        <span className="text-xs font-bold text-slate-400 py-2 text-center bg-slate-100 rounded-xl">ไม่มีเอกสาร</span>
+                        <span className="text-xs font-bold text-slate-400 py-2.5 text-center bg-slate-100 rounded-xl">ไม่มีเอกสาร</span>
                       )}
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col justify-between gap-3">
+                    <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs flex flex-col justify-between gap-3">
                       <div>
                         <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">วิดีโอประกอบ</span>
-                        <p className="text-[10px] text-slate-500 mt-0.5 truncate">{selectedSub.video_name || '-'}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5 truncate">{selectedSub.video_name || '-'}</p>
                       </div>
                       {selectedSub.video_url && selectedSub.video_url !== '-' ? (
-                        <a href={selectedSub.video_url} target="_blank" rel="noreferrer" className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer">
-                          <ExternalLink className="w-3.5 h-3.5" /><span>เปิดดูวิดีโอ</span>
-                        </a>
+                        <button 
+                          onClick={() => setPreviewFile({ type: 'video', url: selectedSub.video_url, name: selectedSub.video_name || 'วิดีโอประกอบ' })}
+                          className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" /><span>เปิดดูวิดีโอ</span>
+                        </button>
                       ) : (
-                        <span className="text-xs font-bold text-slate-400 py-2 text-center bg-slate-100 rounded-xl">ไม่มีวิดีโอ</span>
+                        <span className="text-xs font-bold text-slate-400 py-2.5 text-center bg-slate-100 rounded-xl">ไม่มีวิดีโอ</span>
                       )}
                     </div>
                   </div>
@@ -1030,10 +1312,92 @@ function DashboardContent() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                     <button onClick={() => setIsEditingSub(true)} className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition shadow-md shadow-amber-100 flex items-center justify-center gap-1.5 Prompt cursor-pointer">
-                      <Edit3 className="w-4 h-4" /><span>แก้ไขและอนุมัติใบงาน</span>
+                      <Edit3 className="w-4 h-4" /><span>แก้ไขรายละเอียดใบงาน</span>
                     </button>
                   </>
                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── File Preview Modal ────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {previewFile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md">
+            {/* Click backdrop to close */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 cursor-default bg-transparent"
+              onClick={() => setPreviewFile(null)}
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative bg-white/90 backdrop-blur-lg rounded-[2rem] border border-white/60 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] max-w-4xl w-full h-[85vh] flex flex-col overflow-hidden z-10"
+            >
+              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/40 backdrop-blur-xs">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-800 Prompt truncate max-w-[60vw]">
+                    พรีวิว: {previewFile.name}
+                  </h3>
+                  <p className="text-[10px] text-slate-400 Prompt">ตรวจสอบความถูกต้องของชิ้นงานส่งช่าง</p>
+                </div>
+                <button 
+                  onClick={() => setPreviewFile(null)}
+                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer text-xs font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="flex-grow bg-slate-900 flex items-center justify-center relative p-4">
+                {previewFile.type === 'video' ? (
+                  isNativeVideo(previewFile.url, previewFile.name) ? (
+                    <video 
+                      src={getDirectStreamUrl(previewFile.url)} 
+                      controls 
+                      className="w-full h-full object-contain rounded-2xl shadow-2xl border border-white/10" 
+                      playsInline
+                    />
+                  ) : (
+                    <iframe 
+                      src={getPreviewUrl(previewFile.url)} 
+                      className="w-full h-full border-0" 
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                  )
+                ) : (
+                  <iframe 
+                    src={getPreviewUrl(previewFile.url)} 
+                    className="w-full h-full border-0" 
+                    allowFullScreen
+                  />
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-slate-100 flex gap-3 justify-end bg-white/40 backdrop-blur-xs">
+                <button 
+                  onClick={() => setPreviewFile(null)}
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition Prompt cursor-pointer"
+                >
+                  ปิดพรีวิว
+                </button>
+                <a 
+                  href={previewFile.url} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-2xl transition shadow-md shadow-indigo-100 flex items-center gap-1.5 Prompt cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>เปิดในหน้าต่างใหม่</span>
+                </a>
               </div>
             </motion.div>
           </div>

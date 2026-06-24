@@ -7,6 +7,7 @@ import { getDb } from '@/lib/firebase';
 import { 
   collection, 
   getDocs, 
+  getDoc,
   doc, 
   setDoc, 
   deleteDoc, 
@@ -31,6 +32,7 @@ import {
 } from 'lucide-react';
 import Script from 'next/script';
 import { motion, AnimatePresence } from 'framer-motion';
+import { sendTelegramDirect } from '@/lib/telegram';
 
 // Native SHA-256 helper
 async function sha256(message: string): Promise<string> {
@@ -217,6 +219,32 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTestTelegram = async () => {
+    if (!telegramToken.trim() || !telegramChatId.trim()) {
+      showToast("กรุณากรอก Telegram Token และ Chat ID ก่อนทดสอบนะครับ ⚠️", "error");
+      return;
+    }
+
+    setLoading(true);
+    setLoadingText("กำลังทดสอบส่งข้อความ...");
+    try {
+      await sendTelegramDirect(
+        telegramToken.trim(),
+        telegramChatId.trim(),
+        `🔔 <b>ทดสอบการเชื่อมต่อ Telegram</b>\n` +
+        `──────────────────\n` +
+        `การเชื่อมต่อระหว่างระบบอัปโหลดใบงาน COWAY และห้องแชทของคุณ ทำงานสำเร็จเสร็จสมบูรณ์เรียบร้อยแล้วครับ! 🚀✨\n` +
+        `──────────────────`
+      );
+      showToast("ส่งข้อความทดสอบสำเร็จแล้ว! กรุณาเช็กในกลุ่มแชทนะครับ 🎉", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast("ทดสอบส่งล้มเหลว: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Google Drive connection using Authorization Code Flow (gets refresh_token via backend)
   const handleConnectGDrive = () => {
     const clientId = gdriveClientIdInput.trim();
@@ -371,7 +399,32 @@ export default function SettingsPage() {
         userData.password = passwordToSave;
       }
 
-      await setDoc(doc(db, 'users', formUsername.trim()), userData, { merge: true });
+      // Check if we are editing and username has changed
+      if (editUserTarget && editUserTarget !== formUsername.trim()) {
+        if (editUserTarget === 'admin') {
+          showToast("ไม่สามารถเปลี่ยนรหัสพนักงานของบัญชีแอดมินระบบหลัก (admin) ได้นะครับ ❌", "error");
+          setLoading(false);
+          return;
+        }
+
+        const oldDocRef = doc(db, 'users', editUserTarget);
+        const oldDocSnap = await getDoc(oldDocRef);
+        let finalUserData = { ...userData };
+        if (oldDocSnap.exists()) {
+          const oldData = oldDocSnap.data();
+          if (!passwordToSave && oldData.password) {
+            finalUserData.password = oldData.password;
+          }
+        }
+
+        // Write the new document and delete the old one
+        await setDoc(doc(db, 'users', formUsername.trim()), finalUserData);
+        await deleteDoc(oldDocRef);
+      } else {
+        // Just standard save (new user, or editing user with same username)
+        await setDoc(doc(db, 'users', formUsername.trim()), userData, { merge: true });
+      }
+
       showToast("บันทึกข้อมูลพนักงานจัดการงานเรียบร้อยแล้วครับ ✨", "success");
       
       // Reset form
@@ -556,21 +609,12 @@ export default function SettingsPage() {
       <Sidebar />
       <Script src="https://accounts.google.com/gsi/client" strategy="lazyOnload" />
 
-      <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-        <header className="mb-8 flex gap-4 items-center">
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl shadow-xs">
-            ⚙️
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-800 Prompt">ตั้งค่าระบบ (System Settings)</h1>
-            <p className="text-xs text-slate-500 Sarabun">จัดการฐานข้อมูลพนักงาน การเชื่อมต่อคลาวด์ สิทธิ์ Google Drive และการส่งรายงานแจ้งเตือนขององค์กร</p>
-          </div>
-        </header>
+      <main className="flex-1 pt-24 pb-6 px-4 lg:p-8 overflow-y-auto">
 
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           {/* Left Column: Settings Tab Navigation Menu */}
           <div className="w-full lg:w-72 shrink-0">
-            <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-xs">
+            <div className="glass-card p-5">
               <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-4 pl-2 Prompt">
                 เมนูการตั้งค่า
               </h3>
@@ -614,7 +658,7 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6"
+                  className="glass-card p-6 space-y-6"
                 >
                   <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                     <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg font-bold">
@@ -1005,7 +1049,7 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6"
+                  className="glass-card p-6 space-y-6"
                 >
                   <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                     <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-lg font-bold">
@@ -1107,7 +1151,7 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6"
+                  className="glass-card p-6 space-y-6"
                 >
                   <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                     <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg font-bold">
@@ -1167,13 +1211,23 @@ export default function SettingsPage() {
                       </div>
                     )}
 
-                    <button
-                      type="submit"
-                      className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-100 transition Prompt cursor-pointer text-center flex items-center justify-center gap-1.5"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>บันทึกการตั้งค่า Telegram</span>
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleTestTelegram}
+                        className="flex-1 py-3.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl transition Prompt cursor-pointer text-center flex items-center justify-center gap-1.5 border border-emerald-200"
+                      >
+                        <Send className="w-4 h-4" />
+                        <span>ทดสอบส่งข้อความ</span>
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-100 transition Prompt cursor-pointer text-center flex items-center justify-center gap-1.5"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>บันทึกการตั้งค่า Telegram</span>
+                      </button>
+                    </div>
                   </form>
                 </motion.section>
               )}
@@ -1185,7 +1239,7 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6"
+                  className="glass-card p-6 space-y-6"
                 >
                   <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                     <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg font-bold">
@@ -1244,7 +1298,7 @@ export default function SettingsPage() {
                   className="grid grid-cols-1 md:grid-cols-2 gap-8"
                 >
                   {/* User Form Box */}
-                  <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6">
+                  <section className="glass-card p-6 space-y-6">
                     <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                       <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg font-bold">
                         👤
@@ -1266,7 +1320,7 @@ export default function SettingsPage() {
                           type="text"
                           value={formUsername}
                           onChange={(e) => setFormUsername(e.target.value)}
-                          disabled={!!editUserTarget}
+                          disabled={editUserTarget === 'admin'}
                           placeholder="รหัสพนักงาน (เช่น CT8711017)"
                           className="w-full bg-slate-50 border border-slate-200/80 text-slate-800 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed transition Prompt"
                         />
@@ -1356,7 +1410,7 @@ export default function SettingsPage() {
                   </section>
 
                   {/* Users List Box */}
-                  <section className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs flex flex-col">
+                  <section className="glass-card p-6 flex flex-col">
                     <h3 className="text-xs font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 Prompt">
                       👥 รายการพนักงานในระบบ ({users.length})
                     </h3>
@@ -1402,7 +1456,7 @@ export default function SettingsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6"
+                  className="glass-card p-6 space-y-6"
                 >
                   <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
                     <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-lg font-bold">

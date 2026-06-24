@@ -39,7 +39,6 @@ body {
 
 .soft-card:hover {
   box-shadow: 0 20px 40px -15px rgba(148, 163, 184, 0.08);
-  transform: translateY(-2px);
 }
 
 .soft-input {
@@ -125,6 +124,15 @@ body.theme-rose {
   opacity: 0.85;
 }
 
+/* Mobile active bottom nav item styling */
+.mobile-nav-active {
+  background-color: var(--primary-light, #f1f5f9) !important;
+  color: var(--primary-color, #4f46e5) !important;
+}
+.mobile-nav-active svg {
+  color: inherit !important;
+}
+
 /* Mobile: extra padding at bottom so content isn't hidden behind floating nav */
 @media (max-width: 1023px) {
   main {
@@ -132,3 +140,125 @@ body.theme-rose {
     padding-top: 3.5rem !important;
   }
 }
+
+/* Prevent iOS Safari auto-zoom on input focus and adjust mobile typography */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  h1 {
+    font-size: 1.35rem !important;
+  }
+  h2 {
+    font-size: 1.15rem !important;
+  }
+  h3 {
+    font-size: 0.95rem !important;
+  }
+  p, span, td, th {
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Glassmorphism Styles */
+.glass-card {
+  background: rgba(255, 255, 255, 0.45) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  border-radius: 1.75rem; /* rounded-3xl equivalent */
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.03),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.4) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border-color: rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.06),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Glass icon/button glowing effects */
+.icon-glow-indigo {
+  box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.35) !important;
+}
+.icon-glow-purple {
+  box-shadow: 0 4px 14px 0 rgba(168, 85, 247, 0.35) !important;
+}
+.icon-glow-emerald {
+  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.35) !important;
+}
+.icon-glow-amber {
+  box-shadow: 0 4px 14px 0 rgba(245, 158, 11, 0.35) !important;
+}
+.icon-glow-rose {
+  box-shadow: 0 4px 14px 0 rgba(244, 63, 94, 0.35) !important;
+}
+.icon-glow-violet {
+  box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.35) !important;
+}
+.icon-glow-sky {
+  box-shadow: 0 4px 14px 0 rgba(56, 189, 248, 0.35) !important;
+}
+
+.Prompt {
+  font-family: var(--font-prompt), 'Prompt', sans-serif !important;
+}
+
+.Sarabun {
+  font-family: var(--font-sarabun), 'Sarabun', sans-serif !important;
+}
+
+/* Custom Date Input Polish */
+input[type="date"].date-filter-input {
+  font-size: 12px !important;
+  font-family: var(--font-prompt), 'Prompt', sans-serif !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 38px !important;
+}
+
+/* Force inner parts of Chrome/Safari date input to inherit style */
+input[type="date"].date-filter-input::-webkit-datetime-edit {
+  display: flex !important;
+  align-items: center !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+  font-family: var(--font-prompt), 'Prompt', sans-serif !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+}
+
+input[type="date"].date-filter-input::-webkit-datetime-edit-fields-wrapper,
+input[type="date"].date-filter-input::-webkit-datetime-edit-text,
+input[type="date"].date-filter-input::-webkit-datetime-edit-month-field,
+input[type="date"].date-filter-input::-webkit-datetime-edit-day-field,
+input[type="date"].date-filter-input::-webkit-datetime-edit-year-field {
+  font-size: 12px !important;
+  font-family: var(--font-prompt), 'Prompt', sans-serif !important;
+  font-weight: 700 !important;
+  color: #334155 !important;
+}
+
+/* Rounded picker indicator styling */
+input[type="date"].date-filter-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px;
+  transition: all 0.2s ease-in-out;
+  background-color: transparent;
+}
+
+input[type="date"].date-filter-input::-webkit-calendar-picker-indicator:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+  transform: scale(1.05);
+}
+
+

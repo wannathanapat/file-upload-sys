@@ -26,7 +26,8 @@ import {
   Search,
   CheckCircle2,
   X,
-  ChevronDown
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -40,6 +41,72 @@ interface ParsedJob extends Partial<JobRow> {
     message: string;
     matchedItem?: any;
   };
+}
+
+interface CustomSelectProps {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  placeholder?: string;
+}
+
+function CustomSelect({ value, onChange, options, placeholder }: CustomSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value);
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 transition flex items-center justify-between Prompt cursor-pointer font-bold"
+      >
+        <span className="truncate">{selectedOption ? selectedOption.label : placeholder || ''}</span>
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute left-0 right-0 mt-1.5 z-50 max-h-60 overflow-y-auto bg-white border border-slate-100 rounded-2xl shadow-[0_10px_25px_rgba(0,0,0,0.1)] p-1.5 space-y-0.5"
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition duration-150 Prompt cursor-pointer ${
+                  value === opt.value
+                    ? 'bg-indigo-500 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function ImportJobsPage() {
@@ -58,6 +125,9 @@ export default function ImportJobsPage() {
 
   // Queue List management states
   const [queueSearch, setQueueSearch] = useState('');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [queueTech, setQueueTech] = useState('');
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
   const [queueLoading, setQueueLoading] = useState(false);
@@ -677,7 +747,7 @@ export default function ImportJobsPage() {
 
         {/* Daily Queue Manager */}
         <section className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-100 pb-5">
+          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6 border-b border-slate-100 pb-5">
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-5 bg-indigo-500 rounded-full" />
               <div>
@@ -686,52 +756,122 @@ export default function ImportJobsPage() {
               </div>
             </div>
             
-            <div className="flex gap-2 flex-wrap w-full md:w-auto">
+            <div className="flex gap-2 flex-wrap items-center w-full lg:w-auto relative justify-start lg:justify-end">
+              {/* Search Button (Expanding on Hover / Tap) */}
+              <div 
+                onMouseEnter={() => setIsSearchExpanded(true)}
+                onMouseLeave={() => {
+                  if (!queueSearch && document.activeElement !== searchInputRef.current) {
+                    setIsSearchExpanded(false);
+                  }
+                }}
+                className="relative flex items-center bg-white border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-300"
+              >
+                <button 
+                  onClick={() => {
+                    setIsSearchExpanded(!isSearchExpanded);
+                    if (!isSearchExpanded) {
+                      setTimeout(() => searchInputRef.current?.focus(), 100);
+                    }
+                  }}
+                  className="p-2 text-slate-500 hover:text-indigo-600 rounded-full transition-all cursor-pointer flex items-center justify-center"
+                  title="ค้นหา"
+                >
+                  <Search className="w-4 h-4 text-blue-500" />
+                </button>
+                <motion.input
+                  ref={searchInputRef}
+                  type="text"
+                  value={queueSearch}
+                  onChange={(e) => setQueueSearch(e.target.value)}
+                  onFocus={() => setIsSearchExpanded(true)}
+                  onBlur={() => {
+                    if (!queueSearch) setIsSearchExpanded(false);
+                  }}
+                  initial={false}
+                  animate={{ width: isSearchExpanded ? '150px' : '0px', opacity: isSearchExpanded ? 1 : 0 }}
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  placeholder="ค้นหารหัสงาน, เลขออเดอร์, ชื่อช่าง..."
+                  className="bg-transparent border-0 text-slate-800 text-xs focus:outline-none focus:ring-0 placeholder-slate-400 font-medium overflow-hidden h-8"
+                  style={{ paddingLeft: isSearchExpanded ? '4px' : '0px', paddingRight: isSearchExpanded ? '8px' : '0px' }}
+                />
+              </div>
+
+              {/* Filter Pill Button */}
+              <button
+                onClick={() => setShowFilterPanel(!showFilterPanel)}
+                className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center gap-1.5 cursor-pointer active:scale-95 text-xs font-bold Prompt"
+              >
+                <Filter className="w-3.5 h-3.5 text-blue-500" />
+                <span>Filter</span>
+                <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showFilterPanel ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Action buttons */}
               <button
                 onClick={handleDeleteSelectedQueue}
                 disabled={selectedQueueIds.size === 0}
-                className="px-4 py-2.5 bg-rose-100 hover:bg-rose-200 disabled:opacity-50 disabled:hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition Prompt flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2 bg-rose-100 hover:bg-rose-200 disabled:opacity-50 disabled:hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition Prompt flex items-center gap-1.5 cursor-pointer h-[34px]"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
                 <span>ลบงานจ่ายที่เลือก ({selectedQueueIds.size})</span>
               </button>
               
               <button
                 onClick={handleDeleteAllQueue}
                 disabled={activeJobs.length === 0}
-                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition Prompt flex items-center gap-1.5 shadow-md shadow-rose-200 cursor-pointer active:scale-95"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition Prompt flex items-center gap-1.5 shadow-md shadow-rose-200 cursor-pointer active:scale-95 h-[34px]"
               >
-                <AlertTriangle className="w-4 h-4 text-white/90" />
+                <AlertTriangle className="w-3.5 h-3.5 text-white/90" />
                 <span>ล้างคิวงานวันนี้ทั้งหมด</span>
               </button>
-            </div>
-          </div>
 
-          {/* Quick Filter controllers */}
-          <div className="flex flex-col md:flex-row gap-3 mb-6">
-            <div className="relative flex-grow">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="ค้นหารหัสงาน, เลขออเดอร์, ชื่อช่าง หรือชื่อลูกค้าในตารางคิว..."
-                value={queueSearch}
-                onChange={(e) => setQueueSearch(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl pl-11 pr-4 py-2.5 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white transition Prompt"
-              />
-            </div>
+              {/* Dropdown Filter Panel */}
+              <AnimatePresence>
+                {showFilterPanel && (
+                  <>
+                    {/* Backdrop overlay to close when clicking outside */}
+                    <div 
+                      className="fixed inset-0 z-20 cursor-default"
+                      onClick={() => setShowFilterPanel(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                      className="absolute right-0 top-11 z-30 w-72 bg-white border border-slate-100 rounded-3xl p-5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.15)] flex flex-col gap-4 text-xs font-semibold"
+                    >
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-1.5 text-slate-700 font-bold Prompt">
+                          <Filter className="w-3.5 h-3.5 text-blue-500" />
+                          <span>ตัวเลือกตัวกรอง & ค้นหา</span>
+                        </div>
+                        <button 
+                          onClick={() => setShowFilterPanel(false)}
+                          className="p-1.5 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
 
-            <div className="relative w-full md:w-56">
-              <select
-                value={queueTech}
-                onChange={(e) => setQueueTech(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-indigo-500 transition appearance-none Prompt cursor-pointer"
-              >
-                <option value="">ช่างทุกคน (All Technicians)</option>
-                {technicians.map((t, idx) => (
-                  <option key={idx} value={t}>{t}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <div className="space-y-4">
+                        {/* Tech Filter */}
+                        <div>
+                          <label className="block text-[10px] text-slate-400 font-extrabold uppercase tracking-wider mb-1.5 Prompt">ช่างผู้รับผิดชอบ / CT Name</label>
+                          <CustomSelect
+                            value={queueTech}
+                            onChange={(val) => setQueueTech(val)}
+                            options={[
+                              { value: '', label: 'ช่างทุกคน' },
+                              ...technicians.map(t => ({ value: t, label: t }))
+                            ]}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 

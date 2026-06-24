@@ -3,22 +3,20 @@ export async function sendTelegramDirect(
   chatId: string,
   message: string
 ): Promise<any> {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  
-  // Set up standard abort controller for 10 seconds timeout
+  // Set up standard abort controller for 30 seconds timeout to allow for Next.js dev mode compilation
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
   
   try {
-    const response = await fetch(url, {
+    const response = await fetch('/api/telegram', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: 'HTML'
+        token,
+        chatId,
+        message
       }),
       signal: controller.signal
     });
