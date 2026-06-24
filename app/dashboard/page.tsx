@@ -733,16 +733,18 @@ function DashboardContent() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className="glass-card p-4 flex flex-col gap-2"
+              className="glass-card p-4 flex flex-col gap-3"
             >
-              <div className={`w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center`}>
-                {kpi.icon}
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center shrink-0`}>
+                  {kpi.icon}
+                </div>
+                <p className="text-xs font-bold text-slate-700 Prompt">{kpi.label}</p>
               </div>
-              <div>
-                <p className="text-[9px] text-slate-400 font-extrabold tracking-wide uppercase Prompt">{kpi.label}</p>
+              <div className="text-center py-1">
                 <p className="text-xl font-black text-slate-800 Prompt leading-tight">{loading ? '—' : kpi.value} <span className="text-xs font-semibold text-slate-400">{kpi.unit}</span></p>
               </div>
-              <p className="text-[10px] text-slate-400 Prompt font-semibold">{kpi.sub}</p>
+              <p className="text-[10px] text-slate-400 Prompt font-semibold text-center">{kpi.sub}</p>
             </motion.div>
           ))}
         </div>
