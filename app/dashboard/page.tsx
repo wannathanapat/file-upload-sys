@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Eye,
   Trash2,
+  AlertTriangle,
   Edit3,
   ExternalLink,
   ChevronDown,
@@ -119,6 +120,7 @@ const formatDisplayName = (fullName: string): string => {
 
 function DashboardContent() {
   const { currentUser, showToast, showConfirm, systemSettings, gdrivePrefs } = useApp();
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'auditor';
   const searchParams = useSearchParams();
   const router = useRouter();
   const viewMode = searchParams.get('view') || 'overview';
@@ -133,6 +135,7 @@ function DashboardContent() {
   const [submissions, setSubmissions] = useState<SubmissionData[]>([]);
   const [assignedJobs, setAssignedJobs] = useState<JobRow[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -238,6 +241,93 @@ function DashboardContent() {
     setTechFilter(tech);
     setQueueTechFilter(tech);
   }, [searchParams]);
+
+  useEffect(() => {
+    setSelectedQueueIds(new Set());
+  }, [viewMode]);
+
+  const handleToggleQueueSelect = (jobId: string) => {
+    const next = new Set(selectedQueueIds);
+    if (next.has(jobId)) {
+      next.delete(jobId);
+    } else {
+      next.add(jobId);
+    }
+    setSelectedQueueIds(next);
+  };
+
+  const handleToggleSelectAllQueue = () => {
+    if (selectedQueueIds.size === filteredQueue.length) {
+      setSelectedQueueIds(new Set());
+    } else {
+      const next = new Set<string>();
+      filteredQueue.forEach(j => next.add(j.job_id));
+      setSelectedQueueIds(next);
+    }
+  };
+
+  const handleDeleteSelectedQueue = async () => {
+    if (selectedQueueIds.size === 0) return;
+
+    const confirm = await showConfirm(
+      "ยืนยันการลบรายการงานจ่ายที่เลือก",
+      `คุณแน่ใจว่าต้องการลบรายการคิวงานจ่ายจำนวน ${selectedQueueIds.size} รายการที่เลือกออกจากระบบหรือไม่? การลบนี้จะล้างงานที่ยังไม่ได้ส่งของช่าง และประวัติเดิมจะไม่ถูกกระทบ`,
+      { danger: true, okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
+    );
+    if (!confirm) return;
+
+    setLoading(true);
+    try {
+      const db = getDb();
+      const batch = writeBatch(db);
+      
+      selectedQueueIds.forEach(jobId => {
+        const docRef = doc(db, 'assigned_jobs', jobId);
+        batch.delete(docRef);
+      });
+
+      await batch.commit();
+      showToast(`ลบงานจ่ายจำนวน ${selectedQueueIds.size} รายการ เรียบร้อยแล้วครับ`, "success");
+      setSelectedQueueIds(new Set());
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      showToast("ลบคิวงานล้มเหลว: " + err.message, "error");
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAllQueue = async () => {
+    const pendingJobs = assignedJobs.filter(j => j.status === 'pending');
+    if (pendingJobs.length === 0) return;
+
+    const confirm = await showConfirm(
+      "ลบคิวงานจ่ายช่างทั้งหมด",
+      `⚠️ คำเตือน: คุณต้องการล้างรายการคิวงานจ่ายทั้งหมดในระบบจำนวน ${pendingJobs.length} รายการออกทั้งหมดใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนคืนได้ และจะทำให้ตารางงานของช่างทุกคนว่างเปล่า!`,
+      { danger: true, okText: "ลบทั้งหมด", cancelText: "ยกเลิก" }
+    );
+    if (!confirm) return;
+
+    setLoading(true);
+    try {
+      const db = getDb();
+      const batch = writeBatch(db);
+      
+      pendingJobs.forEach(job => {
+        const docRef = doc(db, 'assigned_jobs', job.job_id);
+        batch.delete(docRef);
+      });
+
+      await batch.commit();
+      showToast("ล้างประวัติคิวงานวันนี้สำเร็จเรียบร้อยครับ", "success");
+      setSelectedQueueIds(new Set());
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      showToast("ล้างคิวงานล้มเหลว: " + err.message, "error");
+      setLoading(false);
+    }
+  };
 
 
 
@@ -940,6 +1030,29 @@ function DashboardContent() {
                   <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showFilterPanel ? 'rotate-180' : ''}`} />
                 </button>
 
+                {/* Action buttons (only in queue view for Admins/Auditors) */}
+                {viewMode === 'queue' && (currentUser?.role === 'admin' || currentUser?.role === 'auditor') && (
+                  <>
+                    <button
+                      onClick={handleDeleteSelectedQueue}
+                      disabled={selectedQueueIds.size === 0}
+                      className="px-4 py-2 bg-rose-100 hover:bg-rose-200 disabled:opacity-50 disabled:hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-full transition Prompt flex items-center gap-1.5 cursor-pointer h-[34px]"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>ลบงานจ่ายที่เลือก ({selectedQueueIds.size})</span>
+                    </button>
+                    
+                    <button
+                      onClick={handleDeleteAllQueue}
+                      disabled={filteredQueue.length === 0}
+                      className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-full transition Prompt flex items-center gap-1.5 shadow-md shadow-rose-200 cursor-pointer active:scale-95 h-[34px]"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-white/90" />
+                      <span>ล้างคิวงานวันนี้ทั้งหมด</span>
+                    </button>
+                  </>
+                )}
+
                 {/* Dropdown Filter Panel */}
                 <AnimatePresence>
                   {showFilterPanel && (
@@ -1148,7 +1261,17 @@ function DashboardContent() {
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 font-bold tracking-wider uppercase Prompt">
-                    <th className="p-4 pl-6">รหัสงาน</th>
+                    {isAdmin && (
+                      <th className="p-4 pl-6 text-center w-12">
+                        <input
+                          type="checkbox"
+                          checked={selectedQueueIds.size === filteredQueue.length && filteredQueue.length > 0}
+                          onChange={handleToggleSelectAllQueue}
+                          className="w-4.5 h-4.5 border border-slate-300 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </th>
+                    )}
+                    <th className={`p-4 ${isAdmin ? '' : 'pl-6'}`}>รหัสงาน</th>
                     <th className="p-4">เลขออเดอร์</th>
                     <th className="p-4">ชื่อลูกค้า</th>
                     <th className="p-4">ประเภทงาน</th>
@@ -1159,7 +1282,7 @@ function DashboardContent() {
                 <tbody className="divide-y divide-slate-100 text-slate-700 Sarabun">
                   {filteredQueue.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-12 text-center text-slate-400">
+                      <td colSpan={isAdmin ? 7 : 6} className="p-12 text-center text-slate-400">
                         <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-400" />
                         <p className="font-semibold text-xs text-slate-500 Prompt">ไม่มีงานค้างในคิว</p>
                       </td>
@@ -1171,7 +1294,17 @@ function DashboardContent() {
                       else if (job.job_type.includes('ซ่อม')) typeColorClass = 'text-emerald-600';
                       return (
                         <tr key={idx} className="hover:bg-slate-50/50 transition">
-                          <td className="p-4 pl-6 font-bold text-slate-800">{job.job_id}</td>
+                          {isAdmin && (
+                            <td className="p-4 pl-6 text-center">
+                              <input
+                                type="checkbox"
+                                checked={selectedQueueIds.has(job.job_id)}
+                                onChange={() => handleToggleQueueSelect(job.job_id)}
+                                className="w-4.5 h-4.5 border border-slate-300 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                              />
+                            </td>
+                          )}
+                          <td className={`p-4 font-bold text-slate-800 ${isAdmin ? '' : 'pl-6'}`}>{job.job_id}</td>
                           <td className="p-4 font-mono font-medium text-slate-500">{job.order_no || '-'}</td>
                           <td className="p-4 font-bold text-slate-700 Prompt">{job.customer_name}</td>
                           <td className="p-4 font-bold"><span className={typeColorClass}>{job.job_type}{job.sub_work_type ? ` (${job.sub_work_type})` : ''}</span></td>
