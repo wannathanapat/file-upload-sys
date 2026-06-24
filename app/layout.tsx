@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { getDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Sarabun, Prompt } from "next/font/google";
+import { Kanit } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -12,16 +12,10 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-const sarabun = Sarabun({
-  weight: ["300", "400", "500", "600", "700"],
+const kanit = Kanit({
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
   subsets: ["thai", "latin"],
-  variable: "--font-sarabun",
-});
-
-const prompt = Prompt({
-  weight: ["400", "500", "600", "700"],
-  subsets: ["thai", "latin"],
-  variable: "--font-prompt",
+  variable: "--font-kanit",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -61,9 +55,9 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${sarabun.variable} ${prompt.variable} h-full antialiased`}
+      className={`${kanit.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 font-sans text-slate-900 select-none">
+      <body className={`${kanit.className} min-h-full flex flex-col bg-slate-50 text-slate-900 select-none`}>
         <Providers>
           {children}
         </Providers>
