@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getMessaging, MulticastMessage } from 'firebase-admin/messaging';
 
 // ---------------------------------------------------------------------------
@@ -39,12 +40,12 @@ function getPushAdminApp(serviceAccountJson: string): { app: App; projectId: str
 // POST /api/push-notify
 //
 // Body:
-//   title            string   (required)
-//   body             string?
-//   url              string?
-//   serviceAccountJson string  (required)
-//   tokens           string[] (required — read client-side by the caller to avoid
-//                             gRPC RESOURCE_EXHAUSTED from Admin SDK Firestore)
+//   title             string    (required)
+//   body              string?
+//   url               string?
+//   serviceAccountJson string   (required)
+//   tokens            string[]  (required — read client-side by the caller)
+//   notifId           string?   (optional Firestore doc ID to mark as sent)
 // ---------------------------------------------------------------------------
 export async function POST(req: NextRequest) {
   try {
@@ -55,12 +56,14 @@ export async function POST(req: NextRequest) {
       url,
       serviceAccountJson,
       tokens,
+      notifId,
     } = body as {
       title: string;
       body?: string;
       url?: string;
       serviceAccountJson?: string;
       tokens?: string[];
+      notifId?: string;
     };
 
     if (!title) {
@@ -74,7 +77,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // tokens must be provided by the caller (read from Firestore via client SDK)
     if (!tokens || tokens.length === 0) {
       return NextResponse.json({
         message: 'ยังไม่มีอุปกรณ์ลงทะเบียนรับแจ้งเตือน — กรุณารีเฟรชหน้าเว็บแล้วกด Allow เมื่อเบราว์เซอร์ขอสิทธิ์ครับ',
@@ -83,7 +85,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------------------
-    // 1. Init (or reuse) Firebase Admin app for FCM sending only
+    // 1. Init (or reuse) Firebase Admin app
     // ----------------------------------------------------------------
     let app: App;
     try {
@@ -115,9 +117,10 @@ export async function POST(req: NextRequest) {
           notification: {
             icon: '/coway-logo-new.png',
             badge: '/coway-logo-new.png',
+            requireInteraction: true,
           },
           fcmOptions: {
-            link: url ?? '/dashboard',
+            link: url ?? '/notifications',
           },
         },
       };
@@ -152,13 +155,27 @@ export async function POST(req: NextRequest) {
     }
 
     // ----------------------------------------------------------------
-    // 3. Return stale tokens to caller so client can clean them up
+    // 3. Mark notification as sent in Firestore (write-only, no read)
     // ----------------------------------------------------------------
+    if (notifId && successCount > 0) {
+      try {
+        const db = getFirestore(app);
+        await db.collection('notifications').doc(notifId).update({
+          sent: true,
+          sent_count: successCount,
+          sent_at: FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        // Non-critical — don't fail the whole request
+        console.warn('[push-notify] Could not update notification sent status:', e);
+      }
+    }
+
     return NextResponse.json({
       message: successCount > 0 ? 'ส่งแจ้งเตือนสำเร็จ' : 'ส่งแจ้งเตือนไม่สำเร็จ (token อาจหมดอายุ)',
       successCount,
       totalTokens: tokens.length,
-      staleTokens, // caller can delete these from Firestore
+      staleTokens,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error';

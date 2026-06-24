@@ -273,8 +273,9 @@ export default function SettingsPage() {
     setLoading(true);
     setLoadingText("กำลังอ่านรายการอุปกรณ์...");
     try {
-      // Read FCM tokens using client-side Firestore SDK (avoids Admin SDK gRPC quota issues)
       const db = getDb();
+
+      // Read FCM tokens using client-side Firestore SDK (avoids Admin SDK gRPC quota issues)
       const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
       const tokens: string[] = tokensSnap.docs
         .map(d => (d.data().token as string))
@@ -288,17 +289,32 @@ export default function SettingsPage() {
         return;
       }
 
+      // Save notification record to Firestore (for history page)
+      const { addDoc, serverTimestamp } = await import('firebase/firestore');
+      const testTitle = '🔔 ทดสอบการแจ้งเตือน Push Notification';
+      const testBody = `ระบบส่งแจ้งเตือนทำงานได้เป็นปกติแล้วครับ! ทดสอบเมื่อเวลา ${new Date().toLocaleTimeString('th-TH')}`;
+
+      const notifRef = await addDoc(collection(db, 'notifications'), {
+        title: testTitle,
+        body: testBody,
+        type: 'test',
+        created_at: serverTimestamp(),
+        sent: false,
+        sent_count: 0,
+      });
+
       setLoadingText(`กำลังส่งแจ้งเตือนทดสอบไปยัง ${tokens.length} อุปกรณ์...`);
 
       const response = await fetch('/api/push-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: '🔔 ทดสอบการแจ้งเตือน Push Notification',
-          body: `ระบบส่งแจ้งเตือนทำงานได้เป็นปกติแล้วครับ! ทดสอบเมื่อเวลา ${new Date().toLocaleTimeString('th-TH')}`,
-          url: '/dashboard',
+          title: testTitle,
+          body: testBody,
+          url: '/notifications',
           serviceAccountJson: pushServiceAccount.trim(),
-          tokens,  // pass tokens directly — API won't need to read from Firestore
+          tokens,
+          notifId: notifRef.id,
         })
       });
 
@@ -315,7 +331,6 @@ export default function SettingsPage() {
 
       // Clean up stale tokens returned by API
       if (result.staleTokens && result.staleTokens.length > 0) {
-        const db = getDb();
         await Promise.all(
           result.staleTokens.map((t: string) => deleteDoc(doc(db, 'notification_tokens', t)))
         );
@@ -328,6 +343,7 @@ export default function SettingsPage() {
       setLoading(false);
     }
   };
+
 
 
 

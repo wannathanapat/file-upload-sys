@@ -17,36 +17,46 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
+
   const notificationTitle = payload.notification?.title || 'แจ้งเตือนระบบส่งงาน';
+  const clickUrl = payload.fcmOptions?.link || payload.data?.url || '/notifications';
+
   const notificationOptions = {
     body: payload.notification?.body || '',
-    icon: payload.notification?.icon || '/coway-logo-new.png',
-    data: payload.data || {},
+    icon: '/coway-logo-new.png',
+    badge: '/coway-logo-new.png',
+    tag: 'job-alert',          // replaces previous notification of same tag (no stacking)
+    renotify: true,
+    requireInteraction: true,  // keeps notification visible until user dismisses
+    data: { url: clickUrl },
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification click to focus or open the page
+// Handle notification click → open/focus /notifications page
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  // Retrieve the url from payload data or fallback to dashboard
-  const clickAction = (event.notification.data && event.notification.data.url) || '/dashboard';
+  const clickUrl = (event.notification.data && event.notification.data.url) || '/notifications';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a window is already open at the dashboard, focus it
-      for (let i = 0; i < windowClients.length; i++) {
-        const client = windowClients[i];
-        if (client.url.includes(clickAction) && 'focus' in client) {
+      // Try to focus an existing window that is already on the target path
+      for (const client of windowClients) {
+        if (client.url.includes(clickUrl) && 'focus' in client) {
           return client.focus();
         }
       }
-      // Otherwise open a new window
+      // If any window is open at all, navigate it to the target
+      for (const client of windowClients) {
+        if ('navigate' in client && 'focus' in client) {
+          return client.navigate(clickUrl).then(c => c && c.focus());
+        }
+      }
+      // Otherwise open a brand-new window
       if (clients.openWindow) {
-        return clients.openWindow(clickAction);
+        return clients.openWindow(clickUrl);
       }
     })
   );

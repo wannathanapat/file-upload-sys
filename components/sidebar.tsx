@@ -18,7 +18,8 @@ import {
   History,
   ScanLine,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Bell,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,6 +65,7 @@ function SidebarInner() {
     { name: 'ประวัติส่งงานช่าง', path: '/dashboard?view=history', icon: History },
     { name: 'รายการงานค้างส่ง', path: '/dashboard?view=queue', icon: Clock },
     { name: 'ส่งงานแทนช่าง', path: '/submit?tab=dashboard', icon: ScanLine },
+    { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
     { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
     { name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings },
   ] : [

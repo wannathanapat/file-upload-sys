@@ -892,13 +892,35 @@ function SubmitPageInner() {
 
       // 4. Optional Web Push Notification
       if (systemSettings.push_status === 'enabled' && systemSettings.push_service_account) {
+        const pushTitle = '📥 แจ้งเตือนงานส่งใหม่';
         const pushBody = `รหัสงาน: ${activeJob.job_id}` +
           (activeJob.order_no && activeJob.order_no !== '-' ? ` | ออเดอร์: ${activeJob.order_no}` : '') +
-          ` | ${finalWorkCat} | ช่าง: ${targetTechName}`;
+          ` | ${finalWorkCat}` +
+          ` | ช่าง: ${targetTechName}` +
+          (note.trim() ? ` | หมายเหตุ: ${note.trim()}` : '');
 
-        // Read tokens client-side (avoids Admin SDK gRPC quota issues)
         try {
           const db = getDb();
+
+          // Save notification record to Firestore first (for history page)
+          const { addDoc, serverTimestamp } = await import('firebase/firestore');
+          const notifRef = await addDoc(collection(db, 'notifications'), {
+            title: pushTitle,
+            body: pushBody,
+            type: 'job_submit',
+            job_id: activeJob.job_id,
+            order_no: activeJob.order_no || '-',
+            work_category: finalWorkCat,
+            technician: targetTechName,
+            note: note.trim() || '-',
+            pdf_url: pdfUrl || null,
+            video_url: (videoFile && videoIsVisible && videoUrl) ? videoUrl : null,
+            created_at: serverTimestamp(),
+            sent: false,
+            sent_count: 0,
+          });
+
+          // Read tokens client-side (avoids Admin SDK gRPC quota issues)
           const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
           const fcmTokens: string[] = tokensSnap.docs
             .map(d => d.data().token as string)
@@ -909,16 +931,17 @@ function SubmitPageInner() {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                title: '📥 แจ้งเตือนงานส่งใหม่',
+                title: pushTitle,
                 body: pushBody,
-                url: '/dashboard',
+                url: '/notifications',
                 serviceAccountJson: systemSettings.push_service_account,
                 tokens: fcmTokens,
+                notifId: notifRef.id,
               }),
             }).catch(e => console.warn('[push-notify] Failed to send push notification:', e));
           }
         } catch (e) {
-          console.warn('[push-notify] Failed to read FCM tokens:', e);
+          console.warn('[push-notify] Failed to send push notification:', e);
         }
       }
 
