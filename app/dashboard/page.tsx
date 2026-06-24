@@ -735,7 +735,7 @@ function DashboardContent() {
               transition={{ delay: i * 0.06 }}
               className="glass-card p-4 flex flex-col gap-3"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
                 <div className={`w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center shrink-0`}>
                   {kpi.icon}
                 </div>
