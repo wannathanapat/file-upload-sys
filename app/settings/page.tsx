@@ -28,7 +28,8 @@ import {
   Trash2, 
   Edit2, 
   Database,
-  ChevronDown
+  ChevronDown,
+  Bell
 } from 'lucide-react';
 import Script from 'next/script';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -61,6 +62,9 @@ export default function SettingsPage() {
   const [telegramStatus, setTelegramStatus] = useState<'enabled' | 'disabled'>('disabled');
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
+  const [pushStatus, setPushStatus] = useState<'enabled' | 'disabled'>('disabled');
+  const [pushVapidKey, setPushVapidKey] = useState('');
+  const [pushServiceAccount, setPushServiceAccount] = useState('');
   const [maxSizePdf, setMaxSizePdf] = useState(20);
   const [maxSizeVideo, setMaxSizeVideo] = useState(50);
   const [appName, setAppName] = useState('');
@@ -112,6 +116,9 @@ export default function SettingsPage() {
       setTelegramStatus(systemSettings.telegram_status || 'disabled');
       setTelegramToken(systemSettings.telegram_bot_token || '');
       setTelegramChatId(systemSettings.telegram_chat_id || '');
+      setPushStatus(systemSettings.push_status || 'disabled');
+      setPushVapidKey(systemSettings.push_vapid_key || '');
+      setPushServiceAccount(systemSettings.push_service_account || '');
       setMaxSizePdf(systemSettings.max_size_pdf || 20);
       setMaxSizeVideo(systemSettings.max_size_video || 50);
       setAppName(systemSettings.app_name || '');
@@ -182,6 +189,9 @@ export default function SettingsPage() {
         telegram_status: telegramStatus,
         telegram_bot_token: telegramToken,
         telegram_chat_id: telegramChatId,
+        push_status: pushStatus,
+        push_vapid_key: pushVapidKey,
+        push_service_account: pushServiceAccount,
         max_size_pdf: Number(maxSizePdf),
         max_size_video: Number(maxSizeVideo),
         app_name: appName,
@@ -240,6 +250,39 @@ export default function SettingsPage() {
     } catch (err: any) {
       console.error(err);
       showToast("ทดสอบส่งล้มเหลว: " + err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestPushNotification = async () => {
+    if (!pushVapidKey.trim() || !pushServiceAccount.trim()) {
+      showToast("กรุณากรอก VAPID Key และ Service Account JSON ก่อนทดสอบนะครับ ⚠️", "error");
+      return;
+    }
+
+    setLoading(true);
+    setLoadingText("กำลังส่งแจ้งเตือนทดสอบ...");
+    try {
+      const response = await fetch('/api/push-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: '🔔 ทดสอบการแจ้งเตือน Push Notification',
+          body: `ระบบส่งแจ้งเตือนทำงานได้เป็นปกติแล้วครับ! ทดสอบเมื่อเวลา ${new Date().toLocaleTimeString('th-TH')}`,
+          url: '/dashboard'
+        })
+      });
+      
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || result.message || 'ส่งแจ้งเตือนไม่สำเร็จ');
+      }
+      
+      showToast(`ทดสอบส่งสำเร็จแล้ว! ส่งไปยัง ${result.successCount || 0} อุปกรณ์ 🎉`, "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast("ทดสอบส่งแจ้งเตือนล้มเหลว: " + err.message, "error");
     } finally {
       setLoading(false);
     }
@@ -1226,6 +1269,117 @@ export default function SettingsPage() {
                       >
                         <Save className="w-4 h-4" />
                         <span>บันทึกการตั้งค่า Telegram</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Push Notification Section */}
+                  <div className="flex items-center gap-3 border-b border-slate-100 pb-4 pt-4">
+                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg font-bold">
+                      🔔
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-800 Prompt">การแจ้งเตือน Push Notification (Web Push)</h2>
+                      <p className="text-xs text-slate-400 Sarabun">ส่งแจ้งเตือนเด้งขึ้นหน้าจอ PC/มือถือ โดยตรงผ่าน Firebase Cloud Messaging (FCM)</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSaveParameters} className="space-y-5 text-xs font-semibold">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 Prompt">การส่งสัญญาณ Push Notification</h4>
+                        <p className="text-[10px] text-slate-400 Sarabun mt-0.5">เปิดหรือปิดระบบส่งข้อความแจ้งเตือนหน้าจออุปกรณ์ภายนอก</p>
+                      </div>
+                      <div className="relative">
+                        <select
+                          value={pushStatus}
+                          onChange={(e) => setPushStatus(e.target.value as any)}
+                          className="bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 transition appearance-none cursor-pointer"
+                        >
+                          <option value="enabled">เปิดใช้งาน</option>
+                          <option value="disabled">ปิดการเตือน</option>
+                        </select>
+                        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Collapsible Setup Guide */}
+                    <details className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 cursor-pointer">
+                      <summary className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider Prompt select-none">
+                        📖 ดูคู่มือขั้นตอนดาวน์โหลดคีย์ Firebase และตั้งค่าระบบ (คลิกเพื่อแสดง)
+                      </summary>
+                      <div className="mt-3 text-[11px] text-slate-600 Sarabun leading-relaxed space-y-3 cursor-default border-t border-slate-200/60 pt-3">
+                        <div>
+                          <p className="font-bold text-slate-800">🔑 1. การสร้าง Web Push Public Key (VAPID Key):</p>
+                          <ol className="list-decimal pl-4 mt-1 space-y-1">
+                            <li>เปิด <a href="https://console.firebase.google.com/" target="_blank" rel="noreferrer" className="text-indigo-600 underline">Firebase Console</a> เลือกโปรเจกต์ของคุณ</li>
+                            <li>คลิกที่ไอคอน ฟันเฟือง ⚙️ ด้านซ้ายบนติดกับ Project Overview แล้วเลือก <b>Project settings</b></li>
+                            <li>คลิกเลือกแท็บ <b>Cloud Messaging</b></li>
+                            <li>เลื่อนลงไปที่ล่างสุดแถว <b>Web configuration</b> &gt; คลิกปุ่ม <b>Generate key pair</b></li>
+                            <li>คัดลอกรหัสข้อความยาวๆ ที่ขึ้นมาทั้งหมด นำมาวางที่ช่อง VAPID Key ด้านล่าง</li>
+                          </ol>
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800">📄 2. การรับคีย์ลับ Firebase Service Account JSON:</p>
+                          <ol className="list-decimal pl-4 mt-1 space-y-1">
+                            <li>ในหน้า Project settings เดิม ให้สลับไปที่แท็บ <b>Service accounts</b> ด้านบน</li>
+                            <li>เลื่อนลงมาด้านล่างสุด แล้วคลิกปุ่มสีน้ำเงิน <b>Generate new private key</b> และกดยืนยัน</li>
+                            <li>จะมีไฟล์ JSON ดาวน์โหลดลงคอมพิวเตอร์ของคุณ ให้เปิดไฟล์นั้นด้วยโปรแกรมพิมพ์ข้อความ เช่น Notepad</li>
+                            <li>คัดลอกข้อความ JSON ทั้งหมดในไฟล์ (รวมเครื่องหมายวงเล็บปีกกา) มาวางในช่อง Service Account JSON</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </details>
+
+                    {pushStatus === 'enabled' && (
+                      <div className="space-y-4">
+                        <div className="space-y-1">
+                          <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider Prompt">
+                            Web Push VAPID Public Key
+                          </label>
+                          <input
+                            type="text"
+                            value={pushVapidKey}
+                            onChange={(e) => setPushVapidKey(e.target.value)}
+                            placeholder="คีย์สาธารณะ VAPID Public Key ที่ได้จาก Firebase Console"
+                            className="w-full bg-slate-50 border border-slate-200/80 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white transition"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider Prompt">
+                            Firebase Service Account Key JSON
+                          </label>
+                          <textarea
+                            value={pushServiceAccount}
+                            onChange={(e) => setPushServiceAccount(e.target.value)}
+                            placeholder="วางข้อความ JSON คีย์หลักบริการ เช่น { 'type': 'service_account', ... }"
+                            rows={6}
+                            className="w-full bg-slate-50 border border-slate-200/80 text-slate-800 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-indigo-500 focus:bg-white transition font-mono leading-normal"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleTestPushNotification}
+                        disabled={pushStatus !== 'enabled'}
+                        className={`flex-1 py-3.5 font-bold rounded-xl transition Prompt cursor-pointer text-center flex items-center justify-center gap-1.5 border ${
+                          pushStatus === 'enabled'
+                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                        }`}
+                      >
+                        <Bell className="w-4 h-4" />
+                        <span>ทดสอบส่งแจ้งเตือน</span>
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md shadow-indigo-100 transition Prompt cursor-pointer text-center flex items-center justify-center gap-1.5"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>บันทึกการตั้งค่า Push Noti</span>
                       </button>
                     </div>
                   </form>

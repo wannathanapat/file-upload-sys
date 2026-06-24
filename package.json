@@ -11,6 +11,7 @@
   "dependencies": {
     "@line/liff": "^2.29.0",
     "firebase": "^12.15.0",
+    "firebase-admin": "^14.0.0",
     "framer-motion": "^12.41.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.21.0",

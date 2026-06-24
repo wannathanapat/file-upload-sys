@@ -890,6 +890,23 @@ function SubmitPageInner() {
         ).catch(e => console.warn("Telegram notification failed:", e));
       }
 
+      // 4. Optional Web Push Notification
+      if (systemSettings.push_status === 'enabled') {
+        const pushBody = `รหัสงาน: ${activeJob.job_id}` +
+          (activeJob.order_no && activeJob.order_no !== '-' ? ` | ออเดอร์: ${activeJob.order_no}` : '') +
+          ` | ${finalWorkCat} | ช่าง: ${targetTechName}`;
+
+        fetch('/api/push-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: '📥 แจ้งเตือนงานส่งใหม่',
+            body: pushBody,
+            url: '/dashboard',
+          }),
+        }).catch(e => console.warn('[push-notify] Failed to send push notification:', e));
+      }
+
       closeSubmitModal();
       fetchJobs();
     } catch (err: any) {

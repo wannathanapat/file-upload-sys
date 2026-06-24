@@ -50,6 +50,9 @@ export interface SystemSettings {
   telegram_status: 'enabled' | 'disabled';
   telegram_bot_token: string;
   telegram_chat_id: string;
+  push_status: 'enabled' | 'disabled';
+  push_vapid_key: string;
+  push_service_account: string;
   max_size_pdf: number;
   max_size_video: number;
   company_name: string;
@@ -88,6 +91,9 @@ const defaultSettings: SystemSettings = {
   telegram_status: 'disabled',
   telegram_bot_token: '',
   telegram_chat_id: '',
+  push_status: 'disabled',
+  push_vapid_key: '',
+  push_service_account: '',
   max_size_pdf: 20,
   max_size_video: 50,
   company_name: 'Coway INS System',
@@ -393,6 +399,77 @@ export function Providers({ children }: { children: React.ReactNode }) {
       console.log('SET FAVICON HASH/PATH:', link.href);
     }
   }, [systemSettings.app_favicon]);
+
+  // 5. Register FCM token when admin/auditor logs in and push is enabled
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!currentUser) return;
+    if (currentUser.role !== 'admin' && currentUser.role !== 'auditor') return;
+    if (systemSettings.push_status !== 'enabled') return;
+    if (!systemSettings.push_vapid_key) return;
+
+    const registerFcmToken = async () => {
+      try {
+        // Request notification permission
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          console.warn('[FCM] Notification permission denied');
+          return;
+        }
+
+        // Register service worker
+        const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+
+        // Import Firebase Messaging dynamically (client-only)
+        const { getMessaging, getToken, onMessage } = await import('firebase/messaging');
+        const { app } = initFirebase();
+        if (!app) return;
+
+        const messaging = getMessaging(app);
+
+        // Get FCM registration token
+        const token = await getToken(messaging, {
+          vapidKey: systemSettings.push_vapid_key,
+          serviceWorkerRegistration: swReg,
+        });
+
+        if (!token) {
+          console.warn('[FCM] No registration token received');
+          return;
+        }
+
+        // Save token to Firestore under notification_tokens collection
+        const db = getDb();
+        const { doc: firestoreDoc, setDoc: firestoreSetDoc, serverTimestamp } = await import('firebase/firestore');
+        const tokenDocRef = firestoreDoc(db, 'notification_tokens', token);
+        await firestoreSetDoc(tokenDocRef, {
+          token,
+          username: currentUser.username || currentUser.name || 'unknown',
+          role: currentUser.role,
+          device: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'pc',
+          updated_at: serverTimestamp(),
+        }, { merge: true });
+
+        console.log('[FCM] Token registered successfully');
+
+        // Handle foreground messages (when app tab is open)
+        onMessage(messaging, (payload) => {
+          console.log('[FCM] Foreground message:', payload);
+          if (payload.notification) {
+            // Show a browser notification manually for foreground
+            new Notification(payload.notification.title || 'แจ้งเตือน', {
+              body: payload.notification.body || '',
+              icon: payload.notification.icon || '/coway-logo-new.png',
+            });
+          }
+        });
+      } catch (err) {
+        console.error('[FCM] Token registration failed:', err);
+      }
+    };
+
+    registerFcmToken();
+  }, [currentUser, systemSettings.push_status, systemSettings.push_vapid_key]);
 
   const updateSystemSettings = async (updates: Partial<SystemSettings>) => {
     const db = getDb();
