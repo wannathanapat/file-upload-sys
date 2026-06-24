@@ -369,7 +369,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }
       } else {
         // Prevent staff from accessing admin routes
-        const adminRoutes = ['/dashboard', '/import-jobs', '/settings'];
+        const adminRoutes = ['/dashboard', '/import-jobs', '/settings', '/notifications'];
         if (currentUser.role === 'staff' && adminRoutes.includes(pathname)) {
           router.push('/submit');
         }
@@ -453,15 +453,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
         console.log('[FCM] Token registered successfully');
 
         // Handle foreground messages (when app tab is open)
+        // NOTE: Do NOT create new Notification() here — that would double-up with the service worker.
+        // Instead, just log for debugging. The service worker handles background notifications,
+        // and foreground messages are handled by the app UI.
         onMessage(messaging, (payload) => {
-          console.log('[FCM] Foreground message:', payload);
-          if (payload.notification) {
-            // Show a browser notification manually for foreground
-            new Notification(payload.notification.title || 'แจ้งเตือน', {
-              body: payload.notification.body || '',
-              icon: payload.notification.icon || '/coway-logo-new.png',
-            });
-          }
+          console.log('[FCM] Foreground message received (app is open):', payload);
+          // Foreground: the user already has the app open, so no popup needed.
+          // The notification was already saved to Firestore — they can see it in /notifications.
         });
       } catch (err) {
         console.error('[FCM] Token registration failed:', err);

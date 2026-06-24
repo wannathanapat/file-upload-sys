@@ -113,6 +113,11 @@ export async function POST(req: NextRequest) {
           title,
           body: msgBody ?? '',
         },
+        data: {
+          // Pass notifId so service worker can build /notifications?id=xxx
+          notifId: notifId ?? '',
+          url: url ?? '/notifications',
+        },
         webpush: {
           notification: {
             icon: '/coway-logo-new.png',
@@ -120,7 +125,7 @@ export async function POST(req: NextRequest) {
             requireInteraction: true,
           },
           fcmOptions: {
-            link: url ?? '/notifications',
+            link: notifId ? `/notifications?id=${notifId}` : (url ?? '/notifications'),
           },
         },
       };

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, CheckCircle2, AlertCircle, Trash2, RefreshCw, ChevronRight, FileText, Video, Hash, User, StickyNote, Filter, CheckCheck } from 'lucide-react';
+import { Bell, CheckCircle2, AlertCircle, Trash2, RefreshCw, ChevronRight, FileText, Video, Hash, User, StickyNote, CheckCheck } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { useApp } from '@/app/providers';
 import { getDb } from '@/lib/firebase';
@@ -14,7 +15,7 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  updateDoc,
+  getDoc,
   writeBatch,
   startAfter,
   QueryDocumentSnapshot,
@@ -55,9 +56,12 @@ function typeLabel(type: string) {
   return { label: type, color: 'bg-slate-100 text-slate-600', icon: <Bell size={11} /> };
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
-export default function NotificationsPage() {
+// ─── Inner Component (needs useSearchParams) ──────────────────────────────────
+function NotificationsInner() {
   const { currentUser } = useApp();
+  const searchParams = useSearchParams();
+  const deepLinkId = searchParams.get('id'); // ?id=xxx from push notification click
+
   const [notifications, setNotifications] = useState<NotifDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
@@ -97,11 +101,38 @@ export default function NotificationsPage() {
     }
   }, [filter, lastDoc]);
 
+  // Initial load
   useEffect(() => {
     setLastDoc(null);
     fetchNotifications(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
+
+  // Deep-link: if ?id=xxx is in URL, fetch and auto-open that specific notification
+  useEffect(() => {
+    if (!deepLinkId) return;
+
+    const fetchSpecific = async () => {
+      try {
+        const db = getDb();
+        const snap = await getDoc(doc(db, 'notifications', deepLinkId));
+        if (snap.exists()) {
+          const item = { id: snap.id, ...snap.data() } as NotifDoc;
+          setSelected(item);
+          // Also make sure it appears in the list
+          setNotifications(prev => {
+            if (prev.find(n => n.id === item.id)) return prev;
+            return [item, ...prev];
+          });
+        }
+      } catch (e) {
+        console.warn('Could not fetch specific notification:', e);
+      }
+    };
+
+    fetchSpecific();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkId]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -134,7 +165,7 @@ export default function NotificationsPage() {
     <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 font-sans">
       <Sidebar />
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 overflow-y-auto overflow-x-hidden">
 
         {/* ── Header ── */}
         <motion.div
@@ -153,7 +184,6 @@ export default function NotificationsPage() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Filter tabs */}
             {(['all', 'job_submit', 'test'] as const).map(f => (
               <button
                 key={f}
@@ -209,7 +239,7 @@ export default function NotificationsPage() {
           <div className="flex flex-col lg:flex-row gap-5">
 
             {/* ── Notification List ── */}
-            <div className="flex-1 flex flex-col gap-3">
+            <div className="flex-1 flex flex-col gap-3 min-w-0">
               <AnimatePresence mode="popLayout">
                 {notifications.map((n, i) => {
                   const tag = typeLabel(n.type);
@@ -237,7 +267,6 @@ export default function NotificationsPage() {
                       }`} />
 
                       <div className="pl-4 pr-4 py-3 flex items-start gap-3">
-                        {/* Icon */}
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                           n.type === 'job_submit' ? 'bg-indigo-50 text-indigo-600'
                           : n.type === 'test' ? 'bg-amber-50 text-amber-600'
@@ -264,6 +293,20 @@ export default function NotificationsPage() {
 
                         <ChevronRight size={16} className={`text-slate-300 shrink-0 transition-transform mt-1 ${isSelected ? 'rotate-90 text-indigo-400' : ''}`} />
                       </div>
+
+                      {/* Inline detail (mobile: expands below) */}
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden lg:hidden"
+                          >
+                            <DetailBody n={selected!} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   );
                 })}
@@ -280,7 +323,7 @@ export default function NotificationsPage() {
               )}
             </div>
 
-            {/* ── Detail Panel ── */}
+            {/* ── Detail Panel (desktop only) ── */}
             <AnimatePresence>
               {selected && (
                 <motion.div
@@ -288,105 +331,11 @@ export default function NotificationsPage() {
                   initial={{ opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 24 }}
-                  className="lg:w-80 xl:w-96 shrink-0"
+                  className="hidden lg:block lg:w-80 xl:w-96 shrink-0"
                 >
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-lg shadow-slate-100 overflow-hidden sticky top-6">
-                    {/* Detail header */}
-                    <div className={`p-5 ${
-                      selected.type === 'job_submit'
-                        ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
-                        : 'bg-gradient-to-br from-amber-400 to-orange-500'
-                    }`}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-white/70 text-xs font-medium">{typeLabel(selected.type).label}</span>
-                          <h2 className="text-white font-bold text-base leading-snug mt-0.5">{selected.title}</h2>
-                        </div>
-                        <button
-                          onClick={() => setSelected(null)}
-                          className="text-white/70 hover:text-white transition-colors shrink-0"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <p className="text-white/80 text-xs mt-2">{formatDate(selected.created_at)}</p>
-                    </div>
-
-                    {/* Detail body */}
-                    <div className="p-5 flex flex-col gap-4">
-                      {/* Full message */}
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ข้อความแจ้งเตือน</p>
-                        <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-3">{selected.body}</p>
-                      </div>
-
-                      {/* Job details (only for job_submit) */}
-                      {selected.type === 'job_submit' && (
-                        <div className="flex flex-col gap-2">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">รายละเอียดงาน</p>
-
-                          {[
-                            { icon: <Hash size={13} />, label: 'รหัสงาน', value: selected.job_id },
-                            { icon: <Hash size={13} />, label: 'ออเดอร์', value: selected.order_no },
-                            { icon: <CheckCircle2 size={13} />, label: 'ประเภทงาน', value: selected.work_category },
-                            { icon: <User size={13} />, label: 'ช่างเทคนิค', value: selected.technician },
-                            { icon: <StickyNote size={13} />, label: 'หมายเหตุ', value: selected.note },
-                          ].filter(r => r.value && r.value !== '-').map(row => (
-                            <div key={row.label} className="flex items-start gap-2">
-                              <span className="text-indigo-400 mt-0.5 shrink-0">{row.icon}</span>
-                              <div>
-                                <span className="text-[10px] text-slate-400">{row.label}</span>
-                                <p className="text-sm font-medium text-slate-700">{row.value}</p>
-                              </div>
-                            </div>
-                          ))}
-
-                          {/* PDF link */}
-                          {selected.pdf_url && (
-                            <a
-                              href={selected.pdf_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors"
-                            >
-                              <FileText size={13} /> ดูไฟล์ PDF
-                            </a>
-                          )}
-
-                          {/* Video link */}
-                          {selected.video_url && (
-                            <a
-                              href={selected.video_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors"
-                            >
-                              <Video size={13} /> ดูไฟล์วิดีโอ
-                            </a>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Sent status */}
-                      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
-                        selected.sent ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-500'
-                      }`}>
-                        <CheckCheck size={14} />
-                        {selected.sent
-                          ? `ส่งแจ้งเตือนสำเร็จ ${selected.sent_count ?? 0} เครื่อง`
-                          : 'ยังไม่ได้ส่งแจ้งเตือน'}
-                      </div>
-
-                      {/* Delete button */}
-                      {isAdminOrAuditor && (
-                        <button
-                          onClick={() => handleDelete(selected.id)}
-                          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 border border-red-100 transition-colors"
-                        >
-                          <Trash2 size={13} /> ลบการแจ้งเตือนนี้
-                        </button>
-                      )}
-                    </div>
+                    <DetailHeader n={selected} onClose={() => setSelected(null)} />
+                    <DetailBody n={selected} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
                   </div>
                 </motion.div>
               )}
@@ -396,5 +345,101 @@ export default function NotificationsPage() {
         )}
       </main>
     </div>
+  );
+}
+
+// ─── Detail Header ────────────────────────────────────────────────────────────
+function DetailHeader({ n, onClose }: { n: NotifDoc; onClose: () => void }) {
+  return (
+    <div className={`p-5 ${
+      n.type === 'job_submit'
+        ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
+        : 'bg-gradient-to-br from-amber-400 to-orange-500'
+    }`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <span className="text-white/70 text-xs font-medium">{typeLabel(n.type).label}</span>
+          <h2 className="text-white font-bold text-base leading-snug mt-0.5">{n.title}</h2>
+        </div>
+        <button onClick={onClose} className="text-white/70 hover:text-white transition-colors shrink-0">✕</button>
+      </div>
+      <p className="text-white/80 text-xs mt-2">{formatDate(n.created_at)}</p>
+    </div>
+  );
+}
+
+// ─── Detail Body ──────────────────────────────────────────────────────────────
+function DetailBody({ n, onDelete }: { n: NotifDoc; onDelete?: (id: string) => void }) {
+  return (
+    <div className="p-4 flex flex-col gap-4">
+      {/* Full message */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ข้อความแจ้งเตือน</p>
+        <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-3 break-words">{n.body}</p>
+      </div>
+
+      {/* Job details */}
+      {n.type === 'job_submit' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">รายละเอียดงาน</p>
+          {[
+            { icon: <Hash size={13} />, label: 'รหัสงาน', value: n.job_id },
+            { icon: <Hash size={13} />, label: 'ออเดอร์', value: n.order_no },
+            { icon: <CheckCircle2 size={13} />, label: 'ประเภทงาน', value: n.work_category },
+            { icon: <User size={13} />, label: 'ช่างเทคนิค', value: n.technician },
+            { icon: <StickyNote size={13} />, label: 'หมายเหตุ', value: n.note },
+          ].filter(r => r.value && r.value !== '-').map(row => (
+            <div key={row.label} className="flex items-start gap-2">
+              <span className="text-indigo-400 mt-0.5 shrink-0">{row.icon}</span>
+              <div>
+                <span className="text-[10px] text-slate-400">{row.label}</span>
+                <p className="text-sm font-medium text-slate-700">{row.value}</p>
+              </div>
+            </div>
+          ))}
+          {n.pdf_url && (
+            <a href={n.pdf_url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors">
+              <FileText size={13} /> ดูไฟล์ PDF
+            </a>
+          )}
+          {n.video_url && (
+            <a href={n.video_url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors">
+              <Video size={13} /> ดูไฟล์วิดีโอ
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Sent status */}
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
+        n.sent ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-500'
+      }`}>
+        <CheckCheck size={14} />
+        {n.sent ? `ส่งแจ้งเตือนสำเร็จ ${n.sent_count ?? 0} เครื่อง` : 'ยังไม่ได้ส่งแจ้งเตือน'}
+      </div>
+
+      {/* Delete button */}
+      {onDelete && (
+        <button onClick={() => onDelete(n.id)}
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 border border-red-100 transition-colors">
+          <Trash2 size={13} /> ลบการแจ้งเตือนนี้
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Export (wrapped in Suspense for useSearchParams) ────────────────────
+export default function NotificationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      </div>
+    }>
+      <NotificationsInner />
+    </Suspense>
   );
 }

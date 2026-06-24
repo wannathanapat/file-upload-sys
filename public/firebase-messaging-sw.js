@@ -16,25 +16,29 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  console.log('[firebase-messaging-sw.js] Received background message', payload);
 
   const notificationTitle = payload.notification?.title || 'แจ้งเตือนระบบส่งงาน';
-  const clickUrl = payload.fcmOptions?.link || payload.data?.url || '/notifications';
+
+  // Build the destination URL: prefer /notifications?id=xxx if notifId is present
+  const notifId = payload.data?.notifId || '';
+  const baseUrl = payload.fcmOptions?.link || payload.data?.url || '/notifications';
+  const clickUrl = notifId ? `/notifications?id=${notifId}` : baseUrl;
 
   const notificationOptions = {
     body: payload.notification?.body || '',
     icon: '/coway-logo-new.png',
     badge: '/coway-logo-new.png',
-    tag: 'job-alert',          // replaces previous notification of same tag (no stacking)
+    tag: 'job-alert',          // replaces previous same-tag notification
     renotify: true,
-    requireInteraction: true,  // keeps notification visible until user dismisses
-    data: { url: clickUrl },
+    requireInteraction: true,  // keeps visible until dismissed
+    data: { url: clickUrl, notifId },
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
-// Handle notification click → open/focus /notifications page
+// Handle notification click → open/focus the target URL
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
@@ -42,13 +46,17 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Try to focus an existing window that is already on the target path
+      // Try to focus a window already showing /notifications
       for (const client of windowClients) {
-        if (client.url.includes(clickUrl) && 'focus' in client) {
+        if (client.url.includes('/notifications') && 'focus' in client) {
+          // Navigate it to the specific item if needed
+          if ('navigate' in client) {
+            return client.navigate(clickUrl).then(c => c && c.focus());
+          }
           return client.focus();
         }
       }
-      // If any window is open at all, navigate it to the target
+      // Navigate any existing window to the target
       for (const client of windowClients) {
         if ('navigate' in client && 'focus' in client) {
           return client.navigate(clickUrl).then(c => c && c.focus());

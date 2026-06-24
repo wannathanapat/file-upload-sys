@@ -181,11 +181,12 @@ function SidebarInner() {
 
   const MobileMenuContent = () => {
     const subLabels: { [key: string]: string } = {
-      '/dashboard?view=overview': 'สถิติและภาพรวมระบบ',
+      '/dashboard?view=overview': 'ภาพรวมและสถิติระบบ',
       '/dashboard?view=history': 'ประวัติการส่งงานช่าง',
       '/dashboard?view=queue': 'คิวใบงานค้างส่งระบบ',
       '/import-jobs': 'นำเข้าและจัดสรรงาน',
       '/settings': 'ตั้งค่าระบบหลัก',
+      '/notifications': 'ประวัติ Push Notification',
       '/submit?tab=dashboard': 'ผลงานและสถิติสะสม',
       '/submit?tab=queue': 'ใบงานที่ต้องจัดส่ง',
       '/submit?tab=history': 'ประวัติส่งงานของฉัน'
@@ -195,16 +196,20 @@ function SidebarInner() {
       '/dashboard?view=overview': { bg: 'bg-red-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(239,68,68,0.35)]' },
       '/dashboard?view=history': { bg: 'bg-violet-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(139,92,246,0.35)]' },
       '/dashboard?view=queue': { bg: 'bg-indigo-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(79,70,229,0.35)]' },
-      '/import-jobs': { bg: 'bg-blue-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.35)]' },
-      '/settings': { bg: 'bg-slate-700 text-white', shadow: 'shadow-[0_8px_20px_rgba(51,65,85,0.35)]' },
       '/submit?tab=dashboard': { bg: 'bg-red-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(239,68,68,0.35)]' },
       '/submit?tab=queue': { bg: 'bg-blue-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.35)]' },
-      '/submit?tab=history': { bg: 'bg-purple-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(168,85,247,0.35)]' }
+      '/submit?tab=history': { bg: 'bg-purple-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(168,85,247,0.35)]' },
+      '/notifications': { bg: 'bg-amber-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(245,158,11,0.35)]' },
+      '/import-jobs': { bg: 'bg-blue-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.35)]' },
+      '/settings': { bg: 'bg-slate-700 text-white', shadow: 'shadow-[0_8px_20px_rgba(51,65,85,0.35)]' },
     };
 
 
     return (
-      <div className="fixed inset-0 w-full h-full bg-[#f8fafc]/90 backdrop-blur-xl z-50 flex flex-col overflow-y-auto px-6 py-6 font-sans relative">
+      <div
+        className="fixed inset-0 w-full h-full bg-[#f8fafc]/90 backdrop-blur-xl z-50 flex flex-col overflow-y-auto overflow-x-hidden px-6 py-6 font-sans relative"
+        style={{ touchAction: 'pan-y', overscrollBehavior: 'contain' }}
+      >
         {/* Soft glowing background blobs for glassmorphic depth */}
         <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[40%] rounded-full bg-indigo-300/15 blur-3xl pointer-events-none" />
         <div className="absolute bottom-[10%] right-[-10%] w-[65%] h-[45%] rounded-full bg-rose-300/15 blur-3xl pointer-events-none" />
