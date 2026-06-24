@@ -162,7 +162,8 @@ function DashboardContent() {
   const [editNote, setEditNote] = useState('');
   const [editFileName, setEditFileName] = useState('');
   const [previewFile, setPreviewFile] = useState<{ type: 'pdf' | 'video', url: string, name: string } | null>(null);
-  
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
   // Stats
   const [stats, setStats] = useState({
     total: 0,
@@ -490,17 +491,17 @@ function DashboardContent() {
   const handleUpdateStatusDirect = async (newStatus: string) => {
     if (!selectedSub) return;
     
-    let rejectReason = '';
     if (newStatus === 'แก้ไข') {
-      const reason = window.prompt('กรุณาระบุสาเหตุหรือข้อเสนอแนะที่ต้องให้ช่างแก้ไข:');
-      if (reason === null) return; // User cancelled
-      rejectReason = reason.trim();
-      if (!rejectReason) {
-        showToast('กรุณาระบุสาเหตุที่ต้องแก้ไข', 'error');
-        return;
-      }
+      setRejectReasonInput('');
+      setIsRejectModalOpen(true);
+      return; // Stop here, the modal will handle the actual update via proceedWithUpdateStatus
     }
 
+    await proceedWithUpdateStatus(newStatus, '');
+  };
+
+  const proceedWithUpdateStatus = async (newStatus: string, rejectReason: string) => {
+    if (!selectedSub) return;
     setModalLoading(true);
 
     try {
@@ -536,6 +537,7 @@ function DashboardContent() {
       showToast(`อัปเดตสถานะเป็น "${newStatus}" เรียบร้อยแล้ว ✨`, "success");
       setSelectedSub(prev => prev ? { ...prev, ...updatedData } : null);
       setEditStatus(newStatus);
+      setIsRejectModalOpen(false);
     } catch (err: any) {
       console.error(err);
       showToast("บันทึกข้อมูลไม่สำเร็จ: " + err.message, "error");
@@ -1641,6 +1643,65 @@ function DashboardContent() {
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>เปิดในหน้าต่างใหม่</span>
                 </a>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Reject Reason Modal ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {isRejectModalOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md cursor-default"
+              onClick={() => setIsRejectModalOpen(false)}
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative bg-white/90 backdrop-blur-xl border border-white/60 shadow-[0_25px_60px_-12px_rgba(0,0,0,0.25)] rounded-[2rem] p-6 max-w-sm w-full flex flex-col z-10"
+            >
+              <div className="flex flex-col items-center mb-5 text-center">
+                <div className="w-12 h-12 bg-rose-100 text-rose-500 rounded-2xl flex items-center justify-center mb-3 shadow-inner">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 Prompt">ระบุสาเหตุที่ต้องแก้ไข</h3>
+                <p className="text-xs text-slate-500 mt-1 Sarabun">ข้อความนี้จะถูกส่งไปแจ้งให้ช่างทราบ เพื่อใช้ในการแก้ไขงาน</p>
+              </div>
+
+              <textarea
+                value={rejectReasonInput}
+                onChange={(e) => setRejectReasonInput(e.target.value)}
+                placeholder="เช่น รูปภาพไม่ชัดเจน, ขาดรูปป้ายทะเบียน, เลขเครื่องไม่ตรง..."
+                className="w-full bg-white/50 border border-slate-200 text-slate-700 rounded-2xl p-4 text-xs min-h-[100px] focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 transition-all Prompt resize-none shadow-inner"
+                autoFocus
+              />
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setIsRejectModalOpen(false)}
+                  className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition Prompt cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={() => {
+                    if (!rejectReasonInput.trim()) {
+                      showToast('กรุณาระบุสาเหตุที่ต้องแก้ไข', 'error');
+                      return;
+                    }
+                    proceedWithUpdateStatus('แก้ไข', rejectReasonInput.trim());
+                  }}
+                  className="flex-[2] py-3 px-4 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-xl transition shadow-md shadow-rose-200 flex items-center justify-center gap-2 Prompt cursor-pointer"
+                >
+                  <span>ยืนยันให้แก้ไข</span>
+                </button>
               </div>
             </motion.div>
           </div>
