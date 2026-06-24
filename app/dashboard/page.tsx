@@ -735,11 +735,11 @@ function DashboardContent() {
               transition={{ delay: i * 0.06 }}
               className="glass-card p-4 flex flex-col gap-3"
             >
-              <div className="flex items-center justify-center gap-2">
-                <div className={`w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center shrink-0`}>
+              <div className="relative w-full flex items-center justify-center min-h-[32px]">
+                <div className={`absolute left-0 w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center shrink-0`}>
                   {kpi.icon}
                 </div>
-                <p className="text-xs font-bold text-slate-700 Prompt">{kpi.label}</p>
+                <p className="text-xs font-bold text-slate-700 Prompt text-center px-8">{kpi.label}</p>
               </div>
               <div className="text-center py-1">
                 <p className="text-xl font-black text-slate-800 Prompt leading-tight">{loading ? '—' : kpi.value} <span className="text-xs font-semibold text-slate-400">{kpi.unit}</span></p>
