@@ -489,15 +489,34 @@ function DashboardContent() {
 
   const handleUpdateStatusDirect = async (newStatus: string) => {
     if (!selectedSub) return;
+    
+    let rejectReason = '';
+    if (newStatus === 'แก้ไข') {
+      const reason = window.prompt('กรุณาระบุสาเหตุหรือข้อเสนอแนะที่ต้องให้ช่างแก้ไข:');
+      if (reason === null) return; // User cancelled
+      rejectReason = reason.trim();
+      if (!rejectReason) {
+        showToast('กรุณาระบุสาเหตุที่ต้องแก้ไข', 'error');
+        return;
+      }
+    }
+
     setModalLoading(true);
 
     try {
       const db = getDb();
       const subRef = doc(db, 'submissions', selectedSub.submission_date);
       
-      const updatedData = {
+      const updatedData: any = {
         status: newStatus
       };
+      
+      if (newStatus === 'แก้ไข') {
+        updatedData.reject_reason = rejectReason;
+      } else {
+        // Clear it if approved or pending
+        updatedData.reject_reason = '';
+      }
 
       await updateDoc(subRef, updatedData);
 
@@ -1450,6 +1469,17 @@ function DashboardContent() {
                     <span className="block text-[10px] text-rose-500 font-bold uppercase Prompt">รายละเอียดการเฟล</span>
                     <p className="text-xs font-bold text-rose-700 mt-1">
                       {selectedSub.fail_detail === 'entered' ? '🏠 เข้าหน้างานแล้ว' : '🚗 ยังไม่เข้าหน้างาน'}
+                    </p>
+                  </div>
+                )}
+
+                {selectedSub.status === 'แก้ไข' && selectedSub.reject_reason && (
+                  <div className="bg-amber-500/10 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/50 shadow-2xs">
+                    <span className="block text-[10px] text-amber-600 font-bold uppercase Prompt flex items-center gap-1">
+                      <Info className="w-3 h-3" /> สาเหตุที่ให้แก้ไข
+                    </span>
+                    <p className="text-xs font-bold text-amber-700 mt-1 Sarabun leading-relaxed">
+                      {selectedSub.reject_reason}
                     </p>
                   </div>
                 )}

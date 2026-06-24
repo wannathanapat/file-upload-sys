@@ -237,6 +237,16 @@ function SubmitPageInner() {
   // Submission Form Modal state
   const [activeJob, setActiveJob] = useState<JobRow | null>(null);
   
+  // History Detail & Fix Modal state
+  const [selectedHistory, setSelectedHistory] = useState<SubmissionData | null>(null);
+  const [isFixing, setIsFixing] = useState(false);
+  const [fixPdfFile, setFixPdfFile] = useState<File | null>(null);
+  const [fixImageFiles, setFixImageFiles] = useState<File[]>([]);
+  const [fixVideoFile, setFixVideoFile] = useState<File | null>(null);
+  const fixFileInputRef = useRef<HTMLInputElement>(null);
+  const fixImageInputRef = useRef<HTMLInputElement>(null);
+  const fixVideoInputRef = useRef<HTMLInputElement>(null);
+
   // Form fields
   const [insStatus, setInsStatus] = useState<'success' | 'fail' | null>(null);
   const [failDetail, setFailDetail] = useState<'entered' | 'not_entered' | null>(null);
@@ -347,6 +357,152 @@ function SubmitPageInner() {
 
   const closeSubmitModal = () => {
     setActiveJob(null);
+  };
+
+  const openHistoryModal = (item: SubmissionData) => {
+    setSelectedHistory(item);
+    setIsFixing(false);
+    setFixPdfFile(null);
+    setFixImageFiles([]);
+    setFixVideoFile(null);
+  };
+
+  const closeHistoryModal = () => {
+    setSelectedHistory(null);
+    setIsFixing(false);
+    setFixPdfFile(null);
+    setFixImageFiles([]);
+    setFixVideoFile(null);
+  };
+
+  const handleFixSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedHistory) return;
+    
+    if (!fixPdfFile && fixImageFiles.length === 0) {
+      showToast("กรุณาเลือกไฟล์ PDF หรือรูปภาพใหม่เพื่อส่งแก้ไข ⚠️", "error");
+      return;
+    }
+
+    if (!gdrivePrefs?.connected) {
+      showToast("กรุณาตรวจสอบการตั้งค่าการเชื่อมต่อ Google Drive ⚠️", "error");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(10);
+      setUploadStepName("กำลังขอสิทธิ์เชื่อมต่อ Drive...");
+      
+      const accessToken = await getValidAccessToken();
+      if (!accessToken) {
+        showToast("ไม่สามารถเชื่อมต่อ Google Drive ได้ กรุณาเชื่อมต่อบัญชีใหม่", "error");
+        setIsUploading(false);
+        return;
+      }
+
+      setUploadProgress(20);
+      setUploadStepName("กำลังเตรียมจัดสรรโฟลเดอร์...");
+
+      const workCat = selectedHistory.work_type;
+      const baseOrderNo = selectedHistory.order_no && selectedHistory.order_no !== '-' ? selectedHistory.order_no : selectedHistory.job_id.replace(/^(INS|AS)-/i, '');
+      const cleanCustomerName = selectedHistory.file_name.replace(baseOrderNo, '').replace('.pdf', '').trim();
+      const folderNameForGDrive = `${baseOrderNo} ${cleanCustomerName}.pdf`;
+      
+      const targetFolderId = await getOrCreateTargetUploadFolder(
+        accessToken, 
+        workCat, 
+        folderNameForGDrive, 
+        selectedHistory.sub_work_type || ""
+      );
+
+      let pdfUrl = '-';
+      let renamedPdfName = selectedHistory.file_name;
+      let fileToUpload: File | null = fixPdfFile;
+
+      if (fixImageFiles.length > 0) {
+        setUploadProgress(30);
+        setUploadStepName("กำลังแปลงรูปภาพและบีบอัดเป็นไฟล์ PDF...");
+        const pdfBlob = await convertImagesToPdf(fixImageFiles, (current, total) => {
+          setUploadStepName(`กำลังแปลงรูปภาพเป็น PDF (${current}/${total} รูป)...`);
+          setUploadProgress(30 + Math.round((current / total) * 10));
+        });
+        fileToUpload = new File([pdfBlob], renamedPdfName, { type: 'application/pdf' });
+      }
+
+      if (fileToUpload) {
+        setUploadProgress(50);
+        setUploadStepName(`กำลังอัปโหลดไฟล์แก้ไข: ${renamedPdfName}...`);
+        const pdfUploadRes = await directUploadToGDrive(accessToken, fileToUpload, targetFolderId, renamedPdfName);
+        pdfUrl = pdfUploadRes.url;
+      }
+
+      let videoUrl = selectedHistory.video_url || '-';
+      let renamedVideoName = selectedHistory.video_name || '-';
+
+      if (fixVideoFile) {
+        setUploadProgress(70);
+        const vidExt = fixVideoFile.name.substring(fixVideoFile.name.lastIndexOf('.'));
+        renamedVideoName = `${baseOrderNo} ${cleanCustomerName}${vidExt}`;
+        setUploadStepName(`กำลังอัปโหลดวิดีโอใหม่: ${renamedVideoName}...`);
+        const videoUploadRes = await directUploadToGDrive(accessToken, fixVideoFile, targetFolderId, renamedVideoName);
+        videoUrl = videoUploadRes.url;
+      }
+
+      setUploadProgress(85);
+      setUploadStepName("กำลังลบไฟล์ต้นฉบับเก่าเพื่อประหยัดพื้นที่...");
+      
+      if (selectedHistory.file_url && selectedHistory.file_url.includes('id=')) {
+        const oldFileId = selectedHistory.file_url.match(/id=([^&]+)/)?.[1];
+        if (oldFileId) {
+           await fetch('/api/gdrive/delete', { 
+             method: 'POST', 
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ fileId: oldFileId }) 
+           }).catch(console.error);
+        }
+      }
+      
+      if (fixVideoFile && selectedHistory.video_url && selectedHistory.video_url.includes('id=')) {
+        const oldVidId = selectedHistory.video_url.match(/id=([^&]+)/)?.[1];
+        if (oldVidId) {
+           await fetch('/api/gdrive/delete', { 
+             method: 'POST', 
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ fileId: oldVidId }) 
+           }).catch(console.error);
+        }
+      }
+
+      setUploadProgress(95);
+      setUploadStepName("กำลังบันทึกข้อมูล...");
+
+      const db = getDb();
+      const updatedData = {
+        file_url: pdfUrl !== '-' ? pdfUrl : selectedHistory.file_url,
+        video_url: videoUrl,
+        video_name: renamedVideoName,
+        status: 'รอตรวจ',
+        reject_reason: ''
+      };
+
+      await updateDoc(doc(db, 'submissions', selectedHistory.submission_date), updatedData);
+
+      setUploadProgress(100);
+      setUploadStepName("บันทึกการแก้ไขสำเร็จ!");
+      
+      setTimeout(() => {
+        setIsUploading(false);
+        closeHistoryModal();
+        showToast("ส่งงานแก้ไขสำเร็จ! รอแอดมินตรวจสอบอีกครั้ง ✨", "success");
+        fetchJobs();
+      }, 800);
+
+    } catch (err: any) {
+      console.error(err);
+      setIsUploading(false);
+      showToast("พบข้อผิดพลาด: " + err.message, "error");
+    }
   };
 
   const handleDocumentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -848,7 +1004,7 @@ function SubmitPageInner() {
                     {personalHistory.slice(0, 3).map((item, idx) => {
                       const statusVal = item.status || 'รอตรวจ';
                       return (
-                        <div key={idx} className="flex items-start gap-3 py-2 border-b border-slate-100/30 last:border-0 last:pb-0">
+                        <div key={idx} onClick={() => openHistoryModal(item)} className="flex items-start gap-3 py-2 border-b border-slate-100/30 last:border-0 last:pb-0 cursor-pointer hover:bg-slate-50 rounded-lg px-2 transition-colors">
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold ${
                             item.work_type.includes('ถอด') ? 'bg-purple-500 text-white icon-glow-purple' :
                             item.work_type.includes('ซ่อม') ? 'bg-emerald-500 text-white icon-glow-emerald' :
@@ -1277,7 +1433,7 @@ function SubmitPageInner() {
                       {filteredHistory.map((item, idx) => {
                         const statusVal = item.status || 'รอตรวจ';
                         return (
-                          <tr key={idx} className="hover:bg-slate-50/50 transition">
+                          <tr key={idx} onClick={() => openHistoryModal(item)} className="hover:bg-slate-50/50 transition cursor-pointer">
                             <td className="p-4 pl-6 text-slate-500 whitespace-nowrap">
                               {formatThaiDate(item.submission_date)}
                             </td>
@@ -1693,6 +1849,198 @@ function SubmitPageInner() {
                   <span>ยืนยันข้อมูลจัดส่งงาน</span>
                 </button>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* History Detail & Fix Modal */}
+      <AnimatePresence>
+        {selectedHistory && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              onClick={closeHistoryModal}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className="relative bg-slate-50 rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 max-h-[90vh] flex flex-col z-10 overflow-hidden"
+            >
+              {/* Header */}
+              <div className="bg-white px-6 py-4 border-b border-slate-100 flex justify-between items-start shrink-0">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 Prompt flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-indigo-500" />
+                    รายละเอียดการส่งงาน
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    รหัสงาน: {selectedHistory.job_id || selectedHistory.order_no}
+                  </p>
+                </div>
+                <button
+                  onClick={closeHistoryModal}
+                  className="text-slate-400 hover:text-slate-600 p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-all cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 overflow-y-auto space-y-4">
+                
+                {/* Status Box */}
+                <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center justify-between">
+                  <div>
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 Prompt">วันเวลาที่ส่งงาน</span>
+                    <span className="text-xs font-bold text-slate-700">{formatThaiDate(selectedHistory.submission_date)}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 Prompt">สถานะการตรวจสอบ</span>
+                    <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] Prompt ${
+                      selectedHistory.status === 'ตรวจแล้ว' ? 'bg-emerald-100 text-emerald-700' :
+                      selectedHistory.status === 'แก้ไข' ? 'bg-rose-100 text-rose-700' :
+                      'bg-amber-100 text-amber-700'
+                    }`}>
+                      {selectedHistory.status || 'รอตรวจ'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 Prompt">ประเภทงาน</span>
+                    <span className="text-xs font-bold text-slate-700">{selectedHistory.work_type}</span>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 Prompt">ชื่อผู้ส่งงาน</span>
+                    <span className="text-xs font-bold text-slate-700">{selectedHistory.name}</span>
+                  </div>
+                </div>
+
+                {/* Reject Reason Box */}
+                {selectedHistory.status === 'แก้ไข' && selectedHistory.reject_reason && (
+                  <div className="bg-rose-50 rounded-2xl p-4 border border-rose-100">
+                    <span className="block text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1.5 Prompt flex items-center gap-1">
+                      <Info className="w-3.5 h-3.5" /> หมายเหตุให้แก้ไข
+                    </span>
+                    <p className="text-xs font-bold text-rose-700 leading-relaxed Sarabun">
+                      {selectedHistory.reject_reason}
+                    </p>
+                  </div>
+                )}
+
+                {!isFixing && (
+                  <>
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 Prompt">ชื่อไฟล์เอกสาร</span>
+                      <span className="text-xs font-bold text-slate-700 truncate block" title={selectedHistory.file_name}>{selectedHistory.file_name}</span>
+                    </div>
+
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                      <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 Prompt">หมายเหตุ / อาการเสีย</span>
+                      <span className="text-xs font-medium text-slate-600 block">{selectedHistory.description || '-'}</span>
+                    </div>
+
+                    {selectedHistory.status === 'แก้ไข' && (
+                      <button
+                        onClick={() => setIsFixing(true)}
+                        className="w-full py-3.5 mt-2 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl font-bold text-xs Prompt transition shadow-md shadow-amber-500/20 cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" /> อัปโหลดไฟล์แก้ไขงานนี้
+                      </button>
+                    )}
+                  </>
+                )}
+
+                {/* Fix Upload Form */}
+                {isFixing && (
+                  <form onSubmit={handleFixSubmit} className="space-y-4 animate-fadeIn border-t border-slate-200 pt-4 mt-2">
+                    
+                    <div className="space-y-2">
+                      <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider Prompt">
+                        เลือกไฟล์เอกสารใหม่ <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="border border-dashed border-indigo-200 bg-indigo-50/30 rounded-2xl p-4 text-center relative cursor-pointer hover:bg-indigo-50 transition">
+                        <input
+                          type="file"
+                          accept="application/pdf,image/*"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            const pdfs = files.filter(f => f.type === 'application/pdf');
+                            const imgs = files.filter(f => f.type.startsWith('image/'));
+                            if (pdfs.length > 0) setFixPdfFile(pdfs[0]);
+                            if (imgs.length > 0) setFixImageFiles(imgs.slice(0, 20));
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Upload className="w-6 h-6 text-indigo-400 mx-auto mb-2" />
+                        <span className="block text-xs font-bold text-indigo-600 Prompt">เลือกไฟล์เอกสารใหม่</span>
+                        <span className="block text-[9px] text-slate-400 mt-1">PDF หรือรูปภาพ</span>
+                      </div>
+
+                      {/* Preview selected fix files */}
+                      {fixPdfFile && (
+                        <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl flex justify-between items-center mt-2">
+                          <span className="text-[10px] font-bold text-indigo-700 truncate max-w-[200px]">{fixPdfFile.name}</span>
+                          <button type="button" onClick={() => setFixPdfFile(null)} className="text-slate-400 hover:text-rose-500 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      )}
+                      {fixImageFiles.length > 0 && (
+                        <div className="text-[10px] font-bold text-indigo-600 mt-2 flex justify-between">
+                          <span>เลือกรูปภาพ {fixImageFiles.length} รูป</span>
+                          <button type="button" onClick={() => setFixImageFiles([])} className="text-rose-500 cursor-pointer">ล้าง</button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider Prompt">
+                        เลือกไฟล์วิดีโอใหม่ (ถ้ามี)
+                      </label>
+                      <div className="border border-dashed border-purple-200 bg-purple-50/30 rounded-2xl p-4 text-center relative cursor-pointer hover:bg-purple-50 transition">
+                        <input
+                          type="file"
+                          accept="video/*"
+                          onChange={(e) => setFixVideoFile(e.target.files?.[0] || null)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
+                        <Video className="w-6 h-6 text-purple-400 mx-auto mb-2" />
+                        <span className="block text-xs font-bold text-purple-600 Prompt">เลือกไฟล์วิดีโอใหม่</span>
+                      </div>
+                      {fixVideoFile && (
+                        <div className="p-2.5 bg-purple-50 border border-purple-100 rounded-xl flex justify-between items-center mt-2">
+                          <span className="text-[10px] font-bold text-purple-700 truncate max-w-[200px]">{fixVideoFile.name}</span>
+                          <button type="button" onClick={() => setFixVideoFile(null)} className="text-slate-400 hover:text-rose-500 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsFixing(false)}
+                        className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold text-xs Prompt cursor-pointer transition"
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        type="submit"
+                        className="flex-1 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl font-bold text-xs Prompt cursor-pointer transition shadow-md flex items-center justify-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" /> ส่งอัปเดตงาน
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+              </div>
             </motion.div>
           </div>
         )}

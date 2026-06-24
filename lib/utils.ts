@@ -44,6 +44,7 @@ export interface SubmissionData {
   sub_work_type: string;
   assigned_to: string;
   fail_detail?: string;
+  reject_reason?: string;
 }
 
 export function findMatchingTechnician(excelCtName: string, dbUsers: UserData[]): string | null {
