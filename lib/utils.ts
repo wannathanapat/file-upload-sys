@@ -150,3 +150,39 @@ export function formatThaiDate(dateString: string): string {
     return dateString;
   }
 }
+
+export const getPreviewUrl = (url: string) => {
+  if (!url) return '';
+  return url.replace('/view?usp=sharing', '/preview').replace('/view', '/preview');
+};
+
+export const getDirectStreamUrl = (url: string) => {
+  if (!url) return '';
+  const match = url.match(/\/d\/(.+?)\//);
+  if (match && match[1]) {
+    return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+  }
+  return url;
+};
+
+export const isNativeVideo = (url: string, name: string) => {
+  if (!name && !url) return false;
+  const filename = name || url;
+  const ext = filename.split('.').pop()?.toLowerCase();
+  return ['mp4', 'webm', 'ogg', 'mov', 'quicktime', 'mkv', 'avi', '3gp', 'm4v'].includes(ext || '');
+};
+
+export const getFileIdFromUrl = (url: string): string => {
+  if (!url) return '';
+  // match /d/FILE_ID/
+  let match = url.match(/\/d\/(.+?)\//);
+  if (match && match[1]) {
+    return match[1];
+  }
+  // match id=FILE_ID
+  match = url.match(/[?&]id=([^&]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return '';
+};

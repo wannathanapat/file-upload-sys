@@ -1,4 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
+import { initFirebase } from '@/lib/firebase';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
+
+async function getValidAccessTokenServer() {
+  initFirebase();
+  const db = getFirestore();
+  const prefRef = doc(db, 'app_config', 'gdrive_preferences');
+  const prefSnap = await getDoc(prefRef);
+
+  if (!prefSnap.exists()) {
+    throw new Error('No GDrive prefs found');
+  }
+
+  const prefs = prefSnap.data();
+  const { clientId, clientSecret, refreshToken, accessToken, tokenExpiresAt } = prefs;
+
+  if (!refreshToken || !clientId || !clientSecret) {
+    throw new Error('Missing refresh_token, clientId, or clientSecret in stored prefs');
+  }
+
+  const now = Date.now();
+  if (accessToken && tokenExpiresAt && now < tokenExpiresAt - 120000) {
+    return accessToken;
+  }
+
+  const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!refreshRes.ok) {
+    const errText = await refreshRes.text();
+    throw new Error(`Token refresh failed: ${errText}`);
+  }
+
+  const refreshData = await refreshRes.json();
+  const newAccessToken = refreshData.access_token;
+  const newExpiresAt = Date.now() + (refreshData.expires_in || 3600) * 1000;
+
+  await setDoc(
+    prefRef,
+    {
+      accessToken: newAccessToken,
+      tokenExpiresAt: newExpiresAt,
+    },
+    { merge: true }
+  );
+
+  return newAccessToken;
+}
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -9,17 +65,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Automatically get a valid access token using the refresh route
-    const baseUrl = req.nextUrl.origin;
-    const tokenRes = await fetch(`${baseUrl}/api/gdrive/refresh`, { method: "POST" });
-    
-    if (!tokenRes.ok) {
-      console.error("Failed to get token via refresh route:", await tokenRes.text());
-      return new NextResponse("Failed to obtain Google Drive token", { status: 401 });
-    }
-    
-    const tokenData = await tokenRes.json();
-    const token = tokenData.accessToken;
+    const token = await getValidAccessTokenServer();
 
     if (!token) {
       return new NextResponse("No access token returned", { status: 401 });

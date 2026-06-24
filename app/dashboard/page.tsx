@@ -18,7 +18,8 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import type { SubmissionData, JobRow, UserData } from '@/lib/utils';
-import { formatThaiDate } from '@/lib/utils';
+import { formatThaiDate, getFileIdFromUrl } from '@/lib/utils';
+import CustomPdfViewer from '@/components/CustomPdfViewer';
 import { 
   Search, 
   Filter, 
@@ -41,7 +42,8 @@ import {
   Zap,
   RefreshCw,
   Users,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { deleteTargetUploadFolder, getValidAccessToken } from '@/lib/gdrive';
@@ -1583,67 +1585,68 @@ function DashboardContent() {
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
               className="relative bg-white/90 backdrop-blur-lg rounded-[2rem] border border-white/60 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.3)] max-w-4xl w-full h-[85vh] flex flex-col overflow-hidden z-10"
             >
-              <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/40 backdrop-blur-xs">
-                <div>
-                  <h3 className="text-xs font-bold text-slate-800 Prompt truncate max-w-[60vw]">
-                    พรีวิว: {previewFile.name}
-                  </h3>
-                  <p className="text-[10px] text-slate-400 Prompt">ตรวจสอบความถูกต้องของชิ้นงานส่งช่าง</p>
-                </div>
-                <button 
-                  onClick={() => setPreviewFile(null)}
-                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer text-xs font-bold"
-                >
-                  ✕
-                </button>
-              </div>
-              
-              <div className="flex-grow bg-slate-900 flex items-center justify-center relative p-4">
-                {previewFile.type === 'video' ? (
-                  isNativeVideo(previewFile.url, previewFile.name) ? (
-                    <video 
-                      src={getDirectStreamUrl(previewFile.url)} 
-                      controls 
-                      className="w-full h-full object-contain rounded-2xl shadow-2xl border border-white/10" 
-                      playsInline
-                    />
-                  ) : (
-                    <iframe 
-                      src={getPreviewUrl(previewFile.url)} 
-                      className="w-full h-full border-0" 
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                    />
-                  )
-                ) : (
-                  <div className="w-full h-full overflow-hidden relative rounded-2xl bg-[#525659]">
-                    <iframe 
-                      src={`${getPreviewUrl(previewFile.url)}#toolbar=0&view=FitH`} 
-                      className="absolute top-0 left-0 border-0" 
-                      style={{ width: 'calc(100% + 20px)', height: 'calc(100% + 20px)' }}
-                      allowFullScreen
-                    />
-                  </div>
-                )}
-              </div>
-              
-              <div className="p-4 border-t border-slate-100 flex gap-3 justify-end bg-white/40 backdrop-blur-xs">
-                <button 
-                  onClick={() => setPreviewFile(null)}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition Prompt cursor-pointer"
-                >
-                  ปิดพรีวิว
-                </button>
-                <a 
-                  href={previewFile.url} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-2xl transition shadow-md shadow-indigo-100 flex items-center gap-1.5 Prompt cursor-pointer"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>เปิดในหน้าต่างใหม่</span>
-                </a>
-              </div>
+              {(() => {
+                const previewFileId = getFileIdFromUrl(previewFile.url);
+                const gdriveViewUrl = previewFileId ? `https://drive.google.com/file/d/${previewFileId}/view?usp=drivesdk` : previewFile.url;
+                return (
+                  <>
+                    <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white/40 backdrop-blur-xs">
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-800 Prompt truncate max-w-[60vw]">
+                          พรีวิว: {previewFile.name}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 Prompt">ตรวจสอบความถูกต้องของชิ้นงานส่งช่าง</p>
+                      </div>
+                      <button 
+                        onClick={() => setPreviewFile(null)}
+                        className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition cursor-pointer text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    
+                    <div className={`flex-grow bg-slate-950 flex items-center justify-center relative ${previewFile.type === 'video' ? 'p-4' : ''}`}>
+                      {previewFile.type === 'video' ? (
+                        isNativeVideo(previewFile.url, previewFile.name) ? (
+                          <video 
+                            src={`/api/gdrive/proxy?fileId=${previewFileId}`} 
+                            controls 
+                            className="w-full h-full object-contain rounded-2xl shadow-2xl border border-white/10" 
+                            playsInline
+                          />
+                        ) : (
+                          <iframe 
+                            src={`/api/gdrive/proxy?fileId=${previewFileId}`} 
+                            className="w-full h-full border-0" 
+                            allow="autoplay; encrypted-media"
+                            allowFullScreen
+                          />
+                        )
+                      ) : (
+                        <CustomPdfViewer url={`/api/gdrive/proxy?fileId=${previewFileId}`} />
+                      )}
+                    </div>
+                    
+                    <div className="p-4 border-t border-slate-100 flex gap-3 justify-end bg-white/40 backdrop-blur-xs">
+                      <button 
+                        onClick={() => setPreviewFile(null)}
+                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-2xl transition Prompt cursor-pointer"
+                      >
+                        ปิดพรีวิว
+                      </button>
+                      <a 
+                        href={gdriveViewUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-2xl transition shadow-md shadow-indigo-100 flex items-center gap-1.5 Prompt cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>เปิดในหน้าต่างใหม่</span>
+                      </a>
+                    </div>
+                  </>
+                );
+              })()}
             </motion.div>
           </div>
         )}
