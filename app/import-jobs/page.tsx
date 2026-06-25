@@ -310,28 +310,32 @@ export default function ImportJobsPage() {
               }
               return { duplicate: false, status: 'new', message: '✨ งานติดตั้งใหม่' };
             } else {
+              // ─── AS jobs: duplicate check ตาม AS No. เท่านั้น ───────────────────
+              // 1 ออเดอร์สามารถเปิด AS หลายครั้งได้ (service call หลายรอบ)
+              // → บล็อกเฉพาะ AS No. (job_id) ซ้ำ ไม่บล็อกตาม order_no
+
               if (activeJobIdMatch || historyJobIdMatch) {
+                // AS No. ซ้ำกับที่มีในระบบแล้ว → block
                 return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำรหัสงานบริการเดิม (ข้าม)', matchedItem: activeJobIdMatch || historyJobIdMatch };
               }
-              if (activeOrderNoMatch && activeOrderNoMatch.status === 'submitted') {
-                return { duplicate: true, status: 'duplicate', message: '❌ ออเดอร์นี้ส่งงานแล้ว (ข้าม)', matchedItem: activeOrderNoMatch };
+              if (activeOrderNoMatch && activeOrderNoMatch.status === 'pending') {
+                // AS No. ใหม่ แต่ order เดิมมีงานค้างอยู่ → เตือนแต่ผ่านได้
+                return {
+                  duplicate: false,
+                  warning: true,
+                  status: 'pending_active',
+                  message: `⚠️ ออเดอร์นี้มีงานค้างในคิวช่าง (${activeOrderNoMatch.assigned_to})`,
+                  matchedItem: activeOrderNoMatch,
+                };
               }
-              if (historyOrderNoMatch && historyOrderNoMatch.job_id) {
-                return { duplicate: true, status: 'duplicate', message: '❌ ออเดอร์นี้ส่งงานแล้ว (ข้าม)', matchedItem: historyOrderNoMatch };
-              }
-              if (historyOrderNoMatch && !historyOrderNoMatch.job_id) {
-                const dateStr = historyOrderNoMatch.submission_date 
-                  ? new Date(historyOrderNoMatch.submission_date).toLocaleDateString('th-TH') 
-                  : 'ไม่ระบุวันที่';
-                return { duplicate: true, status: 'duplicate', message: `❌ ส่งงานแล้ว (${dateStr}) (ข้าม)`, matchedItem: historyOrderNoMatch };
-              }
-              if (activeOrderNoMatch) {
-                return { 
-                  duplicate: false, 
-                  warning: true, 
-                  status: 'pending_active', 
-                  message: `⚠️ มีงานค้างในคิวช่าง (${activeOrderNoMatch.assigned_to})`, 
-                  matchedItem: activeOrderNoMatch 
+              if (activeOrderNoMatch || historyOrderNoMatch) {
+                // AS No. ใหม่ แต่ order_no เดิมเคยส่งงานแล้ว → service call ใหม่ อนุญาต
+                return {
+                  duplicate: false,
+                  warning: true,
+                  status: 'pending_active',
+                  message: '⚠️ ออเดอร์นี้เคยส่งงานแล้ว — AS No. ใหม่ นำเข้าได้',
+                  matchedItem: activeOrderNoMatch || historyOrderNoMatch,
                 };
               }
               return { duplicate: false, status: 'new', message: '✨ งานบริการใหม่' };
