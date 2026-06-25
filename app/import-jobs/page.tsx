@@ -282,23 +282,29 @@ export default function ImportJobsPage() {
               if (activeJobIdMatch || historyJobIdMatch) {
                 return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำรหัสงานติดตั้งเดิม (ข้าม)', matchedItem: activeJobIdMatch || historyJobIdMatch };
               }
-              // ถ้า order_no ตรงกับ active queue → block (งานยังอยู่ในคิว)
+              // ถ้า order_no ตรงกับ active queue
               if (activeOrderNoMatch) {
+                if (activeOrderNoMatch.status === 'pending') {
+                  // งานยังอยู่ในคิว pending → block
+                  return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: activeOrderNoMatch };
+                }
+                // งาน submitted แล้ว → ดูจาก submissions ว่าเป็น Fail ไหม
+                const submittedJobId = activeOrderNoMatch.job_id?.trim().toLowerCase();
+                const submittedHistory = submittedJobId ? historyById.get(submittedJobId) : null;
+                const submittedWorkType: string = submittedHistory?.work_type || submittedHistory?.job_type || '';
+                const isSubmittedFail = submittedWorkType.includes('เฟล') || submittedWorkType.toLowerCase().includes('fail');
+                if (isSubmittedFail) {
+                  return { duplicate: false, warning: true, status: 'pending_active', message: '⚠️ งานเฟลเดิม — นำเข้าใหม่ได้', matchedItem: activeOrderNoMatch };
+                }
                 return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: activeOrderNoMatch };
               }
-              // ถ้า order_no ตรงกับ submissions เดิม → ต้องตรวจก่อนว่าเป็นงานเฟลหรือเปล่า
+              // ถ้า order_no ตรงกับ submissions เดิม (ไม่มีใน assigned_jobs แล้ว)
               if (historyOrderNoMatch) {
-                const prevType: string = historyOrderNoMatch.job_type || '';
-                const isFail = prevType.includes('เฟล') || prevType.toLowerCase().includes('fail');
+                // ใช้ work_type (field จริงใน submissions) รองรับ job_type ด้วยกัน
+                const prevWorkType: string = historyOrderNoMatch.work_type || historyOrderNoMatch.job_type || '';
+                const isFail = prevWorkType.includes('เฟล') || prevWorkType.toLowerCase().includes('fail');
                 if (isFail) {
-                  // งานเฟลสามารถนำเข้าออเดอร์เดิมซ้ำได้ด้วย Install No ใหม่
-                  return {
-                    duplicate: false,
-                    warning: true,
-                    status: 'pending_active',
-                    message: '⚠️ งานเฟลเดิม — นำเข้าใหม่ได้',
-                    matchedItem: historyOrderNoMatch,
-                  };
+                  return { duplicate: false, warning: true, status: 'pending_active', message: '⚠️ งานเฟลเดิม — นำเข้าใหม่ได้', matchedItem: historyOrderNoMatch };
                 }
                 return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: historyOrderNoMatch };
               }
