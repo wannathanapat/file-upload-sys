@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import AttendanceOverrideModal, { AttendanceStatus } from './AttendanceOverrideModal';
 import GeofenceMapModal from './GeofenceMapModal';
+import FaceScanModal from './FaceScanModal';
 
 /* ─────────────────────────── Types ──────────────────────────── */
 
@@ -101,6 +102,7 @@ export default function AdminView() {
   // Modals
   const [overrideModal, setOverrideModal] = useState<{ open: boolean; employee?: EmployeeInfo; date: string }>({ open: false, date: todayString() });
   const [geofenceModal, setGeofenceModal] = useState(false);
+  const [faceRegModal, setFaceRegModal] = useState<{ open: boolean; employee?: EmployeeInfo }>({ open: false });
 
   /* ────── Load ────── */
 
@@ -211,10 +213,28 @@ export default function AdminView() {
     await loadData();
   };
 
-  /* ────── Face Registration (simulated) ────── */
+  /* ────── Face Registration ────── */
 
   const handleRegisterFace = (emp: EmployeeInfo) => {
-    showToast(`เปิดลงทะเบียนใบหน้า: ${emp.name} (ฟีเจอร์นี้ต้องการ Face API backend)`, 'info');
+    setFaceRegModal({ open: true, employee: emp });
+  };
+
+  const handleFaceRegSuccess = async () => {
+    const emp = faceRegModal.employee;
+    if (!emp) return;
+    try {
+      await setDoc(doc(getDb(), 'attendance_employees', emp.username), {
+        username: emp.username,
+        name: emp.name,
+        face_registered: true,
+        registered_at: new Date().toISOString(),
+      });
+      showToast(`✅ ลงทะเบียนใบหน้า ${emp.name} สำเร็จ`, 'success');
+    } catch {
+      showToast('บันทึกข้อมูลใบหน้าไม่สำเร็จ', 'error');
+    }
+    setFaceRegModal({ open: false });
+    await loadData();
   };
 
   /* ────── Export CSV ────── */
@@ -640,6 +660,14 @@ export default function AdminView() {
         initialLat={localSettings.office_lat}
         initialLng={localSettings.office_lng}
         initialRadius={localSettings.radius_meters}
+      />
+
+      {/* Face Registration Modal */}
+      <FaceScanModal
+        isOpen={faceRegModal.open}
+        onClose={() => setFaceRegModal({ open: false })}
+        onSuccess={handleFaceRegSuccess}
+        employeeName={faceRegModal.employee?.name || ''}
       />
     </div>
   );

@@ -77,9 +77,8 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
       setProgress(prog);
       if (prog >= 100) {
         clearInterval(interval);
-        // Simulate 95% success rate
-        const success = Math.random() > 0.05;
-        setPhase(success ? 'success' : 'failed');
+        // Simulation always succeeds — real Face API to be wired up later
+        setPhase('success');
       }
     }, 30);
     return () => clearInterval(interval);
