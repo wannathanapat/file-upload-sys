@@ -1,0 +1,646 @@
+'use client';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Users, CheckCircle2, AlertCircle, Clock, CalendarDays,
+  Settings, BarChart3, Download, RefreshCw, MapPin, UserPlus,
+  Trash2, FileText, Filter, ChevronDown, Camera,
+} from 'lucide-react';
+import { useApp } from '@/app/providers';
+import { getDb } from '@/lib/firebase';
+import {
+  doc, getDoc, setDoc, collection, query, where,
+  getDocs, deleteDoc, Timestamp,
+} from 'firebase/firestore';
+import AttendanceOverrideModal, { AttendanceStatus } from './AttendanceOverrideModal';
+import GeofenceMapModal from './GeofenceMapModal';
+
+/* ─────────────────────────── Types ──────────────────────────── */
+
+interface AttendanceSettings {
+  office_lat: number;
+  office_lng: number;
+  radius_meters: number;
+  work_start_time: string;
+}
+
+interface AttendanceRecord {
+  id: string;
+  username: string;
+  name: string;
+  date: string;
+  check_in_time?: string;
+  status: string;
+  location_verified?: boolean;
+  face_verified?: boolean;
+  override_status?: string;
+  override_province?: string;
+  override_district?: string;
+  override_by?: string;
+  note?: string;
+}
+
+interface EmployeeInfo {
+  username: string;
+  name: string;
+  role: string;
+  status: string;
+  face_registered?: boolean;
+}
+
+/* ─────────────────────────── Helpers ────────────────────────── */
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
+  on_time:        { label: 'ปกติ',        bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+  late:           { label: 'สาย',          bg: 'bg-red-50',     text: 'text-red-600',     border: 'border-red-200',     dot: 'bg-red-500'     },
+  absent:         { label: 'ขาดงาน',       bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200',    dot: 'bg-rose-700'    },
+  personal_leave: { label: 'ลากิจ',        bg: 'bg-amber-50',   text: 'text-amber-700',   border: 'border-amber-200',   dot: 'bg-amber-500'   },
+  sick_leave:     { label: 'ลาป่วย',       bg: 'bg-orange-50',  text: 'text-orange-600',  border: 'border-orange-200',  dot: 'bg-orange-500'  },
+  onsite:         { label: 'ลงพื้นที่',    bg: 'bg-sky-50',     text: 'text-sky-700',     border: 'border-sky-200',     dot: 'bg-sky-500'     },
+  not_checked_in: { label: 'ยังไม่เข้า',  bg: 'bg-slate-50',   text: 'text-slate-500',   border: 'border-slate-200',   dot: 'bg-slate-400'   },
+};
+
+function getStatusKey(record?: AttendanceRecord | null): string {
+  if (!record) return 'not_checked_in';
+  return record.override_status || record.status;
+}
+
+function todayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/* ─────────────────── AdminView Component ─────────────────────── */
+
+export default function AdminView() {
+  const { currentUser, showToast } = useApp();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
+
+  // Data
+  const [settings, setSettings] = useState<AttendanceSettings>({
+    office_lat: 19.9071, office_lng: 99.8314, radius_meters: 100, work_start_time: '08:00',
+  });
+  const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
+  const [todayRecords, setTodayRecords] = useState<Record<string, AttendanceRecord>>({});
+  const [reportRecords, setReportRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [reportLoading, setReportLoading] = useState(false);
+
+  // Settings local state
+  const [localSettings, setLocalSettings] = useState<AttendanceSettings>(settings);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+
+  // Report filters
+  const [reportDateFrom, setReportDateFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reportDateTo, setReportDateTo] = useState(todayString);
+  const [reportEmployee, setReportEmployee] = useState('');
+
+  // Modals
+  const [overrideModal, setOverrideModal] = useState<{ open: boolean; employee?: EmployeeInfo; date: string }>({ open: false, date: todayString() });
+  const [geofenceModal, setGeofenceModal] = useState(false);
+
+  /* ────── Load ────── */
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const db = getDb();
+
+      // Settings
+      const settingsSnap = await getDoc(doc(db, 'attendance_settings', 'config'));
+      if (settingsSnap.exists()) {
+        const s = settingsSnap.data() as AttendanceSettings;
+        setSettings(s);
+        setLocalSettings(s);
+      }
+
+      // Employees (staff only)
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const emps: EmployeeInfo[] = usersSnap.docs
+        .map(d => d.data() as EmployeeInfo)
+        .filter(u => u.role === 'staff' && u.status === 'active');
+      setEmployees(emps);
+
+      // Today records
+      const today = todayString();
+      const todayQ = query(collection(db, 'attendance_records'), where('date', '==', today));
+      const todaySnap = await getDocs(todayQ);
+      const todayMap: Record<string, AttendanceRecord> = {};
+      todaySnap.docs.forEach(d => {
+        const rec = { id: d.id, ...d.data() } as AttendanceRecord;
+        todayMap[rec.username] = rec;
+      });
+      setTodayRecords(todayMap);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  /* ────── Reports ────── */
+
+  const loadReport = useCallback(async () => {
+    setReportLoading(true);
+    try {
+      const db = getDb();
+      let q = query(
+        collection(db, 'attendance_records'),
+        where('date', '>=', reportDateFrom),
+        where('date', '<=', reportDateTo)
+      );
+      const snap = await getDocs(q);
+      let recs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }) as AttendanceRecord)
+        .sort((a, b) => b.date.localeCompare(a.date));
+      if (reportEmployee) recs = recs.filter(r => r.username === reportEmployee);
+      setReportRecords(recs);
+    } catch (err) {
+      console.error(err);
+      showToast('โหลดรายงานไม่สำเร็จ', 'error');
+    } finally {
+      setReportLoading(false);
+    }
+  }, [reportDateFrom, reportDateTo, reportEmployee, showToast]);
+
+  /* ────── Settings Save ────── */
+
+  const saveSettings = async () => {
+    setSettingsSaving(true);
+    try {
+      await setDoc(doc(getDb(), 'attendance_settings', 'config'), localSettings);
+      setSettings(localSettings);
+      showToast('บันทึกการตั้งค่าสำเร็จ', 'success');
+    } catch {
+      showToast('บันทึกการตั้งค่าไม่สำเร็จ', 'error');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  /* ────── Override ────── */
+
+  const handleOverrideSave = async (
+    status: AttendanceStatus, province?: string, district?: string, note?: string
+  ) => {
+    if (!overrideModal.employee || !currentUser) return;
+    const emp = overrideModal.employee;
+    const date = overrideModal.date;
+    const id = `${emp.username}_${date}`;
+    const db = getDb();
+    const existing = await getDoc(doc(db, 'attendance_records', id));
+    const base = existing.exists() ? existing.data() : {
+      username: emp.username, name: emp.name, date,
+      check_in_time: null, status: 'absent',
+      location_verified: false, face_verified: false,
+    };
+    await setDoc(doc(db, 'attendance_records', id), {
+      ...base,
+      override_status: status,
+      override_province: province || null,
+      override_district: district || null,
+      override_by: currentUser.username,
+      note: note || '',
+    });
+    showToast(`อัปเดตสถานะ ${emp.name} สำเร็จ`, 'success');
+    await loadData();
+  };
+
+  /* ────── Face Registration (simulated) ────── */
+
+  const handleRegisterFace = (emp: EmployeeInfo) => {
+    showToast(`เปิดลงทะเบียนใบหน้า: ${emp.name} (ฟีเจอร์นี้ต้องการ Face API backend)`, 'info');
+  };
+
+  /* ────── Export CSV ────── */
+
+  const exportCSV = () => {
+    if (reportRecords.length === 0) { showToast('ไม่มีข้อมูลสำหรับ Export', 'info'); return; }
+    const headers = ['วันที่', 'ชื่อ', 'เวลาเข้า', 'สถานะ', 'จังหวัด', 'อำเภอ', 'หมายเหตุ'];
+    const rows = reportRecords.map(r => {
+      const sk = getStatusKey(r);
+      const cfg = STATUS_CONFIG[sk];
+      return [
+        r.date,
+        r.name,
+        r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-',
+        cfg?.label || sk,
+        r.override_province || '-',
+        r.override_district || '-',
+        r.note || '-',
+      ];
+    });
+    const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance_${reportDateFrom}_to_${reportDateTo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Export CSV สำเร็จ', 'success');
+  };
+
+  /* ────── Export PDF (print) ────── */
+
+  const exportPDF = () => {
+    if (reportRecords.length === 0) { showToast('ไม่มีข้อมูลสำหรับ Export', 'info'); return; }
+    const rows = reportRecords.map(r => {
+      const sk = getStatusKey(r);
+      const cfg = STATUS_CONFIG[sk];
+      const location = r.override_province ? `${r.override_province} › ${r.override_district}` : '-';
+      return `<tr>
+        <td>${r.date}</td>
+        <td>${r.name}</td>
+        <td>${r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+        <td>${cfg?.label || sk}</td>
+        <td>${location}</td>
+        <td>${r.note || '-'}</td>
+      </tr>`;
+    }).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>รายงานการลงเวลา</title>
+      <style>
+        body{font-family:'Noto Sans Thai',sans-serif;padding:24px;color:#1e293b}
+        h1{font-size:18px;margin-bottom:4px}p{font-size:12px;color:#64748b;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th{background:#1d4ed8;color:#fff;padding:8px 10px;text-align:left}
+        td{border-bottom:1px solid #e2e8f0;padding:7px 10px}
+        tr:nth-child(even) td{background:#f8fafc}
+        @media print{body{padding:10px}}
+      </style></head><body>
+      <h1>รายงานการลงเวลาช่าง</h1>
+      <p>ช่วงวันที่ ${reportDateFrom} ถึง ${reportDateTo}${reportEmployee ? ` | ช่าง: ${employees.find(e => e.username === reportEmployee)?.name}` : ''}</p>
+      <table><thead><tr><th>วันที่</th><th>ชื่อ</th><th>เวลาเข้า</th><th>สถานะ</th><th>พื้นที่</th><th>หมายเหตุ</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  };
+
+  /* ────── Summary counts ────── */
+
+  const totalEmp = employees.length;
+  const checkedIn = employees.filter(e => todayRecords[e.username]).length;
+  const late = employees.filter(e => getStatusKey(todayRecords[e.username]) === 'late').length;
+  const onLeave = employees.filter(e => ['personal_leave', 'sick_leave', 'absent', 'onsite'].includes(getStatusKey(todayRecords[e.username]))).length;
+  const notIn = totalEmp - checkedIn - onLeave;
+
+  /* ────── Render ────── */
+
+  return (
+    <div className="flex flex-col min-h-full bg-gradient-to-br from-blue-50 via-white to-sky-50">
+      {/* Tab Bar */}
+      <div className="bg-white border-b border-slate-100 px-5 pt-3 flex gap-0 top-0 lg:top-0 z-10">
+        {[
+          { id: 'dashboard', label: 'วันนี้', icon: Users },
+          { id: 'settings', label: 'ตั้งค่า', icon: Settings },
+          { id: 'reports', label: 'รายงาน', icon: BarChart3 },
+        ].map(tab => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-1.5 px-4 pb-3 text-xs font-bold Prompt border-b-2 transition-colors ${isActive ? 'text-blue-600 border-blue-600' : 'text-slate-400 border-transparent'}`}
+            >
+              <Icon className="w-3.5 h-3.5" /> {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex-1 px-4 py-5 pb-32 space-y-4">
+        <AnimatePresence mode="wait">
+          {/* ═══════════════ DASHBOARD TAB ═══════════════ */}
+          {activeTab === 'dashboard' && (
+            <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'เข้างานแล้ว', value: checkedIn, icon: CheckCircle2, bg: 'from-emerald-500 to-emerald-600', shadow: 'shadow-emerald-300/40' },
+                  { label: 'ยังไม่เข้า',  value: notIn < 0 ? 0 : notIn, icon: Clock,         bg: 'from-slate-500 to-slate-600', shadow: 'shadow-slate-300/40' },
+                  { label: 'มาสาย',       value: late,       icon: AlertCircle, bg: 'from-red-500 to-red-600',     shadow: 'shadow-red-300/40'     },
+                  { label: 'ลา/ขาด',      value: onLeave,    icon: CalendarDays,bg: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-300/40'   },
+                ].map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div key={card.label} className={`bg-gradient-to-br ${card.bg} rounded-3xl p-4 text-white shadow-xl ${card.shadow}`}>
+                      <Icon className="w-5 h-5 mb-2 opacity-80" />
+                      <div className="text-3xl font-black">{card.value}</div>
+                      <div className="text-xs font-semibold opacity-80 Prompt mt-0.5">{card.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Refresh */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-slate-700 Prompt">รายชื่อช่าง ({totalEmp} คน)</h2>
+                <button onClick={loadData} disabled={loading} className="p-1.5 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition disabled:opacity-40">
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {/* Employee Cards */}
+              {loading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : employees.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm Prompt">ยังไม่มีข้อมูลพนักงาน</p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {employees.map((emp) => {
+                    const rec = todayRecords[emp.username];
+                    const sk = getStatusKey(rec);
+                    const cfg = STATUS_CONFIG[sk];
+                    return (
+                      <div key={emp.username} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center font-bold text-blue-700 text-sm flex-shrink-0">
+                          {emp.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-800 Prompt truncate">{emp.name}</p>
+                          <p className="text-[10px] text-slate-400 Prompt mt-0.5">
+                            {rec?.check_in_time
+                              ? `เข้า ${new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`
+                              : 'ยังไม่ได้เช็คอิน'
+                            }
+                            {rec?.override_province && ` • ${rec.override_province}`}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[9px] font-bold px-2 py-1 rounded-full border Prompt ${cfg.bg} ${cfg.text} ${cfg.border} whitespace-nowrap`}>
+                            {cfg.label}
+                          </span>
+                          <button
+                            onClick={() => setOverrideModal({ open: true, employee: emp, date: todayString() })}
+                            className="p-1.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition"
+                            title="แก้ไขสถานะ"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ═══════════════ SETTINGS TAB ═══════════════ */}
+          {activeTab === 'settings' && (
+            <motion.div key="settings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+              {/* Geofence Section */}
+              <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 bg-blue-50 rounded-xl flex items-center justify-center">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-800 Prompt">พิกัดออฟฟิศ (Geofencing)</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-slate-50 rounded-2xl p-3">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase Prompt">Latitude</p>
+                    <p className="text-sm font-bold text-slate-700 mt-0.5">{localSettings.office_lat}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-2xl p-3">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase Prompt">Longitude</p>
+                    <p className="text-sm font-bold text-slate-700 mt-0.5">{localSettings.office_lng}</p>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide Prompt">รัศมีอนุญาต</label>
+                    <span className="text-xs font-bold text-blue-600">{localSettings.radius_meters} เมตร</span>
+                  </div>
+                  <input type="range" min={30} max={500} step={10}
+                    value={localSettings.radius_meters}
+                    onChange={(e) => setLocalSettings(prev => ({ ...prev, radius_meters: parseInt(e.target.value) }))}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+                <button
+                  onClick={() => setGeofenceModal(true)}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-2xl border border-blue-200 transition active:scale-95 Prompt"
+                >
+                  <MapPin className="w-4 h-4" />
+                  ปักหมุดบนแผนที่
+                </button>
+              </div>
+
+              {/* Work Time Section */}
+              <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 bg-indigo-50 rounded-xl flex items-center justify-center">
+                    <Clock className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-800 Prompt">เวลาเข้างาน</h3>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 Prompt">
+                    เวลาเริ่มงานมาตรฐาน (หากเข้าหลังนี้ = สาย)
+                  </label>
+                  <input
+                    type="time"
+                    value={localSettings.work_start_time}
+                    onChange={(e) => setLocalSettings(prev => ({ ...prev, work_start_time: e.target.value }))}
+                    className="w-full px-4 py-3 text-sm font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-blue-400 focus:bg-white transition"
+                  />
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <button
+                onClick={saveSettings}
+                disabled={settingsSaving}
+                className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold rounded-2xl text-sm transition active:scale-95 Prompt shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+              >
+                {settingsSaving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />กำลังบันทึก...</> : '💾 บันทึกการตั้งค่า'}
+              </button>
+
+              {/* Employee Management */}
+              <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-violet-50 rounded-xl flex items-center justify-center">
+                      <Users className="w-4 h-4 text-violet-600" />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-800 Prompt">จัดการพนักงาน</h3>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">{employees.length} คน</span>
+                </div>
+                <p className="text-[10px] text-slate-400 Prompt">แก้ไขรายชื่อพนักงานได้ที่หน้า ตั้งค่าระบบหลัก (Users Management)</p>
+                <div className="space-y-2">
+                  {employees.map(emp => (
+                    <div key={emp.username} className="flex items-center gap-3 py-2.5 px-3 bg-slate-50 rounded-2xl">
+                      <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center font-bold text-blue-700 text-xs flex-shrink-0">
+                        {emp.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-700 Prompt truncate">{emp.name}</p>
+                        <p className="text-[9px] text-slate-400 Prompt">{emp.username}</p>
+                      </div>
+                      <button
+                        onClick={() => handleRegisterFace(emp)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-600 font-bold text-[9px] rounded-xl border border-violet-200 transition Prompt"
+                      >
+                        <Camera className="w-3 h-3" />
+                        สแกนใบหน้า
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══════════════ REPORTS TAB ═══════════════ */}
+          {activeTab === 'reports' && (
+            <motion.div key="reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+              {/* Filter Card */}
+              <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-blue-500" />
+                  <h3 className="text-sm font-bold text-slate-800 Prompt">กรองข้อมูล</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 Prompt">จากวันที่</label>
+                    <input type="date" value={reportDateFrom}
+                      onChange={(e) => setReportDateFrom(e.target.value)}
+                      className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 Prompt">ถึงวันที่</label>
+                    <input type="date" value={reportDateTo}
+                      onChange={(e) => setReportDateTo(e.target.value)}
+                      className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 transition"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 Prompt">ช่าง (เว้นว่าง = ทั้งหมด)</label>
+                  <div className="relative">
+                    <select value={reportEmployee} onChange={(e) => setReportEmployee(e.target.value)}
+                      className="w-full appearance-none px-3 py-2.5 pr-8 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 transition text-slate-700 font-semibold Prompt"
+                    >
+                      <option value="">ช่างทั้งหมด</option>
+                      {employees.map(e => <option key={e.username} value={e.username}>{e.name}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <button
+                  onClick={loadReport}
+                  disabled={reportLoading}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition active:scale-95 Prompt flex items-center justify-center gap-2"
+                >
+                  {reportLoading ? <><div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />กำลังโหลด...</> : '🔍 สร้างรายงาน'}
+                </button>
+              </div>
+
+              {/* Export Buttons */}
+              {reportRecords.length > 0 && (
+                <div className="flex gap-3">
+                  <button onClick={exportCSV} className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 Prompt shadow-lg shadow-emerald-500/30">
+                    <Download className="w-4 h-4" />
+                    Export Excel (CSV)
+                  </button>
+                  <button onClick={exportPDF} className="flex-1 flex items-center justify-center gap-2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 Prompt shadow-lg shadow-rose-500/30">
+                    <FileText className="w-4 h-4" />
+                    Export PDF
+                  </button>
+                </div>
+              )}
+
+              {/* Report Table */}
+              {reportRecords.length > 0 ? (
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 Prompt">ผลลัพธ์ {reportRecords.length} รายการ</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px]">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          {['วันที่', 'ชื่อ', 'เวลาเข้า', 'สถานะ', 'พื้นที่'].map(h => (
+                            <th key={h} className="text-left px-3 py-2.5 text-[9px] font-bold text-slate-500 uppercase tracking-wide Prompt whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reportRecords.map(r => {
+                          const sk = getStatusKey(r);
+                          const cfg = STATUS_CONFIG[sk] || STATUS_CONFIG['absent'];
+                          return (
+                            <tr key={r.id} className="border-t border-slate-50 hover:bg-slate-50/50 transition">
+                              <td className="px-3 py-2.5 text-slate-600 Prompt whitespace-nowrap">{r.date}</td>
+                              <td className="px-3 py-2.5 text-slate-700 font-semibold Prompt whitespace-nowrap">{r.name}</td>
+                              <td className="px-3 py-2.5 text-slate-600 Prompt whitespace-nowrap">
+                                {r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border Prompt ${cfg.bg} ${cfg.text} ${cfg.border} whitespace-nowrap`}>
+                                  {cfg.label}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-500 Prompt whitespace-nowrap">
+                                {r.override_province ? `${r.override_province} › ${r.override_district}` : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : reportLoading ? null : (
+                <div className="text-center py-12 text-slate-400">
+                  <BarChart3 className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm Prompt">กดปุ่มสร้างรายงานเพื่อดูข้อมูล</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Override Modal */}
+      <AttendanceOverrideModal
+        isOpen={overrideModal.open}
+        onClose={() => setOverrideModal(prev => ({ ...prev, open: false }))}
+        onSave={handleOverrideSave}
+        employeeName={overrideModal.employee?.name || ''}
+        date={overrideModal.date}
+      />
+
+      {/* Geofence Modal */}
+      <GeofenceMapModal
+        isOpen={geofenceModal}
+        onClose={() => setGeofenceModal(false)}
+        onSave={(lat, lng, radius) => {
+          setLocalSettings(prev => ({ ...prev, office_lat: lat, office_lng: lng, radius_meters: radius }));
+          showToast('อัปเดตพิกัดแล้ว กด "บันทึกการตั้งค่า" เพื่อยืนยัน', 'info');
+        }}
+        initialLat={localSettings.office_lat}
+        initialLng={localSettings.office_lng}
+        initialRadius={localSettings.radius_meters}
+      />
+    </div>
+  );
+}

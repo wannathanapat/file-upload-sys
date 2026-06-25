@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Bell,
   Megaphone,
+  ClipboardCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -70,11 +71,13 @@ function SidebarInner() {
     { name: 'บรอดคาสต์ประชาสัมพันธ์', path: '/broadcast', icon: Megaphone },
     { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
     { name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings },
+    { name: 'ระบบลงเวลาช่าง', path: '/attendance', icon: ClipboardCheck },
   ] : [
     { name: 'แผงควบคุมผลงาน', path: '/submit?tab=dashboard', icon: LayoutDashboard },
     { name: 'รายการงานค้างส่ง', path: '/submit?tab=queue', icon: ScanLine },
     { name: 'ประวัติการส่งงาน', path: '/submit?tab=history', icon: History },
     { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
+    { name: 'ลงเวลาเข้างาน', path: '/attendance', icon: ClipboardCheck },
   ];
 
   const toggleSidebar = () => setIsOpen(!isOpen);
@@ -193,7 +196,8 @@ function SidebarInner() {
       '/broadcast': 'ส่งประกาศและข่าวสาร',
       '/submit?tab=dashboard': 'ผลงานและสถิติสะสม',
       '/submit?tab=queue': 'ใบงานที่ต้องจัดส่ง',
-      '/submit?tab=history': 'ประวัติส่งงานของฉัน'
+      '/submit?tab=history': 'ประวัติส่งงานของฉัน',
+      '/attendance': 'เช็คอิน / รายงานการลงเวลา',
     };
 
     const iconColors: { [key: string]: { bg: string, shadow: string } } = {
@@ -207,6 +211,7 @@ function SidebarInner() {
       '/broadcast': { bg: 'bg-rose-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(244,63,94,0.35)]' },
       '/import-jobs': { bg: 'bg-blue-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(59,130,246,0.35)]' },
       '/settings': { bg: 'bg-slate-700 text-white', shadow: 'shadow-[0_8px_20px_rgba(51,65,85,0.35)]' },
+      '/attendance': { bg: 'bg-teal-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(20,184,166,0.35)]' },
     };
 
 
@@ -372,7 +377,18 @@ function SidebarInner() {
                 <UploadCloud className="w-[22px] h-[22px]" strokeWidth={pathname === '/import-jobs' ? 2.2 : 1.8} />
               </button>
 
-              {/* 5: Menu / Drawer toggle */}
+              {/* 5: Attendance */}
+              <button
+                onClick={() => router.push('/attendance')}
+                className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
+                  pathname === '/attendance' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="ลงเวลา"
+              >
+                <ClipboardCheck className="w-[22px] h-[22px]" strokeWidth={pathname === '/attendance' ? 2.2 : 1.8} />
+              </button>
+
+              {/* 6: Menu / Drawer toggle */}
               <button
                 onClick={toggleSidebar}
                 className="flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer text-slate-400 hover:text-slate-700"
@@ -414,6 +430,17 @@ function SidebarInner() {
                 title="ประวัติส่งงาน"
               >
                 <History className="w-[22px] h-[22px]" strokeWidth={pathname === '/submit' && searchParams.get('tab') === 'history' ? 2.2 : 1.8} />
+              </button>
+
+              {/* Staff: ลงเวลา */}
+              <button
+                onClick={() => router.push('/attendance')}
+                className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
+                  pathname === '/attendance' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                }`}
+                title="ลงเวลา"
+              >
+                <ClipboardCheck className="w-[22px] h-[22px]" strokeWidth={pathname === '/attendance' ? 2.2 : 1.8} />
               </button>
 
               {/* Staff: Drawer / profile */}
