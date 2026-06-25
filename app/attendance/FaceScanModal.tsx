@@ -21,6 +21,9 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
   const onSuccessRef = useRef(onSuccess);
   useEffect(() => { onSuccessRef.current = onSuccess; }, [onSuccess]);
 
+  // AudioContext ref — must be created/resumed inside a user gesture to work on mobile
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
   const [phase, setPhase] = useState<ScanPhase>('init');
   const [countdown, setCountdown] = useState(3);
   const [progress, setProgress] = useState(0);
@@ -94,14 +97,44 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
   // which would reset this timer before it ever fires.
   useEffect(() => {
     if (phase !== 'success') return;
-    // Speak the success message
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      const text = voiceMessage || 'เช็คอินสำเร็จ';
-      const msg = new SpeechSynthesisUtterance(text);
-      msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05;
-      speechSynthesis.cancel();
-      speechSynthesis.speak(msg);
-    }
+
+    // ── 1. Web Audio API beep (works on Android & iOS, no autoplay restriction
+    //       since AudioContext was unlocked on the user-gesture in handleStartScan)
+    const playBeep = () => {
+      try {
+        const ctx = audioCtxRef.current;
+        if (!ctx) return;
+        // Resume in case it got suspended
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);          // A5 — bright success tone
+        osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.15); // slide down
+        gain.gain.setValueAtTime(0.6, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+      } catch {/* ignore */}
+    };
+    playBeep();
+
+    // ── 2. speechSynthesis TTS (best-effort; may be silent on some mobile browsers)
+    try {
+      if ('speechSynthesis' in window) {
+        const text = voiceMessage || 'เช็คอินสำเร็จ';
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05; msg.volume = 1;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(msg);
+      }
+    } catch {/* ignore */}
+
     const t = setTimeout(() => {
       stopCamera();
       onSuccessRef.current();
@@ -110,6 +143,26 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
   }, [phase, stopCamera, voiceMessage]); // voiceMessage is OK here — it rarely changes
 
   const handleStartScan = () => {
+    // ── Unlock AudioContext here (inside a real user gesture) ────────────────
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    } catch {/* ignore */}
+
+    // ── Unlock speechSynthesis with a silent utterance (iOS requirement) ─────
+    try {
+      if ('speechSynthesis' in window) {
+        const silent = new SpeechSynthesisUtterance('');
+        silent.volume = 0;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(silent);
+      }
+    } catch {/* ignore */}
+
     setCountdown(3);
     setProgress(0);
     setPhase('countdown');
