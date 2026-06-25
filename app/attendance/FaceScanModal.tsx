@@ -16,6 +16,10 @@ type ScanPhase = 'init' | 'streaming' | 'countdown' | 'scanning' | 'success' | '
 export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName }: FaceScanModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Use a ref so the success-timer effect is NOT re-triggered every parent re-render
+  const onSuccessRef = useRef(onSuccess);
+  useEffect(() => { onSuccessRef.current = onSuccess; }, [onSuccess]);
+
   const [phase, setPhase] = useState<ScanPhase>('init');
   const [countdown, setCountdown] = useState(3);
   const [progress, setProgress] = useState(0);
@@ -84,15 +88,17 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
     return () => clearInterval(interval);
   }, [phase]);
 
-  // Auto-close on success
+  // Auto-close on success — timer must NOT depend on `onSuccess` directly
+  // because parent re-renders every second (clock) create a new function ref,
+  // which would reset this timer before it ever fires.
   useEffect(() => {
     if (phase !== 'success') return;
     const t = setTimeout(() => {
       stopCamera();
-      onSuccess();
+      onSuccessRef.current();
     }, 1500);
     return () => clearTimeout(t);
-  }, [phase, onSuccess, stopCamera]);
+  }, [phase, stopCamera]); // ← onSuccess intentionally excluded
 
   const handleStartScan = () => {
     setCountdown(3);
