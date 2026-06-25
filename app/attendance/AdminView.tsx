@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, CheckCircle2, AlertCircle, Clock, CalendarDays,
   Settings, BarChart3, Download, RefreshCw, MapPin, UserPlus,
-  Trash2, FileText, Filter, ChevronDown, Camera,
+  Trash2, FileText, Filter, ChevronDown, Camera, X,
 } from 'lucide-react';
 import { useApp } from '@/app/providers';
 import { getDb } from '@/lib/firebase';
@@ -446,143 +446,165 @@ export default function AdminView() {
                   <p className="text-sm Prompt">ยังไม่มีข้อมูลพนักงาน</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {employees.map((emp) => {
+                <div className="space-y-2">
+                  {employees.map((emp, i) => {
                     const rec = todayRecords[emp.username];
                     const sk = getStatusKey(rec);
                     const cfg = STATUS_CONFIG[sk];
-                    const avatarGrad: Record<string, string> = {
-                      on_time: 'from-emerald-400 to-emerald-600',
-                      late: 'from-red-400 to-red-600',
-                      absent: 'from-rose-500 to-rose-700',
-                      not_checked_in: 'from-slate-300 to-slate-400',
-                      personal_leave: 'from-amber-400 to-amber-600',
-                      sick_leave: 'from-orange-400 to-orange-500',
-                      onsite: 'from-sky-400 to-sky-600',
-                    };
                     const checkTime = rec?.check_in_time
                       ? new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                       : null;
+                    const stripColor: Record<string, string> = {
+                      on_time: 'bg-emerald-500', late: 'bg-red-500',
+                      absent: 'bg-rose-700', not_checked_in: 'bg-slate-200',
+                      personal_leave: 'bg-amber-400', sick_leave: 'bg-orange-400', onsite: 'bg-sky-500',
+                    };
+                    const avatarCls: Record<string, string> = {
+                      on_time: 'bg-emerald-100 text-emerald-700', late: 'bg-red-100 text-red-600',
+                      absent: 'bg-rose-100 text-rose-700', not_checked_in: 'bg-slate-100 text-slate-500',
+                      personal_leave: 'bg-amber-100 text-amber-700', sick_leave: 'bg-orange-100 text-orange-600',
+                      onsite: 'bg-sky-100 text-sky-700',
+                    };
                     return (
                       <motion.button
                         key={emp.username}
-                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                        whileTap={{ scale: 0.97 }}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.035 }}
+                        whileTap={{ scale: 0.985 }}
                         onClick={() => setSelectedEmployee({ emp, rec, sk, cfg, checkTime })}
-                        className="text-left relative bg-white/70 backdrop-blur-md rounded-3xl border border-white/80 shadow-lg shadow-slate-200/50 overflow-hidden p-4 flex flex-col gap-3 hover:shadow-xl transition-all duration-200"
+                        className="w-full text-left bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex items-center hover:shadow-md hover:border-slate-200 transition-all duration-200"
                       >
-                        {/* Subtle gradient accent */}
-                        <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${avatarGrad[sk] || 'from-slate-300 to-slate-400'} opacity-60`} />
+                        {/* Left color strip */}
+                        <div className={`w-1 self-stretch flex-shrink-0 ${stripColor[sk] || 'bg-slate-200'}`} />
 
                         {/* Avatar */}
-                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarGrad[sk] || 'from-slate-300 to-slate-400'} flex items-center justify-center font-black text-white text-lg shadow-md`}>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm flex-shrink-0 ml-3 my-2.5 ${avatarCls[sk] || 'bg-slate-100 text-slate-500'}`}>
                           {emp.name.charAt(0)}
                         </div>
 
-                        {/* Name */}
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-bold text-slate-800 Prompt leading-snug line-clamp-2">{emp.name}</p>
-                          {/* Status badge */}
-                          <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                            {cfg.label}
-                          </span>
+                        {/* Text */}
+                        <div className="flex-1 min-w-0 px-3 py-2.5">
+                          <p className="text-xs font-bold text-slate-800 Prompt truncate">{emp.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                              {cfg.label}
+                            </span>
+                            {checkTime && <span className="text-[9px] text-slate-400 font-semibold">⏰ {checkTime} น.</span>}
+                          </div>
                         </div>
 
-                        {/* Time */}
-                        {checkTime && (
-                          <p className="text-[10px] font-semibold text-slate-400">เข้า {checkTime} น.</p>
-                        )}
+                        {/* Chevron */}
+                        <ChevronDown className="w-3.5 h-3.5 text-slate-300 -rotate-90 flex-shrink-0 mr-3" />
                       </motion.button>
                     );
                   })}
                 </div>
               )}
 
-              {/* ── Employee Detail Bottom Sheet ── */}
+              {/* ── Employee Detail Centered Modal ── */}
               <AnimatePresence>
                 {selectedEmployee && (() => {
                   const { emp, rec, sk, cfg, checkTime } = selectedEmployee;
+                  const gradMap: Record<string, string> = {
+                    on_time: 'from-emerald-400 to-emerald-600',
+                    late: 'from-red-400 to-red-600',
+                    absent: 'from-rose-500 to-rose-700',
+                    not_checked_in: 'from-slate-400 to-slate-600',
+                    personal_leave: 'from-amber-400 to-amber-500',
+                    sick_leave: 'from-orange-400 to-orange-500',
+                    onsite: 'from-sky-400 to-sky-600',
+                  };
+                  const grad = gradMap[sk] || 'from-slate-400 to-slate-600';
                   return (
                     <motion.div
-                      key="emp-detail-overlay"
+                      key="emp-modal"
                       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      className="fixed inset-0 z-50 flex items-end justify-center"
+                      className="fixed inset-0 z-50 flex items-center justify-center px-5"
                       onClick={() => setSelectedEmployee(null)}
                     >
-                      {/* Backdrop */}
-                      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" />
+                      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-md" />
 
-                      {/* Sheet */}
                       <motion.div
-                        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
-                        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="relative w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-t-[2rem] shadow-2xl p-6 pb-10 border-t border-white/60"
+                        initial={{ scale: 0.9, opacity: 0, y: 12 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 12 }}
+                        transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+                        onClick={e => e.stopPropagation()}
+                        className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden"
                       >
-                        {/* Handle */}
-                        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-200 rounded-full" />
-
-                        {/* Header */}
-                        <div className="flex items-center gap-4 mt-2 mb-5">
-                          <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${
-                            { on_time: 'from-emerald-400 to-emerald-600', late: 'from-red-400 to-red-600',
-                              absent: 'from-rose-500 to-rose-700', not_checked_in: 'from-slate-300 to-slate-400',
-                              personal_leave: 'from-amber-400 to-amber-600', sick_leave: 'from-orange-400 to-orange-500',
-                              onsite: 'from-sky-400 to-sky-600' }[sk] || 'from-slate-300 to-slate-400'
-                          } flex items-center justify-center font-black text-white text-2xl shadow-lg`}>
-                            {emp.name.charAt(0)}
+                        {/* Gradient header */}
+                        <div className={`bg-gradient-to-br ${grad} px-5 pt-5 pb-12`}>
+                          <div className="flex justify-end mb-3">
+                            <button
+                              onClick={() => setSelectedEmployee(null)}
+                              className="w-8 h-8 rounded-full bg-white/25 hover:bg-white/40 flex items-center justify-center text-white transition"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-base font-black text-slate-800 Prompt truncate">{emp.name}</p>
-                            <p className="text-xs text-slate-400 Prompt mt-0.5">{emp.username}</p>
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full mt-1.5 ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                              {cfg.label}
-                            </span>
+                          <div className="flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-2xl bg-white/20 border-2 border-white/40 flex items-center justify-center font-black text-white text-2xl shadow-lg">
+                              {emp.name.charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-base font-black text-white Prompt leading-snug">{emp.name}</p>
+                              <p className="text-[11px] text-white/70 Prompt mt-0.5">{emp.username}</p>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Info Grid */}
-                        <div className="grid grid-cols-2 gap-2.5 mb-5">
-                          <div className="bg-slate-50/80 rounded-2xl p-3">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide Prompt">เวลาเข้างาน</p>
-                            <p className="text-sm font-bold text-slate-700 mt-1">{checkTime ? `${checkTime} น.` : '—'}</p>
+                        {/* Status pill floating over header */}
+                        <div className="px-5 -mt-4 mb-4">
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-3.5 py-1.5 rounded-full shadow-md border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+                            <span className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+                            {cfg.label}
+                          </span>
+                        </div>
+
+                        {/* Info */}
+                        <div className="px-5 pb-5 space-y-3">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-slate-50 rounded-2xl p-3">
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide Prompt">เวลาเข้างาน</p>
+                              <p className="text-sm font-black text-slate-700 mt-1">{checkTime ? `${checkTime} น.` : '—'}</p>
+                            </div>
+                            <div className="bg-slate-50 rounded-2xl p-3">
+                              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide Prompt">Face Scan</p>
+                              <p className="text-sm font-black text-slate-700 mt-1">{rec?.face_verified ? '✅ ผ่าน' : '—'}</p>
+                            </div>
                           </div>
-                          <div className="bg-slate-50/80 rounded-2xl p-3">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide Prompt">Face Scan</p>
-                            <p className="text-sm font-bold text-slate-700 mt-1">{rec?.face_verified ? '✅ ผ่าน' : '—'}</p>
-                          </div>
+
                           {rec?.override_province && (
-                            <div className="bg-sky-50/80 rounded-2xl p-3 col-span-2">
-                              <p className="text-[9px] font-bold text-sky-400 uppercase tracking-wide Prompt">พื้นที่</p>
-                              <p className="text-sm font-bold text-sky-700 mt-1">{rec.override_province} › {rec.override_district || '—'}</p>
+                            <div className="flex items-center gap-2 bg-sky-50 rounded-2xl px-3 py-2.5">
+                              <MapPin className="w-3.5 h-3.5 text-sky-500 flex-shrink-0" />
+                              <p className="text-xs font-bold text-sky-700 Prompt">{rec.override_province}{rec.override_district ? ` › ${rec.override_district}` : ''}</p>
                             </div>
                           )}
                           {rec?.note && (
-                            <div className="bg-amber-50/80 rounded-2xl p-3 col-span-2">
-                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wide Prompt">หมายเหตุ</p>
-                              <p className="text-xs font-medium text-amber-700 mt-1 Prompt">{rec.note}</p>
+                            <div className="bg-amber-50 rounded-2xl px-3 py-2.5 border border-amber-100">
+                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wide Prompt mb-0.5">หมายเหตุ</p>
+                              <p className="text-xs text-amber-700 Prompt">{rec.note}</p>
                             </div>
                           )}
-                        </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-2.5">
-                          <button
-                            onClick={() => { setSelectedEmployee(null); setOverrideModal({ open: true, employee: emp, date: todayString() }); }}
-                            className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 Prompt shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
-                          >
-                            <Settings className="w-3.5 h-3.5" />
-                            แก้ไขสถานะ
-                          </button>
-                          <button
-                            onClick={() => { setSelectedEmployee(null); handleExcludeEmployee(emp); }}
-                            className="py-3.5 px-4 bg-red-50 hover:bg-red-100 text-red-500 font-bold text-xs rounded-2xl border border-red-200 transition active:scale-95 Prompt flex items-center gap-2"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            ซ่อน
-                          </button>
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => { setSelectedEmployee(null); setOverrideModal({ open: true, employee: emp, date: todayString() }); }}
+                              className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 shadow-lg shadow-blue-500/25 flex items-center justify-center gap-1.5 Prompt"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                              แก้ไขสถานะ
+                            </button>
+                            <button
+                              onClick={() => { setSelectedEmployee(null); handleExcludeEmployee(emp); }}
+                              className="py-3 px-4 bg-red-50 hover:bg-red-100 text-red-500 font-bold text-xs rounded-2xl border border-red-100 transition active:scale-95 flex items-center gap-1.5 Prompt"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              ซ่อน
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     </motion.div>
