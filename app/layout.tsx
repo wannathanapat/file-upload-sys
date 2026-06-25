@@ -4,6 +4,8 @@ import { doc, getDoc } from 'firebase/firestore';
 import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import PWAInstallPrompt from "./PWAInstallPrompt";
+
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -82,6 +84,7 @@ export default function RootLayout({
     >
       <body className={`${notoSansThai.className} min-h-full flex flex-col bg-slate-50 text-slate-900`}>
         <Providers>
+          <PWAInstallPrompt />
           {children}
         </Providers>
       </body>
