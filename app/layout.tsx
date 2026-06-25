@@ -79,7 +79,7 @@ export default function RootLayout({
       lang="th"
       className={`${kanit.variable} h-full antialiased`}
     >
-      <body className={`${kanit.className} min-h-full flex flex-col bg-slate-50 text-slate-900 select-none`}>
+      <body className={`${kanit.className} min-h-full flex flex-col bg-slate-50 text-slate-900`}>
         <Providers>
           {children}
         </Providers>
