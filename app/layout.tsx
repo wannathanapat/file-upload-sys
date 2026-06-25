@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { getDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Kanit } from "next/font/google";
+import { Noto_Sans_Thai } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
@@ -13,10 +13,11 @@ export const viewport: Viewport = {
   themeColor: '#29ABE2',
 };
 
-const kanit = Kanit({
+const notoSansThai = Noto_Sans_Thai({
   weight: ["300", "400", "500", "600", "700", "800", "900"],
   subsets: ["thai", "latin"],
-  variable: "--font-kanit",
+  variable: "--font-noto-thai",
+  display: "swap",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -77,9 +78,9 @@ export default function RootLayout({
   return (
     <html
       lang="th"
-      className={`${kanit.variable} h-full antialiased`}
+      className={`${notoSansThai.variable} h-full antialiased`}
     >
-      <body className={`${kanit.className} min-h-full flex flex-col bg-slate-50 text-slate-900`}>
+      <body className={`${notoSansThai.className} min-h-full flex flex-col bg-slate-50 text-slate-900`}>
         <Providers>
           {children}
         </Providers>

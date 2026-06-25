@@ -739,30 +739,40 @@ function DashboardContent() {
             {/* ── KPI Cards Strip ─────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
           {[
-            { label: 'ส่งงานรวม', value: stats.total, unit: 'งาน', icon: <BarChart3 className="w-4 h-4" />, bg: 'bg-indigo-500', text: 'text-white', glow: 'icon-glow-indigo', sub: `คิว: ${queuePendingCount} ค้าง` },
-            { label: 'ตรวจแล้ว', value: stats.approved, unit: 'งาน', icon: <CheckCircle2 className="w-4 h-4" />, bg: 'bg-emerald-500', text: 'text-white', glow: 'icon-glow-emerald', sub: `${donutApproved}% อนุมัติ` },
-            { label: 'รอตรวจสอบ', value: stats.pending, unit: 'รายการ', icon: <Clock className="w-4 h-4" />, bg: 'bg-amber-500', text: 'text-white', glow: 'icon-glow-amber', sub: stats.pending > 5 ? '⚠️ ต้องรีบตรวจ' : 'ปกติ' },
-            { label: 'แจ้งแก้ไข', value: stats.rejected, unit: 'รายการ', icon: <AlertCircle className="w-4 h-4" />, bg: 'bg-rose-500', text: 'text-white', glow: 'icon-glow-rose', sub: 'ต้องติดตามช่าง' },
-            { label: 'ส่งวันนี้', value: todayCount, unit: 'งาน', icon: <Zap className="w-4 h-4" />, bg: 'bg-violet-500', text: 'text-white', glow: 'icon-glow-violet', sub: todayStr },
-            { label: 'ช่างในระบบ', value: technicians.length, unit: 'คน', icon: <Users className="w-4 h-4" />, bg: 'bg-sky-500', text: 'text-white', glow: 'icon-glow-sky', sub: 'Active ในระบบ' },
+            { label: 'ส่งงานรวม', value: stats.total, unit: 'งาน', icon: <BarChart3 className="w-4 h-4" />, bg: 'bg-indigo-500', accent: 'from-indigo-500 to-indigo-600', sub: `คิว: ${queuePendingCount} ค้าง` },
+            { label: 'ตรวจแล้ว', value: stats.approved, unit: 'งาน', icon: <CheckCircle2 className="w-4 h-4" />, bg: 'bg-emerald-500', accent: 'from-emerald-500 to-emerald-600', sub: `${donutApproved}% อนุมัติ` },
+            { label: 'รอตรวจสอบ', value: stats.pending, unit: 'รายการ', icon: <Clock className="w-4 h-4" />, bg: 'bg-amber-500', accent: 'from-amber-400 to-amber-500', sub: stats.pending > 5 ? '⚠️ ต้องรีบตรวจ' : 'ปกติ' },
+            { label: 'แจ้งแก้ไข', value: stats.rejected, unit: 'รายการ', icon: <AlertCircle className="w-4 h-4" />, bg: 'bg-rose-500', accent: 'from-rose-500 to-rose-600', sub: 'ต้องติดตามช่าง' },
+            { label: 'ส่งวันนี้', value: todayCount, unit: 'งาน', icon: <Zap className="w-4 h-4" />, bg: 'bg-violet-500', accent: 'from-violet-500 to-violet-600', sub: todayStr },
+            { label: 'ช่างในระบบ', value: technicians.length, unit: 'คน', icon: <Users className="w-4 h-4" />, bg: 'bg-sky-500', accent: 'from-sky-500 to-sky-600', sub: 'Active ในระบบ' },
           ].map((kpi, i) => (
             <motion.div
               key={i}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className="glass-card p-4 flex flex-col gap-3"
+              className="relative bg-white rounded-2xl border border-slate-100/80 shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
             >
-              <div className="relative w-full flex items-center justify-center min-h-[32px]">
-                <div className={`absolute left-0 w-8 h-8 ${kpi.bg} ${kpi.text} ${kpi.glow} rounded-xl flex items-center justify-center shrink-0`}>
-                  {kpi.icon}
+              <div className="p-4 flex flex-col gap-3 flex-1">
+                {/* Icon + Label row */}
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 ${kpi.bg} text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm`}>
+                    {kpi.icon}
+                  </div>
+                  <p className="text-[11px] font-semibold text-slate-500 leading-snug">{kpi.label}</p>
                 </div>
-                <p className="text-xs font-bold text-slate-700 Prompt text-center px-8">{kpi.label}</p>
+
+                {/* Big number */}
+                <div className="flex items-baseline gap-1">
+                  <p className="text-2xl font-black text-slate-800 leading-none tabular-nums">
+                    {loading ? '—' : kpi.value.toLocaleString()}
+                  </p>
+                  <span className="text-[11px] font-semibold text-slate-400">{kpi.unit}</span>
+                </div>
+
+                {/* Sub text */}
+                <p className="text-[10px] text-slate-400 font-medium leading-none">{kpi.sub}</p>
               </div>
-              <div className="text-center py-1">
-                <p className="text-xl font-black text-slate-800 Prompt leading-tight">{loading ? '—' : kpi.value} <span className="text-xs font-semibold text-slate-400">{kpi.unit}</span></p>
-              </div>
-              <p className="text-[10px] text-slate-400 Prompt font-semibold text-center">{kpi.sub}</p>
             </motion.div>
           ))}
         </div>
