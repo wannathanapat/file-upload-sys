@@ -24,6 +24,8 @@ interface AttendanceSettings {
   office_lng: number;
   radius_meters: number;
   work_start_time: string;
+  voice_message: string;
+  excluded_usernames: string[];
 }
 
 interface AttendanceRecord {
@@ -78,9 +80,11 @@ export default function AdminView() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
 
   // Data
-  const [settings, setSettings] = useState<AttendanceSettings>({
-    office_lat: 19.9071, office_lng: 99.8314, radius_meters: 100, work_start_time: '08:00',
-  });
+  const DEFAULT_SETTINGS: AttendanceSettings = {
+    office_lat: 19.9071, office_lng: 99.8314, radius_meters: 100,
+    work_start_time: '08:00', voice_message: 'เช็คอินสำเร็จ ยินดีต้อนรับ', excluded_usernames: [],
+  };
+  const [settings, setSettings] = useState<AttendanceSettings>(DEFAULT_SETTINGS);
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
   const [todayRecords, setTodayRecords] = useState<Record<string, AttendanceRecord>>({});
   const [reportRecords, setReportRecords] = useState<AttendanceRecord[]>([]);
@@ -90,6 +94,7 @@ export default function AdminView() {
   // Settings local state
   const [localSettings, setLocalSettings] = useState<AttendanceSettings>(settings);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [clearingData, setClearingData] = useState(false);
 
   // Report filters
   const [reportDateFrom, setReportDateFrom] = useState(() => {
@@ -114,16 +119,17 @@ export default function AdminView() {
       // Settings
       const settingsSnap = await getDoc(doc(db, 'attendance_settings', 'config'));
       if (settingsSnap.exists()) {
-        const s = settingsSnap.data() as AttendanceSettings;
+        const s = { ...DEFAULT_SETTINGS, ...settingsSnap.data() } as AttendanceSettings;
         setSettings(s);
         setLocalSettings(s);
       }
 
-      // Employees (staff only)
+      // Employees (staff only, excluding freelancers)
       const usersSnap = await getDocs(collection(db, 'users'));
+      const excludedList: string[] = (settingsSnap.exists() ? settingsSnap.data()?.excluded_usernames : []) || [];
       const emps: EmployeeInfo[] = usersSnap.docs
         .map(d => d.data() as EmployeeInfo)
-        .filter(u => u.role === 'staff' && u.status === 'active');
+        .filter(u => u.role === 'staff' && u.status === 'active' && !excludedList.includes(u.username));
       setEmployees(emps);
 
       // Today records
@@ -224,17 +230,69 @@ export default function AdminView() {
     if (!emp) return;
     try {
       await setDoc(doc(getDb(), 'attendance_employees', emp.username), {
-        username: emp.username,
-        name: emp.name,
-        face_registered: true,
-        registered_at: new Date().toISOString(),
+        username: emp.username, name: emp.name,
+        face_registered: true, registered_at: new Date().toISOString(),
       });
-      showToast(`✅ ลงทะเบียนใบหน้า ${emp.name} สำเร็จ`, 'success');
-    } catch {
-      showToast('บันทึกข้อมูลใบหน้าไม่สำเร็จ', 'error');
-    }
+      showToast('\u2705 \u0e25\u0e07\u0e17\u0e30\u0e40\u0e1a\u0e35\u0e22\u0e19\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32 ' + emp.name + ' \u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'success');
+    } catch { showToast('\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error'); }
     setFaceRegModal({ open: false });
     await loadData();
+  };
+
+  /* ────── Exclude / Include Employee ────── */
+
+  const handleExcludeEmployee = async (emp: EmployeeInfo) => {
+    const ok = window.confirm('\u0e0b\u0e48\u0e2d\u0e19 "' + emp.name + '" \u0e2d\u0e2d\u0e01\u0e08\u0e32\u0e01\u0e23\u0e30\u0e1a\u0e1a\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19?\n(\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c\u0e17\u0e35\u0e48\u0e44\u0e21\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19)');
+    if (!ok) return;
+    const newExcluded = [...(localSettings.excluded_usernames || []), emp.username];
+    const newSettings = { ...localSettings, excluded_usernames: newExcluded };
+    await setDoc(doc(getDb(), 'attendance_settings', 'config'), newSettings);
+    setSettings(newSettings);
+    setLocalSettings(newSettings);
+    showToast('\u0e0b\u0e48\u0e2d\u0e19 ' + emp.name + ' \u0e2d\u0e2d\u0e01\u0e08\u0e32\u0e01\u0e23\u0e30\u0e1a\u0e1a\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e41\u0e25\u0e49\u0e27', 'info');
+    await loadData();
+  };
+
+  const handleIncludeEmployee = async (username: string) => {
+    const newExcluded = (localSettings.excluded_usernames || []).filter(u => u !== username);
+    const newSettings = { ...localSettings, excluded_usernames: newExcluded };
+    await setDoc(doc(getDb(), 'attendance_settings', 'config'), newSettings);
+    setSettings(newSettings);
+    setLocalSettings(newSettings);
+    showToast('\u0e04\u0e37\u0e19\u0e2a\u0e16\u0e32\u0e19\u0e30\u0e1e\u0e19\u0e31\u0e01\u0e07\u0e32\u0e19\u0e41\u0e25\u0e49\u0e27', 'success');
+    await loadData();
+  };
+
+  /* ────── Clear attendance records ────── */
+
+  const handleClearTodayRecords = async () => {
+    const ok = window.confirm('\u0e25\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e01\u0e32\u0e23\u0e25\u0e07\u0e40\u0e27\u0e25\u0e32\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14?\n(\u0e43\u0e0a\u0e49\u0e2a\u0e33\u0e2b\u0e23\u0e31\u0e1a\u0e17\u0e14\u0e2a\u0e2d\u0e1a\u0e40\u0e17\u0e48\u0e32\u0e19\u0e31\u0e49\u0e19)');
+    if (!ok) return;
+    setClearingData(true);
+    try {
+      const db = getDb();
+      const today = todayString();
+      const q = query(collection(db, 'attendance_records'), where('date', '==', today));
+      const snap = await getDocs(q);
+      await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+      showToast('\u0e25\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49 ' + snap.size + ' \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e41\u0e25\u0e49\u0e27', 'success');
+      await loadData();
+    } catch { showToast('\u0e25\u0e1a\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error'); }
+    finally { setClearingData(false); }
+  };
+
+  const handleClearAllRecords = async () => {
+    const ok = window.confirm('\u26a0\ufe0f \u0e25\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e01\u0e32\u0e23\u0e25\u0e07\u0e40\u0e27\u0e25\u0e32\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14\u0e17\u0e38\u0e01\u0e27\u0e31\u0e19?\n\u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e01\u0e39\u0e49\u0e04\u0e37\u0e19\u0e44\u0e14\u0e49!');
+    if (!ok) return;
+    setClearingData(true);
+    try {
+      const db = getDb();
+      const snap = await getDocs(collection(db, 'attendance_records'));
+      await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+      showToast('\u0e25\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14 ' + snap.size + ' \u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e41\u0e25\u0e49\u0e27', 'success');
+      await loadData();
+    } catch { showToast('\u0e25\u0e1a\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error'); }
+    finally { setClearingData(false); }
   };
 
   /* ────── Export CSV ────── */
@@ -378,42 +436,64 @@ export default function AdminView() {
               ) : employees.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
                   <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm Prompt">ยังไม่มีข้อมูลพนักงาน</p>
+                  <p className="text-sm Prompt">\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e1e\u0e19\u0e31\u0e01\u0e07\u0e32\u0e19</p>
                 </div>
               ) : (
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {employees.map((emp) => {
                     const rec = todayRecords[emp.username];
                     const sk = getStatusKey(rec);
                     const cfg = STATUS_CONFIG[sk];
+                    const dotColor: Record<string, string> = {
+                      on_time: 'bg-emerald-500', late: 'bg-red-500',
+                      absent: 'bg-rose-700', not_checked_in: 'bg-slate-300',
+                      personal_leave: 'bg-amber-500', sick_leave: 'bg-orange-400', onsite: 'bg-sky-500',
+                    };
                     return (
-                      <div key={emp.username} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center font-bold text-blue-700 text-sm flex-shrink-0">
-                          {emp.name.charAt(0)}
+                      <motion.div
+                        key={emp.username}
+                        initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                        className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${cfg.border}`}
+                      >
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0 ${dotColor[sk] || 'bg-slate-300'}`}>
+                            {emp.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 Prompt truncate">{emp.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor[sk] || 'bg-slate-300'}`} />
+                                {cfg.label}
+                              </span>
+                              {rec?.check_in_time && (
+                                <span className="text-[9px] text-slate-400 font-medium">
+                                  \u0e40\u0e02\u0e49\u0e32 {new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} \u0e19.
+                                </span>
+                              )}
+                              {rec?.override_province && (
+                                <span className="text-[9px] text-sky-500 font-medium">\u2022 {rec.override_province}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              onClick={() => setOverrideModal({ open: true, employee: emp, date: todayString() })}
+                              className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition"
+                              title="\u0e41\u0e01\u0e49\u0e44\u0e02\u0e2a\u0e16\u0e32\u0e19\u0e30"
+                            >
+                              <Settings className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleExcludeEmployee(emp)}
+                              className="p-2 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-300 hover:text-red-400 transition"
+                              title="\u0e0b\u0e48\u0e2d\u0e19\u0e2d\u0e2d\u0e01"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-slate-800 Prompt truncate">{emp.name}</p>
-                          <p className="text-[10px] text-slate-400 Prompt mt-0.5">
-                            {rec?.check_in_time
-                              ? `เข้า ${new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`
-                              : 'ยังไม่ได้เช็คอิน'
-                            }
-                            {rec?.override_province && ` • ${rec.override_province}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[9px] font-bold px-2 py-1 rounded-full border Prompt ${cfg.bg} ${cfg.text} ${cfg.border} whitespace-nowrap`}>
-                            {cfg.label}
-                          </span>
-                          <button
-                            onClick={() => setOverrideModal({ open: true, employee: emp, date: todayString() })}
-                            className="p-1.5 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition"
-                            title="แก้ไขสถานะ"
-                          >
-                            <Settings className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -483,13 +563,43 @@ export default function AdminView() {
                 </div>
               </div>
 
-              {/* Save Button */}
+              {/* Voice Message */}
+              <div className="bg-white rounded-3xl border border-teal-100 p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 bg-teal-50 rounded-xl flex items-center justify-center text-sm">&#128266;</div>
+                  <h3 className="text-sm font-bold text-slate-800 Prompt">\u0e40\u0e2a\u0e35\u0e22\u0e07\u0e41\u0e08\u0e49\u0e07\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08</h3>
+                </div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 Prompt">
+                  \u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21 Text-to-Speech
+                </label>
+                <input
+                  type="text"
+                  value={localSettings.voice_message}
+                  onChange={(e) => setLocalSettings(prev => ({ ...prev, voice_message: e.target.value }))}
+                  placeholder="\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08 \u0e22\u0e34\u0e19\u0e14\u0e35\u0e15\u0e49\u0e2d\u0e19\u0e23\u0e31\u0e1a"
+                  className="w-full px-4 py-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-teal-400 focus:bg-white transition Prompt"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const msg = new SpeechSynthesisUtterance(localSettings.voice_message || '\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+                    msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05;
+                    speechSynthesis.cancel();
+                    speechSynthesis.speak(msg);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold text-xs rounded-xl border border-teal-200 transition active:scale-95 Prompt"
+                >
+                  &#128266; \u0e17\u0e14\u0e2a\u0e2d\u0e1a\u0e40\u0e2a\u0e35\u0e22\u0e07
+                </button>
+              </div>
+
+              {/* Save Settings Button */}
               <button
                 onClick={saveSettings}
                 disabled={settingsSaving}
                 className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold rounded-2xl text-sm transition active:scale-95 Prompt shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
               >
-                {settingsSaving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />กำลังบันทึก...</> : '💾 บันทึกการตั้งค่า'}
+                {settingsSaving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />\u0e01\u0e33\u0e25\u0e31\u0e07\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01...</> : '\uD83D\uDCBE \u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32'}
               </button>
 
               {/* Employee Management */}
@@ -499,11 +609,13 @@ export default function AdminView() {
                     <div className="w-7 h-7 bg-violet-50 rounded-xl flex items-center justify-center">
                       <Users className="w-4 h-4 text-violet-600" />
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800 Prompt">จัดการพนักงาน</h3>
+                    <h3 className="text-sm font-bold text-slate-800 Prompt">\u0e08\u0e31\u0e14\u0e01\u0e32\u0e23\u0e1e\u0e19\u0e31\u0e01\u0e07\u0e32\u0e19</h3>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">{employees.length} คน</span>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">{employees.length} \u0e04\u0e19</span>
                 </div>
-                <p className="text-[10px] text-slate-400 Prompt">แก้ไขรายชื่อพนักงานได้ที่หน้า ตั้งค่าระบบหลัก (Users Management)</p>
+                <p className="text-[10px] text-slate-400 Prompt">&#128683; \u0e01\u0e14 \u0e25\u0e1a \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e0b\u0e48\u0e2d\u0e19\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c\u0e17\u0e35\u0e48\u0e44\u0e21\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2d\u0e2d\u0e01\u0e08\u0e32\u0e01\u0e23\u0e32\u0e22\u0e0a\u0e37\u0e48\u0e2d</p>
+
+                {/* Active employees */}
                 <div className="space-y-2">
                   {employees.map(emp => (
                     <div key={emp.username} className="flex items-center gap-3 py-2.5 px-3 bg-slate-50 rounded-2xl">
@@ -514,19 +626,77 @@ export default function AdminView() {
                         <p className="text-xs font-bold text-slate-700 Prompt truncate">{emp.name}</p>
                         <p className="text-[9px] text-slate-400 Prompt">{emp.username}</p>
                       </div>
-                      <button
-                        onClick={() => handleRegisterFace(emp)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-600 font-bold text-[9px] rounded-xl border border-violet-200 transition Prompt"
-                      >
-                        <Camera className="w-3 h-3" />
-                        สแกนใบหน้า
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleRegisterFace(emp)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-600 font-bold text-[9px] rounded-xl border border-violet-200 transition Prompt"
+                        >
+                          <Camera className="w-3 h-3" />
+                          \u0e2a\u0e41\u0e01\u0e19\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32
+                        </button>
+                        <button
+                          onClick={() => handleExcludeEmployee(emp)}
+                          className="p-1.5 bg-red-50 hover:bg-red-100 text-red-400 rounded-xl border border-red-200 transition"
+                          title="\u0e0b\u0e48\u0e2d\u0e19\u0e2d\u0e2d\u0e01"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Excluded employees list */}
+                {(localSettings.excluded_usernames || []).length > 0 && (
+                  <div className="pt-3 border-t border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 Prompt mb-2">&#128683; \u0e0b\u0e48\u0e2d\u0e19\u0e2d\u0e22\u0e39\u0e48 (\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c)</p>
+                    {(localSettings.excluded_usernames || []).map(uname => (
+                      <div key={uname} className="flex items-center gap-2 py-2 px-3 bg-red-50 rounded-xl mb-1.5">
+                        <span className="flex-1 text-xs text-red-500 Prompt font-medium truncate">{uname}</span>
+                        <button
+                          onClick={() => handleIncludeEmployee(uname)}
+                          className="text-[9px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition Prompt whitespace-nowrap"
+                        >
+                          \u0e04\u0e37\u0e19\u0e2a\u0e16\u0e32\u0e19\u0e30
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Clear Data Section */}
+              <div className="bg-white rounded-3xl border border-red-100 p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 bg-red-50 rounded-xl flex items-center justify-center">
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-red-600 Prompt">\u0e40\u0e04\u0e25\u0e35\u0e22\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25</h3>
+                    <p className="text-[9px] text-slate-400 Prompt">Dev / Testing \u2014 \u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e01\u0e39\u0e49\u0e04\u0e37\u0e19\u0e44\u0e14\u0e49!</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={handleClearTodayRecords}
+                    disabled={clearingData}
+                    className="py-3 px-2 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs rounded-2xl border border-orange-200 transition active:scale-95 Prompt disabled:opacity-50"
+                  >
+                    {clearingData ? '...' : '\uD83E\uDDF9 \u0e25\u0e1a\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49'}
+                  </button>
+                  <button
+                    onClick={handleClearAllRecords}
+                    disabled={clearingData}
+                    className="py-3 px-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-2xl border border-red-200 transition active:scale-95 Prompt disabled:opacity-50"
+                  >
+                    {clearingData ? '...' : '\u26A0\uFE0F \u0e25\u0e1a\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14'}
+                  </button>
+                </div>
+              </div>
+
             </motion.div>
           )}
+
 
           {/* ═══════════════ REPORTS TAB ═══════════════ */}
           {activeTab === 'reports' && (

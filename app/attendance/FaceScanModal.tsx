@@ -9,11 +9,12 @@ interface FaceScanModalProps {
   onClose: () => void;
   onSuccess: () => void;
   employeeName: string;
+  voiceMessage?: string;
 }
 
 type ScanPhase = 'init' | 'streaming' | 'countdown' | 'scanning' | 'success' | 'failed' | 'no-camera';
 
-export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName }: FaceScanModalProps) {
+export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName, voiceMessage }: FaceScanModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // Use a ref so the success-timer effect is NOT re-triggered every parent re-render
@@ -93,12 +94,20 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
   // which would reset this timer before it ever fires.
   useEffect(() => {
     if (phase !== 'success') return;
+    // Speak the success message
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const text = voiceMessage || 'เช็คอินสำเร็จ';
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(msg);
+    }
     const t = setTimeout(() => {
       stopCamera();
       onSuccessRef.current();
-    }, 1500);
+    }, 1800);
     return () => clearTimeout(t);
-  }, [phase, stopCamera]); // ← onSuccess intentionally excluded
+  }, [phase, stopCamera, voiceMessage]); // voiceMessage is OK here — it rarely changes
 
   const handleStartScan = () => {
     setCountdown(3);
