@@ -282,8 +282,25 @@ export default function ImportJobsPage() {
               if (activeJobIdMatch || historyJobIdMatch) {
                 return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำรหัสงานติดตั้งเดิม (ข้าม)', matchedItem: activeJobIdMatch || historyJobIdMatch };
               }
-              if (activeOrderNoMatch || historyOrderNoMatch) {
-                return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: activeOrderNoMatch || historyOrderNoMatch };
+              // ถ้า order_no ตรงกับ active queue → block (งานยังอยู่ในคิว)
+              if (activeOrderNoMatch) {
+                return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: activeOrderNoMatch };
+              }
+              // ถ้า order_no ตรงกับ submissions เดิม → ต้องตรวจก่อนว่าเป็นงานเฟลหรือเปล่า
+              if (historyOrderNoMatch) {
+                const prevType: string = historyOrderNoMatch.job_type || '';
+                const isFail = prevType.includes('เฟล') || prevType.toLowerCase().includes('fail');
+                if (isFail) {
+                  // งานเฟลสามารถนำเข้าออเดอร์เดิมซ้ำได้ด้วย Install No ใหม่
+                  return {
+                    duplicate: false,
+                    warning: true,
+                    status: 'pending_active',
+                    message: '⚠️ งานเฟลเดิม — นำเข้าใหม่ได้',
+                    matchedItem: historyOrderNoMatch,
+                  };
+                }
+                return { duplicate: true, status: 'duplicate', message: '❌ ซ้ำเลขออเดอร์ติดตั้งเดิม (ข้าม)', matchedItem: historyOrderNoMatch };
               }
               return { duplicate: false, status: 'new', message: '✨ งานติดตั้งใหม่' };
             } else {
