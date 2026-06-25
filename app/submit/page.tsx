@@ -542,9 +542,7 @@ function SubmitPageInner() {
                 });
                 
                 const compressedSizeMB = compressed.size / (1024 * 1024);
-                if (compressedSizeMB >= originalSizeMB) {
-                  showToast(`ไฟล์นี้บีบอัดไม่ได้ (${compressedSizeMB.toFixed(2)}MB) เนื่องจากเนื้อหาเป็นรูปภาพความละเอียดสูง กรุณาลดจำนวนหน้าลงครับ`, "error");
-                } else if (compressedSizeMB > limit) {
+                if (compressedSizeMB > limit) {
                   showToast(`บีบอัดแล้วขนาดไฟล์ยังเกินกำหนด (${compressedSizeMB.toFixed(2)}MB) กรุณาลดจำนวนหน้าลงครับ`, "error");
                 } else {
                   setPdfFile(compressed);
@@ -553,7 +551,7 @@ function SubmitPageInner() {
                 }
               } catch (err: any) {
                 console.error(err);
-                showToast("การบีบอัดไฟล์ขัดข้อง: " + err.message, "error");
+                showToast(err.message || "การบีบอัดไฟล์ขัดข้อง กรุณาลองใหม่อีกครั้งครับ", "error");
               } finally {
                 setIsCompressingPdf(false);
               }
@@ -634,9 +632,7 @@ function SubmitPageInner() {
                 });
                 
                 const compressedSizeMB = compressed.size / (1024 * 1024);
-                if (compressedSizeMB >= originalSizeMB) {
-                  showToast(`ไฟล์นี้บีบอัดไม่ได้ (${compressedSizeMB.toFixed(2)}MB) เนื่องจากเนื้อหาเป็นรูปภาพความละเอียดสูง กรุณาลดจำนวนหน้าลงครับ`, "error");
-                } else if (compressedSizeMB > limit) {
+                if (compressedSizeMB > limit) {
                   showToast(`บีบอัดแล้วขนาดไฟล์ยังเกินกำหนด (${compressedSizeMB.toFixed(2)}MB) กรุณาลดจำนวนหน้าลงครับ`, "error");
                 } else {
                   setFixPdfFile(compressed);
@@ -645,7 +641,7 @@ function SubmitPageInner() {
                 }
               } catch (err: any) {
                 console.error(err);
-                showToast("การบีบอัดไฟล์ขัดข้อง: " + err.message, "error");
+                showToast(err.message || "การบีบอัดไฟล์ขัดข้อง กรุณาลองใหม่อีกครั้งครับ", "error");
               } finally {
                 setIsCompressingPdf(false);
               }

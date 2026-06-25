@@ -163,19 +163,28 @@ const loadPdfJs = (): Promise<any> => {
   });
 };
 
-// Compress a PDF file client-side by rendering pages to canvas and recreating PDF
+// Compress a PDF file client-side by rendering pages to canvas and recreating PDF.
+// Uses multi-pass strategy: tries progressively more aggressive settings until output < input.
 export const compressPdfFile = async (
   pdfFile: File,
-  quality = 0.65,
-  scale = 1.0,           // ← was 1.5; lower = smaller canvas = smaller JPEG
+  quality = 0.65,       // kept for API compat; multi-pass overrides this
+  scale = 1.0,          // kept for API compat; multi-pass overrides this
   onProgress?: (current: number, total: number) => void
 ): Promise<File> => {
   if (!isBrowser) {
     throw new Error("compressPdfFile can only run in the browser");
   }
 
+  // Ordered passes: most quality-preserving → most aggressive
+  const passes: Array<{ scale: number; quality: number }> = [
+    { scale: 0.9,  quality: 0.65 },
+    { scale: 0.75, quality: 0.55 },
+    { scale: 0.65, quality: 0.45 },
+    { scale: 0.5,  quality: 0.35 },
+  ];
+
   const pdfjsLib = await loadPdfJs();
-  
+
   const arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
@@ -186,67 +195,59 @@ export const compressPdfFile = async (
   const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   const numPages = pdfDoc.numPages;
 
-  const pdfOut = new jsPDF({
-    orientation: 'p',
-    unit: 'pt',
-    format: 'a4'
-  });
-  
-  const pageWidth = pdfOut.internal.pageSize.getWidth();
-  const pageHeight = pdfOut.internal.pageSize.getHeight();
+  for (let p = 0; p < passes.length; p++) {
+    const { scale: s, quality: q } = passes[p];
 
-  for (let i = 1; i <= numPages; i++) {
-    if (i > 1) {
-      pdfOut.addPage();
+    const pdfOut = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    const pageWidth  = pdfOut.internal.pageSize.getWidth();
+    const pageHeight = pdfOut.internal.pageSize.getHeight();
+
+    for (let i = 1; i <= numPages; i++) {
+      if (i > 1) pdfOut.addPage();
+
+      // Report progress across passes: pass p occupies 1/(passes.length) of total
+      if (onProgress) {
+        const passOffset = Math.round((p / passes.length) * numPages);
+        onProgress(Math.min(passOffset + i, numPages), numPages);
+      }
+
+      const page = await pdfDoc.getPage(i);
+      const viewport = page.getViewport({ scale: s });
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Canvas 2D context is not available');
+
+      await page.render({ canvasContext: context, viewport }).promise;
+
+      const imgDataUrl = canvas.toDataURL('image/jpeg', q);
+
+      const wRatio = pageWidth  / viewport.width;
+      const hRatio = pageHeight / viewport.height;
+      const ratio  = Math.min(wRatio, hRatio);
+
+      pdfOut.addImage(imgDataUrl, 'JPEG', (pageWidth - viewport.width * ratio) / 2,
+                                          (pageHeight - viewport.height * ratio) / 2,
+                                          viewport.width * ratio, viewport.height * ratio);
     }
-    
-    if (onProgress) {
-      onProgress(i, numPages);
+
+    const blob = pdfOut.output('blob');
+    const candidate = new File([blob], pdfFile.name, { type: 'application/pdf' });
+
+    if (candidate.size < pdfFile.size) {
+      // Signal 100% done
+      if (onProgress) onProgress(numPages, numPages);
+      return candidate;
     }
-
-    const page = await pdfDoc.getPage(i);
-    const viewport = page.getViewport({ scale });
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    
-    const context = canvas.getContext('2d');
-    if (!context) {
-      throw new Error('Canvas 2D context is not available');
-    }
-
-    await page.render({
-      canvasContext: context,
-      viewport: viewport
-    }).promise;
-
-    // Convert canvas page to compressed JPEG
-    const imgDataUrl = canvas.toDataURL('image/jpeg', quality);
-
-    // Scale to A4 page
-    const wRatio = pageWidth / viewport.width;
-    const hRatio = pageHeight / viewport.height;
-    const ratio = Math.min(wRatio, hRatio);
-
-    const w = viewport.width * ratio;
-    const h = viewport.height * ratio;
-
-    const x = (pageWidth - w) / 2;
-    const y = (pageHeight - h) / 2;
-
-    pdfOut.addImage(imgDataUrl, 'JPEG', x, y, w, h);
+    // This pass made it bigger — try next (more aggressive) pass
   }
 
-  const pdfBlob = pdfOut.output('blob');
-  const compressedFile = new File([pdfBlob], pdfFile.name, { type: 'application/pdf' });
-
-  // Safety: if compression made the file BIGGER, return the original
-  if (compressedFile.size >= pdfFile.size) {
-    return pdfFile;
-  }
-
-  return compressedFile;
+  // All passes failed to reduce size
+  throw new Error(`ไม่สามารถบีบอัดไฟล์นี้ได้ — PDF ประกอบด้วยรูปภาพความละเอียดสูงมาก กรุณาลดจำนวนหน้า หรือบีบอัดไฟล์ PDF จากโปรแกรมอื่นก่อนครับ`);
 };
+
 
 
