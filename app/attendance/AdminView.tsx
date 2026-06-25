@@ -108,6 +108,13 @@ export default function AdminView() {
   const [overrideModal, setOverrideModal] = useState<{ open: boolean; employee?: EmployeeInfo; date: string }>({ open: false, date: todayString() });
   const [geofenceModal, setGeofenceModal] = useState(false);
   const [faceRegModal, setFaceRegModal] = useState<{ open: boolean; employee?: EmployeeInfo }>({ open: false });
+  const [selectedEmployee, setSelectedEmployee] = useState<{
+    emp: EmployeeInfo;
+    rec: AttendanceRecord | undefined;
+    sk: string;
+    cfg: typeof STATUS_CONFIG[string];
+    checkTime: string | null;
+  } | null>(null);
 
   /* ────── Load ────── */
 
@@ -436,68 +443,153 @@ export default function AdminView() {
               ) : employees.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">
                   <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm Prompt">\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e21\u0e35\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e1e\u0e19\u0e31\u0e01\u0e07\u0e32\u0e19</p>
+                  <p className="text-sm Prompt">ยังไม่มีข้อมูลพนักงาน</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
                   {employees.map((emp) => {
                     const rec = todayRecords[emp.username];
                     const sk = getStatusKey(rec);
                     const cfg = STATUS_CONFIG[sk];
-                    const dotColor: Record<string, string> = {
-                      on_time: 'bg-emerald-500', late: 'bg-red-500',
-                      absent: 'bg-rose-700', not_checked_in: 'bg-slate-300',
-                      personal_leave: 'bg-amber-500', sick_leave: 'bg-orange-400', onsite: 'bg-sky-500',
+                    const avatarGrad: Record<string, string> = {
+                      on_time: 'from-emerald-400 to-emerald-600',
+                      late: 'from-red-400 to-red-600',
+                      absent: 'from-rose-500 to-rose-700',
+                      not_checked_in: 'from-slate-300 to-slate-400',
+                      personal_leave: 'from-amber-400 to-amber-600',
+                      sick_leave: 'from-orange-400 to-orange-500',
+                      onsite: 'from-sky-400 to-sky-600',
                     };
+                    const checkTime = rec?.check_in_time
+                      ? new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                      : null;
                     return (
-                      <motion.div
+                      <motion.button
                         key={emp.username}
-                        initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                        className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${cfg.border}`}
+                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => setSelectedEmployee({ emp, rec, sk, cfg, checkTime })}
+                        className="text-left relative bg-white/70 backdrop-blur-md rounded-3xl border border-white/80 shadow-lg shadow-slate-200/50 overflow-hidden p-4 flex flex-col gap-3 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex items-center gap-3 px-4 py-3">
-                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-bold text-white text-sm flex-shrink-0 ${dotColor[sk] || 'bg-slate-300'}`}>
-                            {emp.name.charAt(0)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 Prompt truncate">{emp.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${dotColor[sk] || 'bg-slate-300'}`} />
-                                {cfg.label}
-                              </span>
-                              {rec?.check_in_time && (
-                                <span className="text-[9px] text-slate-400 font-medium">
-                                  \u0e40\u0e02\u0e49\u0e32 {new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} \u0e19.
-                                </span>
-                              )}
-                              {rec?.override_province && (
-                                <span className="text-[9px] text-sky-500 font-medium">\u2022 {rec.override_province}</span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <button
-                              onClick={() => setOverrideModal({ open: true, employee: emp, date: todayString() })}
-                              className="p-2 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition"
-                              title="\u0e41\u0e01\u0e49\u0e44\u0e02\u0e2a\u0e16\u0e32\u0e19\u0e30"
-                            >
-                              <Settings className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleExcludeEmployee(emp)}
-                              className="p-2 rounded-xl bg-slate-50 hover:bg-red-50 text-slate-300 hover:text-red-400 transition"
-                              title="\u0e0b\u0e48\u0e2d\u0e19\u0e2d\u0e2d\u0e01"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                        {/* Subtle gradient accent */}
+                        <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${avatarGrad[sk] || 'from-slate-300 to-slate-400'} opacity-60`} />
+
+                        {/* Avatar */}
+                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarGrad[sk] || 'from-slate-300 to-slate-400'} flex items-center justify-center font-black text-white text-lg shadow-md`}>
+                          {emp.name.charAt(0)}
                         </div>
-                      </motion.div>
+
+                        {/* Name */}
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-bold text-slate-800 Prompt leading-snug line-clamp-2">{emp.name}</p>
+                          {/* Status badge */}
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                            {cfg.label}
+                          </span>
+                        </div>
+
+                        {/* Time */}
+                        {checkTime && (
+                          <p className="text-[10px] font-semibold text-slate-400">เข้า {checkTime} น.</p>
+                        )}
+                      </motion.button>
                     );
                   })}
                 </div>
               )}
+
+              {/* ── Employee Detail Bottom Sheet ── */}
+              <AnimatePresence>
+                {selectedEmployee && (() => {
+                  const { emp, rec, sk, cfg, checkTime } = selectedEmployee;
+                  return (
+                    <motion.div
+                      key="emp-detail-overlay"
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 flex items-end justify-center"
+                      onClick={() => setSelectedEmployee(null)}
+                    >
+                      {/* Backdrop */}
+                      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" />
+
+                      {/* Sheet */}
+                      <motion.div
+                        initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+                        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="relative w-full max-w-lg bg-white/90 backdrop-blur-2xl rounded-t-[2rem] shadow-2xl p-6 pb-10 border-t border-white/60"
+                      >
+                        {/* Handle */}
+                        <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-slate-200 rounded-full" />
+
+                        {/* Header */}
+                        <div className="flex items-center gap-4 mt-2 mb-5">
+                          <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${
+                            { on_time: 'from-emerald-400 to-emerald-600', late: 'from-red-400 to-red-600',
+                              absent: 'from-rose-500 to-rose-700', not_checked_in: 'from-slate-300 to-slate-400',
+                              personal_leave: 'from-amber-400 to-amber-600', sick_leave: 'from-orange-400 to-orange-500',
+                              onsite: 'from-sky-400 to-sky-600' }[sk] || 'from-slate-300 to-slate-400'
+                          } flex items-center justify-center font-black text-white text-2xl shadow-lg`}>
+                            {emp.name.charAt(0)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-base font-black text-slate-800 Prompt truncate">{emp.name}</p>
+                            <p className="text-xs text-slate-400 Prompt mt-0.5">{emp.username}</p>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full mt-1.5 ${cfg.bg} ${cfg.text} border ${cfg.border}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                              {cfg.label}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Info Grid */}
+                        <div className="grid grid-cols-2 gap-2.5 mb-5">
+                          <div className="bg-slate-50/80 rounded-2xl p-3">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide Prompt">เวลาเข้างาน</p>
+                            <p className="text-sm font-bold text-slate-700 mt-1">{checkTime ? `${checkTime} น.` : '—'}</p>
+                          </div>
+                          <div className="bg-slate-50/80 rounded-2xl p-3">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide Prompt">Face Scan</p>
+                            <p className="text-sm font-bold text-slate-700 mt-1">{rec?.face_verified ? '✅ ผ่าน' : '—'}</p>
+                          </div>
+                          {rec?.override_province && (
+                            <div className="bg-sky-50/80 rounded-2xl p-3 col-span-2">
+                              <p className="text-[9px] font-bold text-sky-400 uppercase tracking-wide Prompt">พื้นที่</p>
+                              <p className="text-sm font-bold text-sky-700 mt-1">{rec.override_province} › {rec.override_district || '—'}</p>
+                            </div>
+                          )}
+                          {rec?.note && (
+                            <div className="bg-amber-50/80 rounded-2xl p-3 col-span-2">
+                              <p className="text-[9px] font-bold text-amber-400 uppercase tracking-wide Prompt">หมายเหตุ</p>
+                              <p className="text-xs font-medium text-amber-700 mt-1 Prompt">{rec.note}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2.5">
+                          <button
+                            onClick={() => { setSelectedEmployee(null); setOverrideModal({ open: true, employee: emp, date: todayString() }); }}
+                            className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 Prompt shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                            แก้ไขสถานะ
+                          </button>
+                          <button
+                            onClick={() => { setSelectedEmployee(null); handleExcludeEmployee(emp); }}
+                            className="py-3.5 px-4 bg-red-50 hover:bg-red-100 text-red-500 font-bold text-xs rounded-2xl border border-red-200 transition active:scale-95 Prompt flex items-center gap-2"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            ซ่อน
+                          </button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  );
+                })()}
+              </AnimatePresence>
+
             </motion.div>
           )}
 
