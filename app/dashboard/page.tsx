@@ -164,6 +164,14 @@ function DashboardContent() {
   const [editNote, setEditNote] = useState('');
   const [editFileName, setEditFileName] = useState('');
   const [editJobId, setEditJobId] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editOrderNo, setEditOrderNo] = useState('');
+  const [editSubWorkType, setEditSubWorkType] = useState('');
+  const [editFileUrl, setEditFileUrl] = useState('');
+  const [editVideoName, setEditVideoName] = useState('');
+  const [editVideoUrl, setEditVideoUrl] = useState('');
+  const [editFailDetail, setEditFailDetail] = useState('');
+  const [editRejectReason, setEditRejectReason] = useState('');
   const [previewFile, setPreviewFile] = useState<{ type: 'pdf' | 'video', url: string, name: string } | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
@@ -393,6 +401,14 @@ function DashboardContent() {
     setEditNote(sub.description || '');
     setEditFileName(sub.file_name || '');
     setEditJobId(sub.job_id || '');
+    setEditName(sub.name || '');
+    setEditOrderNo(sub.order_no || '');
+    setEditSubWorkType(sub.sub_work_type || '');
+    setEditFileUrl(sub.file_url || '');
+    setEditVideoName(sub.video_name || '');
+    setEditVideoUrl(sub.video_url || '');
+    setEditFailDetail(sub.fail_detail || '');
+    setEditRejectReason(sub.reject_reason || '');
     setIsEditingSub(false);
   };
 
@@ -417,15 +433,22 @@ function DashboardContent() {
         status: editStatus,
         description: editNote,
         file_name: editFileName,
+        name: editName,
+        order_no: editOrderNo,
+        sub_work_type: editSubWorkType,
+        file_url: editFileUrl,
+        video_name: editVideoName,
+        video_url: editVideoUrl,
+        fail_detail: editFailDetail,
+        reject_reason: editRejectReason,
       };
 
       // อัปเดต job_id ถ้ามีการเปลี่ยนแปลง
       if (editJobId.trim() !== (selectedSub.job_id || '')) {
         updatedData.job_id = editJobId.trim();
-        // Sync กับ assigned_jobs ด้วยถ้า job_id เดิมมีอยู่
         if (selectedSub.job_id) {
           const oldJobRef = doc(db, 'assigned_jobs', selectedSub.job_id);
-          await updateDoc(oldJobRef, { job_id: editJobId.trim() }).catch(() => {/* ถ้าไม่มี doc ก็ข้ามได้ */});
+          await updateDoc(oldJobRef, { job_id: editJobId.trim() }).catch(() => {});
         }
       }
 
@@ -1457,27 +1480,44 @@ function DashboardContent() {
                   </div>
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ผู้ส่งงาน (ช่าง)</span>
-                    <p className="text-xs font-bold text-slate-800 mt-1">{formatDisplayName(selectedSub.name)}</p>
+                    {isEditingSub ? (
+                      <select value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition cursor-pointer">
+                        {technicians.map(t => <option key={t} value={t}>{formatDisplayName(t)}</option>)}
+                        {editName && !technicians.includes(editName) && <option value={editName}>{formatDisplayName(editName)}</option>}
+                      </select>
+                    ) : (
+                      <p className="text-xs font-bold text-slate-800 mt-1">{formatDisplayName(selectedSub.name)}</p>
+                    )}
                   </div>
                 </div>
 
-                {selectedSub.fail_detail && selectedSub.fail_detail !== '-' && (
+                {(isEditingSub || (selectedSub.fail_detail && selectedSub.fail_detail !== '-')) && (
                   <div className="bg-rose-500/10 backdrop-blur-xs p-4 rounded-2xl border border-rose-200/50 shadow-2xs">
                     <span className="block text-[10px] text-rose-500 font-bold uppercase Prompt">รายละเอียดการเฟล</span>
-                    <p className="text-xs font-bold text-rose-700 mt-1">
-                      {selectedSub.fail_detail === 'entered' ? '🏠 เข้าหน้างานแล้ว' : '🚗 ยังไม่เข้าหน้างาน'}
-                    </p>
+                    {isEditingSub ? (
+                      <select value={editFailDetail} onChange={(e) => setEditFailDetail(e.target.value)} className="w-full bg-white border border-rose-200 text-rose-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-rose-400 transition cursor-pointer">
+                        <option value="">— ไม่ใช่งานเฟล —</option>
+                        <option value="entered">🏠 เข้าหน้างานแล้ว</option>
+                        <option value="not_entered">🚗 ยังไม่เข้าหน้างาน</option>
+                      </select>
+                    ) : (
+                      <p className="text-xs font-bold text-rose-700 mt-1">
+                        {selectedSub.fail_detail === 'entered' ? '🏠 เข้าหน้างานแล้ว' : '🚗 ยังไม่เข้าหน้างาน'}
+                      </p>
+                    )}
                   </div>
                 )}
 
-                {selectedSub.status === 'แก้ไข' && selectedSub.reject_reason && (
+                {(isEditingSub || (selectedSub.status === 'แก้ไข' && selectedSub.reject_reason)) && (
                   <div className="bg-amber-500/10 backdrop-blur-xs p-4 rounded-2xl border border-amber-200/50 shadow-2xs">
                     <span className="block text-[10px] text-amber-600 font-bold uppercase Prompt flex items-center gap-1">
                       <Info className="w-3 h-3" /> สาเหตุที่ให้แก้ไข
                     </span>
-                    <p className="text-xs font-bold text-amber-700 mt-1 Sarabun leading-relaxed">
-                      {selectedSub.reject_reason}
-                    </p>
+                    {isEditingSub ? (
+                      <textarea value={editRejectReason} onChange={(e) => setEditRejectReason(e.target.value)} placeholder="ระบุสาเหตุที่ให้แก้ไข..." className="w-full bg-white border border-amber-200 text-amber-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-amber-400 transition min-h-[56px] Prompt" />
+                    ) : (
+                      <p className="text-xs font-bold text-amber-700 mt-1 Sarabun leading-relaxed">{selectedSub.reject_reason}</p>
+                    )}
                   </div>
                 )}
 
@@ -1485,7 +1525,11 @@ function DashboardContent() {
                 <div className="grid grid-cols-2 gap-4 bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">เลขออเดอร์</span>
-                    <p className="text-xs font-bold text-slate-800 mt-1 font-mono">{selectedSub.order_no || '-'}</p>
+                    {isEditingSub ? (
+                      <input type="text" value={editOrderNo} onChange={(e) => setEditOrderNo(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition font-mono" />
+                    ) : (
+                      <p className="text-xs font-bold text-slate-800 mt-1 font-mono">{selectedSub.order_no || '-'}</p>
+                    )}
                   </div>
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">รหัสงาน</span>
@@ -1521,7 +1565,31 @@ function DashboardContent() {
                   )}
                 </div>
 
-                {!isEditingSub && (
+                {isEditingSub ? (
+                  <>
+                    {/* ประเภทงานย่อย */}
+                    <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ประเภทงานย่อย (sub_work_type)</span>
+                      <input type="text" value={editSubWorkType} onChange={(e) => setEditSubWorkType(e.target.value)} placeholder="เช่น เครื่องทำน้ำ / อุปกรณ์" className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition Prompt" />
+                    </div>
+                    {/* URL ไฟล์ PDF */}
+                    <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
+                      <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">URL ไฟล์ PDF</span>
+                      <input type="text" value={editFileUrl} onChange={(e) => setEditFileUrl(e.target.value)} placeholder="https://drive.google.com/..." className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition font-mono" />
+                    </div>
+                    {/* วิดีโอ */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
+                        <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ชื่อวิดีโอ</span>
+                        <input type="text" value={editVideoName} onChange={(e) => setEditVideoName(e.target.value)} placeholder="ชื่อไฟล์วิดีโอ" className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition" />
+                      </div>
+                      <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
+                        <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">URL วิดีโอ</span>
+                        <input type="text" value={editVideoUrl} onChange={(e) => setEditVideoUrl(e.target.value)} placeholder="https://drive.google.com/..." className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition font-mono" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs flex flex-col justify-between gap-3">
                       <div>
@@ -1529,10 +1597,7 @@ function DashboardContent() {
                         <p className="text-[9px] text-slate-400 mt-0.5 truncate">{selectedSub.file_name}</p>
                       </div>
                       {selectedSub.file_url && selectedSub.file_url !== '-' ? (
-                        <button 
-                          onClick={() => setPreviewFile({ type: 'pdf', url: selectedSub.file_url, name: selectedSub.file_name || 'เอกสารใบงาน' })}
-                          className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer"
-                        >
+                        <button onClick={() => setPreviewFile({ type: 'pdf', url: selectedSub.file_url, name: selectedSub.file_name || 'เอกสารใบงาน' })} className="w-full py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer">
                           <Eye className="w-3.5 h-3.5" /><span>ดูไฟล์ PDF</span>
                         </button>
                       ) : (
@@ -1545,10 +1610,7 @@ function DashboardContent() {
                         <p className="text-[9px] text-slate-400 mt-0.5 truncate">{selectedSub.video_name || '-'}</p>
                       </div>
                       {selectedSub.video_url && selectedSub.video_url !== '-' ? (
-                        <button 
-                          onClick={() => setPreviewFile({ type: 'video', url: selectedSub.video_url, name: selectedSub.video_name || 'วิดีโอประกอบ' })}
-                          className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer"
-                        >
+                        <button onClick={() => setPreviewFile({ type: 'video', url: selectedSub.video_url, name: selectedSub.video_name || 'วิดีโอประกอบ' })} className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition Prompt cursor-pointer">
                           <Eye className="w-3.5 h-3.5" /><span>เปิดดูวิดีโอ</span>
                         </button>
                       ) : (
@@ -1567,11 +1629,17 @@ function DashboardContent() {
                   </>
                 ) : (
                   <>
-                    <button onClick={handleDeleteSub} className="py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setIsEditingSub(true)} className="flex-1 py-3 px-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition shadow-md shadow-amber-100 flex items-center justify-center gap-1.5 Prompt cursor-pointer">
-                      <Edit3 className="w-4 h-4" /><span>แก้ไขรายละเอียดใบงาน</span>
+                    {isAdmin && (
+                      <button onClick={handleDeleteSub} className="py-3 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button onClick={isAdmin ? () => setIsEditingSub(true) : closeSubDetail} className={`flex-1 py-3 px-4 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 Prompt cursor-pointer ${
+                      isAdmin
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-100'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}>
+                      {isAdmin ? <><Edit3 className="w-4 h-4" /><span>แก้ไขรายละเอียดใบงาน</span></> : <span>ปิดหน้าต่าง</span>}
                     </button>
                   </>
                 )}
