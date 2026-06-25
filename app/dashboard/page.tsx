@@ -163,6 +163,7 @@ function DashboardContent() {
   const [editType, setEditType] = useState('งานติดตั้ง (INS)');
   const [editNote, setEditNote] = useState('');
   const [editFileName, setEditFileName] = useState('');
+  const [editJobId, setEditJobId] = useState('');
   const [previewFile, setPreviewFile] = useState<{ type: 'pdf' | 'video', url: string, name: string } | null>(null);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReasonInput, setRejectReasonInput] = useState('');
@@ -391,6 +392,7 @@ function DashboardContent() {
     setEditType(sub.work_type);
     setEditNote(sub.description || '');
     setEditFileName(sub.file_name || '');
+    setEditJobId(sub.job_id || '');
     setIsEditingSub(false);
   };
 
@@ -410,12 +412,22 @@ function DashboardContent() {
       const db = getDb();
       const subRef = doc(db, 'submissions', selectedSub.submission_date);
       
-      const updatedData = {
+      const updatedData: Record<string, string> = {
         work_type: editType,
         status: editStatus,
         description: editNote,
-        file_name: editFileName
+        file_name: editFileName,
       };
+
+      // อัปเดต job_id ถ้ามีการเปลี่ยนแปลง
+      if (editJobId.trim() !== (selectedSub.job_id || '')) {
+        updatedData.job_id = editJobId.trim();
+        // Sync กับ assigned_jobs ด้วยถ้า job_id เดิมมีอยู่
+        if (selectedSub.job_id) {
+          const oldJobRef = doc(db, 'assigned_jobs', selectedSub.job_id);
+          await updateDoc(oldJobRef, { job_id: editJobId.trim() }).catch(() => {/* ถ้าไม่มี doc ก็ข้ามได้ */});
+        }
+      }
 
       await updateDoc(subRef, updatedData);
 
@@ -548,13 +560,13 @@ function DashboardContent() {
     }
   };
 
-  // Delete submission and revert job queue status in Firestore
+  // Delete submission (and its assigned_job doc) from Firestore — ไม่ revert กลับ pending
   const handleDeleteSub = async () => {
     if (!selectedSub) return;
     
     const confirm = await showConfirm(
       "ยืนยันการลบประวัติงานส่งนี้",
-      `คุณต้องการลบข้อมูลชิ้นงานนี้ใช่หรือไม่? ไฟล์และโฟลเดอร์บน Google Drive จะถูกนำออกทั้งหมด รวมทั้งคืนค่าสถานะเป็นค้างส่งให้กับช่างเทคนิค`,
+      `คุณต้องการลบข้อมูลชิ้นงานนี้ออกจากระบบใช่หรือไม่? ไฟล์บน Google Drive จะถูกลบออกด้วย`,
       { danger: true, okText: "ยืนยันการลบ", cancelText: "ยกเลิก" }
     );
     if (!confirm) return;
@@ -565,7 +577,6 @@ function DashboardContent() {
       
       // 1. Delete folder from Google Drive if connected
       if (gdrivePrefs && gdrivePrefs.connected) {
-        // Attempt to request access token
         const accessToken = await getValidAccessToken();
         if (accessToken) {
           await deleteTargetUploadFolder(
@@ -579,7 +590,7 @@ function DashboardContent() {
         }
       }
 
-      // 2. Transaction batch deletes from submission and reverts status inside assigned_jobs
+      // 2. ลบ submission + ลบ assigned_job ออกเลย (ไม่ revert กลับ pending)
       const batch = writeBatch(db);
       
       const subRef = doc(db, 'submissions', selectedSub.submission_date);
@@ -587,35 +598,19 @@ function DashboardContent() {
 
       if (selectedSub.job_id) {
         const jobRef = doc(db, 'assigned_jobs', selectedSub.job_id);
-        batch.update(jobRef, {
-          status: 'pending',
-          submission_date: '-',
-          file_url: '-',
-          video_url: '-',
-          note: '-'
-        });
+        batch.delete(jobRef);
       }
 
       await batch.commit();
 
-      // Update local state list
+      // Update local state — ลบออกจาก submissions list
       const updatedList = submissions.filter(s => s.submission_date !== selectedSub.submission_date);
       setSubmissions(updatedList);
       
-      // Update queue locally
-      setAssignedJobs(prev => prev.map(job => {
-        if (job.job_id === selectedSub.job_id) {
-          return {
-            ...job,
-            status: 'pending',
-            submission_date: '-',
-            file_url: '-',
-            video_url: '-',
-            note: '-'
-          };
-        }
-        return job;
-      }));
+      // ลบออกจาก assignedJobs local state ด้วย
+      if (selectedSub.job_id) {
+        setAssignedJobs(prev => prev.filter(job => job.job_id !== selectedSub.job_id));
+      }
 
       // Recalculate stats
       const total = updatedList.length;
@@ -624,7 +619,7 @@ function DashboardContent() {
       const rejected = updatedList.filter(s => s.status === 'แก้ไข').length;
       setStats({ total, approved, pending, rejected });
 
-      showToast("ลบข้อมูลและคืนค่างานเข้าคิวจ่ายเรียบร้อยครับ", "success");
+      showToast("ลบข้อมูลงานออกจากระบบเรียบร้อยครับ", "success");
       closeSubDetail();
     } catch (err: any) {
       console.error(err);
@@ -1485,6 +1480,28 @@ function DashboardContent() {
                     </p>
                   </div>
                 )}
+
+                {/* กล่อง เลขออเดอร์ + รหัสงาน */}
+                <div className="grid grid-cols-2 gap-4 bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
+                  <div>
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">เลขออเดอร์</span>
+                    <p className="text-xs font-bold text-slate-800 mt-1 font-mono">{selectedSub.order_no || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">รหัสงาน</span>
+                    {isEditingSub ? (
+                      <input
+                        type="text"
+                        value={editJobId}
+                        onChange={(e) => setEditJobId(e.target.value)}
+                        placeholder="INS... หรือ AS..."
+                        className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition font-mono"
+                      />
+                    ) : (
+                      <p className="text-xs font-bold text-slate-800 mt-1 font-mono">{selectedSub.job_id || '-'}</p>
+                    )}
+                  </div>
+                </div>
 
                 <div className="bg-white/50 backdrop-blur-xs p-4 rounded-2xl border border-white/80 shadow-2xs">
                   <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">ชื่อเอกสารใบงาน</span>
