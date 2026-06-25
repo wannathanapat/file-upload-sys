@@ -17,6 +17,9 @@ interface AttendanceSettings {
   radius_meters: number;
   work_start_time: string;
   voice_message?: string;
+  voice_rate?: number;
+  voice_pitch?: number;
+  voice_name?: string;
 }
 
 interface AttendanceRecord {
@@ -370,7 +373,10 @@ export default function TechnicianView() {
         onClose={() => { setShowFaceScan(false); setPhase('idle'); }}
         onSuccess={handleFaceScanSuccess}
         employeeName={currentUser?.name || ''}
-        voiceMessage={settings?.voice_message || 'เช็คอินสำเร็จ ยินดีต้อนรับ'}
+        voiceMessage={settings?.voice_message}
+        voiceRate={settings?.voice_rate}
+        voicePitch={settings?.voice_pitch}
+        voiceName={settings?.voice_name}
       />
     </div>
   );

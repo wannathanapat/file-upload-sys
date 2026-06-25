@@ -25,6 +25,9 @@ interface AttendanceSettings {
   radius_meters: number;
   work_start_time: string;
   voice_message: string;
+  voice_rate?: number;
+  voice_pitch?: number;
+  voice_name?: string;
   excluded_usernames: string[];
 }
 
@@ -80,9 +83,16 @@ export default function AdminView() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
 
   // Data
-  const DEFAULT_SETTINGS: AttendanceSettings = {
-    office_lat: 19.9071, office_lng: 99.8314, radius_meters: 100,
-    work_start_time: '08:00', voice_message: 'เช็คอินสำเร็จ ยินดีต้อนรับ', excluded_usernames: [],
+  const DEFAULT_SETTINGS = {
+    office_lat: 19.9071,
+    office_lng: 99.8314,
+    radius_meters: 100,
+    work_start_time: '08:00',
+    voice_message: 'เช็คอินสำเร็จ',
+    voice_rate: 0.95,
+    voice_pitch: 1.05,
+    voice_name: '',
+    excluded_usernames: [],
   };
   const [settings, setSettings] = useState<AttendanceSettings>(DEFAULT_SETTINGS);
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
@@ -95,6 +105,23 @@ export default function AdminView() {
   const [localSettings, setLocalSettings] = useState<AttendanceSettings>(settings);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [clearingData, setClearingData] = useState(false);
+
+  // TTS Voices
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        const v = window.speechSynthesis.getVoices();
+        // Fallback to all voices if no Thai voices found, though we prefer Thai
+        if (v.length > 0) {
+          const th = v.filter(voice => voice.lang.startsWith('th'));
+          setVoices(th.length > 0 ? th : v);
+        }
+      };
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
   // Report filters
   const [reportDateFrom, setReportDateFrom] = useState(() => {
@@ -693,11 +720,61 @@ export default function AdminView() {
                   placeholder="เช็คอินสำเร็จ ยินดีต้อนรับ"
                   className="w-full px-4 py-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-teal-400 focus:bg-white transition Prompt"
                 />
+
+                {/* Voice Selection */}
+                {voices.length > 0 && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 mt-2 Prompt">
+                      เลือกเสียง
+                    </label>
+                    <select
+                      value={localSettings.voice_name || ''}
+                      onChange={(e) => setLocalSettings(prev => ({ ...prev, voice_name: e.target.value }))}
+                      className="w-full px-4 py-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-teal-400 focus:bg-white transition Prompt"
+                    >
+                      <option value="">ค่าเริ่มต้นของระบบ (System Default)</option>
+                      {voices.map(v => (
+                        <option key={v.voiceURI} value={v.voiceURI}>{v.name} ({v.lang})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Rate & Pitch */}
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide Prompt">ความเร็ว ({localSettings.voice_rate || 0.95}x)</label>
+                    </div>
+                    <input type="range" min="0.5" max="2" step="0.05"
+                      value={localSettings.voice_rate || 0.95}
+                      onChange={(e) => setLocalSettings(prev => ({ ...prev, voice_rate: parseFloat(e.target.value) }))}
+                      className="w-full accent-teal-600"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide Prompt">ระดับเสียง ({localSettings.voice_pitch || 1.05})</label>
+                    </div>
+                    <input type="range" min="0.1" max="2" step="0.05"
+                      value={localSettings.voice_pitch || 1.05}
+                      onChange={(e) => setLocalSettings(prev => ({ ...prev, voice_pitch: parseFloat(e.target.value) }))}
+                      className="w-full accent-teal-600"
+                    />
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={() => {
                     const msg = new SpeechSynthesisUtterance(localSettings.voice_message || 'เช็คอินสำเร็จ');
-                    msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05;
+                    msg.lang = 'th-TH'; 
+                    msg.rate = localSettings.voice_rate ?? 0.95; 
+                    msg.pitch = localSettings.voice_pitch ?? 1.05;
+                    if (localSettings.voice_name) {
+                      const selectedVoice = voices.find(v => v.voiceURI === localSettings.voice_name);
+                      if (selectedVoice) msg.voice = selectedVoice;
+                    }
                     speechSynthesis.cancel();
                     speechSynthesis.speak(msg);
                   }}

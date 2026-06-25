@@ -64,14 +64,14 @@ function SidebarInner() {
 
   const navItems = isAdmin ? [
     { name: 'ภาพรวมระบบและสถิติ', path: '/dashboard?view=overview', icon: LayoutDashboard },
+    { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
     { name: 'ประวัติส่งงานช่าง', path: '/dashboard?view=history', icon: History },
     { name: 'รายการงานค้างส่ง', path: '/dashboard?view=queue', icon: Clock },
     { name: 'ส่งงานแทนช่าง', path: '/submit?tab=dashboard', icon: ScanLine },
-    { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
-    { name: 'บรอดคาสต์ประชาสัมพันธ์', path: '/broadcast', icon: Megaphone },
-    { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
-    { name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings },
     { name: 'ระบบลงเวลาช่าง', path: '/attendance', icon: ClipboardCheck },
+    { name: 'บรอดคาสต์ประชาสัมพันธ์', path: '/broadcast', icon: Megaphone },
+    { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
+    { name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings },
   ] : [
     { name: 'แผงควบคุมผลงาน', path: '/submit?tab=dashboard', icon: LayoutDashboard },
     { name: 'รายการงานค้างส่ง', path: '/submit?tab=queue', icon: ScanLine },

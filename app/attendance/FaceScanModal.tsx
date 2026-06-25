@@ -10,11 +10,14 @@ interface FaceScanModalProps {
   onSuccess: () => void;
   employeeName: string;
   voiceMessage?: string;
+  voiceRate?: number;
+  voicePitch?: number;
+  voiceName?: string;
 }
 
 type ScanPhase = 'init' | 'streaming' | 'countdown' | 'scanning' | 'success' | 'failed' | 'no-camera';
 
-export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName, voiceMessage }: FaceScanModalProps) {
+export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName, voiceMessage, voiceRate, voicePitch, voiceName }: FaceScanModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   // Use a ref so the success-timer effect is NOT re-triggered every parent re-render
@@ -129,7 +132,20 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
       if ('speechSynthesis' in window) {
         const text = voiceMessage || 'เช็คอินสำเร็จ';
         const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05; msg.volume = 1;
+        msg.lang = 'th-TH'; 
+        msg.rate = voiceRate ?? 0.95; 
+        msg.pitch = voicePitch ?? 1.05; 
+        msg.volume = 1;
+        
+        if (voiceName) {
+          // Attempt to find the specified voice
+          const allVoices = window.speechSynthesis.getVoices();
+          const selected = allVoices.find(v => v.voiceURI === voiceName);
+          if (selected) {
+            msg.voice = selected;
+          }
+        }
+        
         speechSynthesis.cancel();
         speechSynthesis.speak(msg);
       }
@@ -140,7 +156,7 @@ export default function FaceScanModal({ isOpen, onClose, onSuccess, employeeName
       onSuccessRef.current();
     }, 1800);
     return () => clearTimeout(t);
-  }, [phase, stopCamera, voiceMessage]); // voiceMessage is OK here — it rarely changes
+  }, [phase, stopCamera, voiceMessage, voiceRate, voicePitch, voiceName]); // voice params are OK here — they rarely change
 
   const handleStartScan = () => {
     // ── Unlock AudioContext here (inside a real user gesture) ────────────────
