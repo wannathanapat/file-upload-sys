@@ -536,17 +536,20 @@ function SubmitPageInner() {
             // We use setTimeout to let the UI update and show the spinner before launching the compression
             setTimeout(async () => {
               try {
-                const compressed = await compressPdfFile(pdf, 0.6, 1.5, (current, total) => {
+                const originalSizeMB = pdf.size / (1024 * 1024);
+                const compressed = await compressPdfFile(pdf, undefined, undefined, (current, total) => {
                   setCompressProgress(Math.round((current / total) * 100));
                 });
                 
                 const compressedSizeMB = compressed.size / (1024 * 1024);
-                if (compressedSizeMB > limit) {
+                if (compressedSizeMB >= originalSizeMB) {
+                  showToast(`ไฟล์นี้บีบอัดไม่ได้ (${compressedSizeMB.toFixed(2)}MB) เนื่องจากเนื้อหาเป็นรูปภาพความละเอียดสูง กรุณาลดจำนวนหน้าลงครับ`, "error");
+                } else if (compressedSizeMB > limit) {
                   showToast(`บีบอัดแล้วขนาดไฟล์ยังเกินกำหนด (${compressedSizeMB.toFixed(2)}MB) กรุณาลดจำนวนหน้าลงครับ`, "error");
                 } else {
                   setPdfFile(compressed);
                   setImageFiles([]);
-                  showToast(`บีบอัดไฟล์ PDF สำเร็จ! ขนาดลดลงเหลือ ${compressedSizeMB.toFixed(2)}MB ✨`, "success");
+                  showToast(`บีบอัดไฟล์ PDF สำเร็จ! ขนาดลดจาก ${originalSizeMB.toFixed(2)}MB เหลือ ${compressedSizeMB.toFixed(2)}MB ✨`, "success");
                 }
               } catch (err: any) {
                 console.error(err);
@@ -625,17 +628,20 @@ function SubmitPageInner() {
             
             setTimeout(async () => {
               try {
-                const compressed = await compressPdfFile(pdf, 0.6, 1.5, (current, total) => {
+                const originalSizeMB = pdf.size / (1024 * 1024);
+                const compressed = await compressPdfFile(pdf, undefined, undefined, (current, total) => {
                   setCompressProgress(Math.round((current / total) * 100));
                 });
                 
                 const compressedSizeMB = compressed.size / (1024 * 1024);
-                if (compressedSizeMB > limit) {
+                if (compressedSizeMB >= originalSizeMB) {
+                  showToast(`ไฟล์นี้บีบอัดไม่ได้ (${compressedSizeMB.toFixed(2)}MB) เนื่องจากเนื้อหาเป็นรูปภาพความละเอียดสูง กรุณาลดจำนวนหน้าลงครับ`, "error");
+                } else if (compressedSizeMB > limit) {
                   showToast(`บีบอัดแล้วขนาดไฟล์ยังเกินกำหนด (${compressedSizeMB.toFixed(2)}MB) กรุณาลดจำนวนหน้าลงครับ`, "error");
                 } else {
                   setFixPdfFile(compressed);
                   setFixImageFiles([]);
-                  showToast(`บีบอัดไฟล์ PDF สำเร็จ! ขนาดลดลงเหลือ ${compressedSizeMB.toFixed(2)}MB ✨`, "success");
+                  showToast(`บีบอัดไฟล์ PDF สำเร็จ! ขนาดลดจาก ${originalSizeMB.toFixed(2)}MB เหลือ ${compressedSizeMB.toFixed(2)}MB ✨`, "success");
                 }
               } catch (err: any) {
                 console.error(err);

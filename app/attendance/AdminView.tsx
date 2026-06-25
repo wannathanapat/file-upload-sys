@@ -567,29 +567,29 @@ export default function AdminView() {
               <div className="bg-white rounded-3xl border border-teal-100 p-5 shadow-sm space-y-3">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-7 h-7 bg-teal-50 rounded-xl flex items-center justify-center text-sm">&#128266;</div>
-                  <h3 className="text-sm font-bold text-slate-800 Prompt">\u0e40\u0e2a\u0e35\u0e22\u0e07\u0e41\u0e08\u0e49\u0e07\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08</h3>
+                  <h3 className="text-sm font-bold text-slate-800 Prompt">เสียงแจ้งเมื่อเช็คอินสำเร็จ</h3>
                 </div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 Prompt">
-                  \u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21 Text-to-Speech
+                  ข้อความ Text-to-Speech
                 </label>
                 <input
                   type="text"
                   value={localSettings.voice_message}
                   onChange={(e) => setLocalSettings(prev => ({ ...prev, voice_message: e.target.value }))}
-                  placeholder="\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08 \u0e22\u0e34\u0e19\u0e14\u0e35\u0e15\u0e49\u0e2d\u0e19\u0e23\u0e31\u0e1a"
+                  placeholder="เช็คอินสำเร็จ ยินดีต้อนรับ"
                   className="w-full px-4 py-3 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:border-teal-400 focus:bg-white transition Prompt"
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    const msg = new SpeechSynthesisUtterance(localSettings.voice_message || '\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08');
+                    const msg = new SpeechSynthesisUtterance(localSettings.voice_message || 'เช็คอินสำเร็จ');
                     msg.lang = 'th-TH'; msg.rate = 0.95; msg.pitch = 1.05;
                     speechSynthesis.cancel();
                     speechSynthesis.speak(msg);
                   }}
                   className="flex items-center gap-2 px-4 py-2.5 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold text-xs rounded-xl border border-teal-200 transition active:scale-95 Prompt"
                 >
-                  &#128266; \u0e17\u0e14\u0e2a\u0e2d\u0e1a\u0e40\u0e2a\u0e35\u0e22\u0e07
+                  &#128266; ทดสอบเสียง
                 </button>
               </div>
 
@@ -599,7 +599,7 @@ export default function AdminView() {
                 disabled={settingsSaving}
                 className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold rounded-2xl text-sm transition active:scale-95 Prompt shadow-lg shadow-blue-500/30 flex items-center justify-center gap-2"
               >
-                {settingsSaving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />\u0e01\u0e33\u0e25\u0e31\u0e07\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01...</> : '\uD83D\uDCBE \u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e01\u0e32\u0e23\u0e15\u0e31\u0e49\u0e07\u0e04\u0e48\u0e32'}
+                {settingsSaving ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />กำลังบันทึก...</> : '💾 บันทึกการตั้งค่า'}
               </button>
 
               {/* Employee Management */}
@@ -609,11 +609,11 @@ export default function AdminView() {
                     <div className="w-7 h-7 bg-violet-50 rounded-xl flex items-center justify-center">
                       <Users className="w-4 h-4 text-violet-600" />
                     </div>
-                    <h3 className="text-sm font-bold text-slate-800 Prompt">\u0e08\u0e31\u0e14\u0e01\u0e32\u0e23\u0e1e\u0e19\u0e31\u0e01\u0e07\u0e32\u0e19</h3>
+                    <h3 className="text-sm font-bold text-slate-800 Prompt">จัดการพนักงาน</h3>
                   </div>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">{employees.length} \u0e04\u0e19</span>
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">{employees.length} คน</span>
                 </div>
-                <p className="text-[10px] text-slate-400 Prompt">&#128683; \u0e01\u0e14 \u0e25\u0e1a \u0e40\u0e1e\u0e37\u0e48\u0e2d\u0e0b\u0e48\u0e2d\u0e19\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c\u0e17\u0e35\u0e48\u0e44\u0e21\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e40\u0e0a\u0e47\u0e04\u0e2d\u0e34\u0e19\u0e2d\u0e2d\u0e01\u0e08\u0e32\u0e01\u0e23\u0e32\u0e22\u0e0a\u0e37\u0e48\u0e2d</p>
+                <p className="text-[10px] text-slate-400 Prompt">&#128683; กด ลบ เพื่อซ่อนฟรีแลนซ์ที่ไม่ต้องเช็คอินออกจากรายชื่อ</p>
 
                 {/* Active employees */}
                 <div className="space-y-2">
@@ -632,12 +632,12 @@ export default function AdminView() {
                           className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-600 font-bold text-[9px] rounded-xl border border-violet-200 transition Prompt"
                         >
                           <Camera className="w-3 h-3" />
-                          \u0e2a\u0e41\u0e01\u0e19\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32
+                          สแกนใบหน้า
                         </button>
                         <button
                           onClick={() => handleExcludeEmployee(emp)}
                           className="p-1.5 bg-red-50 hover:bg-red-100 text-red-400 rounded-xl border border-red-200 transition"
-                          title="\u0e0b\u0e48\u0e2d\u0e19\u0e2d\u0e2d\u0e01"
+                          title="ซ่อนออก"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -649,7 +649,7 @@ export default function AdminView() {
                 {/* Excluded employees list */}
                 {(localSettings.excluded_usernames || []).length > 0 && (
                   <div className="pt-3 border-t border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 Prompt mb-2">&#128683; \u0e0b\u0e48\u0e2d\u0e19\u0e2d\u0e22\u0e39\u0e48 (\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c)</p>
+                    <p className="text-[10px] font-bold text-slate-400 Prompt mb-2">&#128683; ซ่อนอยู่ (ฟรีแลนซ์)</p>
                     {(localSettings.excluded_usernames || []).map(uname => (
                       <div key={uname} className="flex items-center gap-2 py-2 px-3 bg-red-50 rounded-xl mb-1.5">
                         <span className="flex-1 text-xs text-red-500 Prompt font-medium truncate">{uname}</span>
@@ -657,7 +657,7 @@ export default function AdminView() {
                           onClick={() => handleIncludeEmployee(uname)}
                           className="text-[9px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition Prompt whitespace-nowrap"
                         >
-                          \u0e04\u0e37\u0e19\u0e2a\u0e16\u0e32\u0e19\u0e30
+                          คืนสถานะ
                         </button>
                       </div>
                     ))}
@@ -672,8 +672,8 @@ export default function AdminView() {
                     <Trash2 className="w-4 h-4 text-red-400" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-red-600 Prompt">\u0e40\u0e04\u0e25\u0e35\u0e22\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25</h3>
-                    <p className="text-[9px] text-slate-400 Prompt">Dev / Testing \u2014 \u0e44\u0e21\u0e48\u0e2a\u0e32\u0e21\u0e32\u0e23\u0e16\u0e01\u0e39\u0e49\u0e04\u0e37\u0e19\u0e44\u0e14\u0e49!</p>
+                    <h3 className="text-sm font-bold text-red-600 Prompt">เคลียข้อมูล</h3>
+                    <p className="text-[9px] text-slate-400 Prompt">Dev / Testing — ไม่สามารถกู้คืนได้!</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -682,14 +682,14 @@ export default function AdminView() {
                     disabled={clearingData}
                     className="py-3 px-2 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold text-xs rounded-2xl border border-orange-200 transition active:scale-95 Prompt disabled:opacity-50"
                   >
-                    {clearingData ? '...' : '\uD83E\uDDF9 \u0e25\u0e1a\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49'}
+                    {clearingData ? '...' : '🧹 ลบวันนี้'}
                   </button>
                   <button
                     onClick={handleClearAllRecords}
                     disabled={clearingData}
                     className="py-3 px-2 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs rounded-2xl border border-red-200 transition active:scale-95 Prompt disabled:opacity-50"
                   >
-                    {clearingData ? '...' : '\u26A0\uFE0F \u0e25\u0e1a\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14'}
+                    {clearingData ? '...' : '⚠️ ลบทั้งหมด'}
                   </button>
                 </div>
               </div>

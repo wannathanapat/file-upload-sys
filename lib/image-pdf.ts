@@ -166,8 +166,8 @@ const loadPdfJs = (): Promise<any> => {
 // Compress a PDF file client-side by rendering pages to canvas and recreating PDF
 export const compressPdfFile = async (
   pdfFile: File,
-  quality = 0.6,
-  scale = 1.5,
+  quality = 0.65,
+  scale = 1.0,           // ← was 1.5; lower = smaller canvas = smaller JPEG
   onProgress?: (current: number, total: number) => void
 ): Promise<File> => {
   if (!isBrowser) {
@@ -239,6 +239,14 @@ export const compressPdfFile = async (
   }
 
   const pdfBlob = pdfOut.output('blob');
-  return new File([pdfBlob], pdfFile.name, { type: 'application/pdf' });
+  const compressedFile = new File([pdfBlob], pdfFile.name, { type: 'application/pdf' });
+
+  // Safety: if compression made the file BIGGER, return the original
+  if (compressedFile.size >= pdfFile.size) {
+    return pdfFile;
+  }
+
+  return compressedFile;
 };
+
 
