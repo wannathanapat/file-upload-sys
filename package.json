@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@line/liff": "^2.29.0",
+    "face-api.js": "^0.22.2",
     "firebase": "^12.15.0",
     "firebase-admin": "^14.0.0",
     "framer-motion": "^12.41.0",

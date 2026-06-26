@@ -11,10 +11,19 @@ import { getDb } from '@/lib/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import FaceScanModal from './FaceScanModal';
 
+interface OfficeLocation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_meters: number;
+}
+
 interface AttendanceSettings {
   office_lat: number;
   office_lng: number;
   radius_meters: number;
+  locations?: OfficeLocation[];
   work_start_time: string;
   voice_message?: string;
   voice_rate?: number;
@@ -37,7 +46,7 @@ interface AttendanceRecord {
   note?: string;
 }
 
-type CheckinPhase = 'idle' | 'checking-location' | 'location-failed' | 'location-ok' | 'face-scan' | 'done';
+type CheckinPhase = 'idle' | 'checking-location' | 'location-failed' | 'location-ok' | 'loading-face' | 'face-scan' | 'done';
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; border: string; dot: string }> = {
   on_time:       { label: 'เข้างานปกติ',    bg: 'bg-emerald-50',  text: 'text-emerald-700', border: 'border-emerald-200', dot: 'bg-emerald-500' },
@@ -61,7 +70,8 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 }
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function TechnicianView() {
@@ -73,6 +83,7 @@ export default function TechnicianView() {
   const [phase, setPhase] = useState<CheckinPhase>('idle');
   const [showFaceScan, setShowFaceScan] = useState(false);
   const [locationError, setLocationError] = useState('');
+  const [knownDescriptor, setKnownDescriptor] = useState<number[] | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [now, setNow] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -127,13 +138,44 @@ export default function TechnicianView() {
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const dist = haversineDistance(pos.coords.latitude, pos.coords.longitude, settings.office_lat, settings.office_lng);
-        setDistance(Math.round(dist));
+        const { latitude, longitude } = pos.coords;
 
-        if (dist > settings.radius_meters) {
+        // Build effective locations list (support legacy single-location settings)
+        const locs: OfficeLocation[] = (settings.locations && settings.locations.length > 0)
+          ? settings.locations
+          : [{ id: 'default', name: 'ออฟฟิศ', lat: settings.office_lat, lng: settings.office_lng, radius_meters: settings.radius_meters }];
+
+        // Find the nearest location and whether we're inside any
+        let minDist = Infinity;
+        let withinAny = false;
+        for (const loc of locs) {
+          const d = haversineDistance(latitude, longitude, loc.lat, loc.lng);
+          if (d < minDist) minDist = d;
+          if (d <= loc.radius_meters) { withinAny = true; break; }
+        }
+
+        setDistance(Math.round(minDist));
+
+        if (!withinAny) {
           setPhase('location-failed');
-          setLocationError(`คุณอยู่ห่างจากออฟฟิศ ${Math.round(dist)} เมตร (อนุญาต ${settings.radius_meters} เมตร)`);
+          const locLabel = locs.length > 1 ? 'พื้นที่ที่อนุญาต' : 'ออฟฟิศ';
+          setLocationError(`คุณอยู่ห่างจาก${locLabel}ที่ใกล้ที่สุด ${Math.round(minDist)} เมตร`);
         } else {
+          setPhase('loading-face');
+          // Fetch stored face descriptor for this employee
+          try {
+            const empSnap = await getDoc(doc(getDb(), 'attendance_employees', currentUser.username));
+            if (!empSnap.exists() || !empSnap.data()?.face_descriptor?.length) {
+              showToast('ยังไม่ได้ลงทะเบียนใบหน้า กรุณาติดต่อแอดมิน', 'error');
+              setPhase('idle');
+              return;
+            }
+            setKnownDescriptor(empSnap.data().face_descriptor as number[]);
+          } catch {
+            showToast('โหลดข้อมูลใบหน้าไม่สำเร็จ', 'error');
+            setPhase('idle');
+            return;
+          }
           setPhase('location-ok');
           setTimeout(() => setShowFaceScan(true), 600);
         }
@@ -146,7 +188,7 @@ export default function TechnicianView() {
     );
   };
 
-  const handleFaceScanSuccess = async () => {
+  const handleFaceScanSuccess = async (_descriptor?: number[]) => {
     if (!currentUser || !settings) return;
     setShowFaceScan(false);
     setPhase('done');
@@ -252,6 +294,13 @@ export default function TechnicianView() {
                     <p className="text-sm text-blue-700 font-semibold Prompt">กำลังตรวจสอบตำแหน่ง GPS...</p>
                   </motion.div>
                 )}
+                {phase === 'loading-face' && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    className="flex items-center gap-3 bg-violet-50 border border-violet-200 rounded-2xl px-4 py-3">
+                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                    <p className="text-sm text-violet-700 font-semibold Prompt">กำลังโหลดข้อมูลใบหน้า...</p>
+                  </motion.div>
+                )}
                 {phase === 'location-ok' && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                     className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3">
@@ -280,7 +329,7 @@ export default function TechnicianView() {
               {!todayRecord ? (
                 <motion.button
                   onClick={handleCheckin}
-                  disabled={phase === 'checking-location' || phase === 'location-ok'}
+                  disabled={phase === 'checking-location' || phase === 'loading-face' || phase === 'location-ok'}
                   whileTap={{ scale: 0.97 }}
                   className="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-500 disabled:from-slate-300 disabled:to-slate-300 text-white font-black text-lg rounded-3xl shadow-2xl shadow-blue-500/40 disabled:shadow-none transition-all active:scale-95 Prompt flex items-center justify-center gap-3"
                 >
@@ -373,6 +422,8 @@ export default function TechnicianView() {
         onClose={() => { setShowFaceScan(false); setPhase('idle'); }}
         onSuccess={handleFaceScanSuccess}
         employeeName={currentUser?.name || ''}
+        mode="verify"
+        knownDescriptor={knownDescriptor ?? undefined}
         voiceMessage={settings?.voice_message}
         voiceRate={settings?.voice_rate}
         voicePitch={settings?.voice_pitch}

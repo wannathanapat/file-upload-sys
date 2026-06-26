@@ -410,6 +410,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     const registerFcmToken = async () => {
       try {
         // Request notification permission
+        if (typeof Notification === 'undefined') return;
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
           console.warn('[FCM] Notification permission denied');

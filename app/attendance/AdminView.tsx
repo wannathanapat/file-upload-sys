@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, CheckCircle2, AlertCircle, Clock, CalendarDays,
   Settings, BarChart3, Download, RefreshCw, MapPin, UserPlus,
-  Trash2, FileText, Filter, ChevronDown, Camera, X,
+  Trash2, FileText, Filter, ChevronDown, Camera, X, Plus, Pencil,
 } from 'lucide-react';
 import { useApp } from '@/app/providers';
 import { getDb } from '@/lib/firebase';
@@ -19,10 +19,19 @@ import FaceScanModal from './FaceScanModal';
 
 /* ─────────────────────────── Types ──────────────────────────── */
 
+interface OfficeLocation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_meters: number;
+}
+
 interface AttendanceSettings {
   office_lat: number;
   office_lng: number;
   radius_meters: number;
+  locations: OfficeLocation[];
   work_start_time: string;
   voice_message: string;
   voice_rate?: number;
@@ -73,7 +82,8 @@ function getStatusKey(record?: AttendanceRecord | null): string {
 }
 
 function todayString() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 /* ─────────────────── AdminView Component ─────────────────────── */
@@ -83,10 +93,11 @@ export default function AdminView() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
 
   // Data
-  const DEFAULT_SETTINGS = {
+  const DEFAULT_SETTINGS: AttendanceSettings = {
     office_lat: 19.9071,
     office_lng: 99.8314,
     radius_meters: 100,
+    locations: [],
     work_start_time: '08:00',
     voice_message: 'เช็คอินสำเร็จ',
     voice_rate: 0.95,
@@ -96,6 +107,7 @@ export default function AdminView() {
   };
   const [settings, setSettings] = useState<AttendanceSettings>(DEFAULT_SETTINGS);
   const [employees, setEmployees] = useState<EmployeeInfo[]>([]);
+  const [faceRegistered, setFaceRegistered] = useState<Record<string, boolean>>({});
   const [todayRecords, setTodayRecords] = useState<Record<string, AttendanceRecord>>({});
   const [reportRecords, setReportRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +145,7 @@ export default function AdminView() {
 
   // Modals
   const [overrideModal, setOverrideModal] = useState<{ open: boolean; employee?: EmployeeInfo; date: string }>({ open: false, date: todayString() });
-  const [geofenceModal, setGeofenceModal] = useState(false);
+  const [geofenceModal, setGeofenceModal] = useState<{ open: boolean; editId: string | null }>({ open: false, editId: null });
   const [faceRegModal, setFaceRegModal] = useState<{ open: boolean; employee?: EmployeeInfo }>({ open: false });
   const [selectedEmployee, setSelectedEmployee] = useState<{
     emp: EmployeeInfo;
@@ -159,12 +171,23 @@ export default function AdminView() {
       }
 
       // Employees (staff only, excluding freelancers)
-      const usersSnap = await getDocs(collection(db, 'users'));
+      const [usersSnap, faceSnap] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'attendance_employees')),
+      ]);
       const excludedList: string[] = (settingsSnap.exists() ? settingsSnap.data()?.excluded_usernames : []) || [];
       const emps: EmployeeInfo[] = usersSnap.docs
         .map(d => d.data() as EmployeeInfo)
         .filter(u => u.role === 'staff' && u.status === 'active' && !excludedList.includes(u.username));
       setEmployees(emps);
+
+      // Build face registration map
+      const faceMap: Record<string, boolean> = {};
+      faceSnap.docs.forEach(d => {
+        const data = d.data();
+        if (data.face_descriptor?.length > 0) faceMap[d.id] = true;
+      });
+      setFaceRegistered(faceMap);
 
       // Today records
       const today = todayString();
@@ -259,18 +282,45 @@ export default function AdminView() {
     setFaceRegModal({ open: true, employee: emp });
   };
 
-  const handleFaceRegSuccess = async () => {
+  const handleFaceRegSuccess = async (descriptor?: number[]) => {
     const emp = faceRegModal.employee;
     if (!emp) return;
+    if (!descriptor || descriptor.length === 0) {
+      showToast('\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e23\u0e31\u0e1a\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32 \u0e01\u0e23\u0e38\u0e13\u0e32\u0e25\u0e2d\u0e07\u0e43\u0e2b\u0e21\u0e48', 'error');
+      return;
+    }
     try {
       await setDoc(doc(getDb(), 'attendance_employees', emp.username), {
-        username: emp.username, name: emp.name,
-        face_registered: true, registered_at: new Date().toISOString(),
+        username: emp.username,
+        name: emp.name,
+        face_registered: true,
+        face_descriptor: descriptor,
+        registered_at: new Date().toISOString(),
       });
       showToast('\u2705 \u0e25\u0e07\u0e17\u0e30\u0e40\u0e1a\u0e35\u0e22\u0e19\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32 ' + emp.name + ' \u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'success');
-    } catch { showToast('\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error'); }
+    } catch {
+      showToast('\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e43\u0e1a\u0e2b\u0e19\u0e49\u0e32\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08', 'error');
+    }
     setFaceRegModal({ open: false });
     await loadData();
+  };
+
+  /* ────── Reset Today's Check-in ────── */
+
+  const handleResetCheckin = async (emp: EmployeeInfo, rec: AttendanceRecord) => {
+    if (!window.confirm(`รีเซ็ตการเช็คอินวันนี้ของ "${emp.name}"?\nข้อมูลการสแกนหน้าและพิกัดจะถูกลบออก`)) return;
+    try {
+      await deleteDoc(doc(getDb(), 'attendance_records', rec.id));
+      setTodayRecords(prev => {
+        const next = { ...prev };
+        delete next[emp.username];
+        return next;
+      });
+      showToast(`รีเซ็ตเช็คอินของ ${emp.name} แล้ว`, 'info');
+    } catch {
+      showToast('รีเซ็ตไม่สำเร็จ', 'error');
+    }
+    setSelectedEmployee(null);
   };
 
   /* ────── Exclude / Include Employee ────── */
@@ -632,6 +682,15 @@ export default function AdminView() {
                               ซ่อน
                             </button>
                           </div>
+                          {rec && (
+                            <button
+                              onClick={() => handleResetCheckin(emp, rec)}
+                              className="w-full py-3 bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-xs rounded-2xl border border-amber-200 transition active:scale-95 flex items-center justify-center gap-1.5 Prompt"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              รีเซ็ตการเช็คอินวันนี้
+                            </button>
+                          )}
                         </div>
                       </motion.div>
                     </motion.div>
@@ -647,39 +706,49 @@ export default function AdminView() {
             <motion.div key="settings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
               {/* Geofence Section */}
               <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-3">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-7 h-7 bg-blue-50 rounded-xl flex items-center justify-center">
-                    <MapPin className="w-4 h-4 text-blue-600" />
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-blue-50 rounded-xl flex items-center justify-center">
+                      <MapPin className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-800 Prompt">พิกัดออฟฟิศ (Geofencing)</h3>
                   </div>
-                  <h3 className="text-sm font-bold text-slate-800 Prompt">พิกัดออฟฟิศ (Geofencing)</h3>
+                  <span className="text-[10px] text-slate-400 Prompt">{localSettings.locations.length} พื้นที่</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-slate-50 rounded-2xl p-3">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase Prompt">Latitude</p>
-                    <p className="text-sm font-bold text-slate-700 mt-0.5">{localSettings.office_lat}</p>
-                  </div>
-                  <div className="bg-slate-50 rounded-2xl p-3">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase Prompt">Longitude</p>
-                    <p className="text-sm font-bold text-slate-700 mt-0.5">{localSettings.office_lng}</p>
-                  </div>
+
+                {/* Location list */}
+                {localSettings.locations.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-3 Prompt">ยังไม่มีพื้นที่ กด "เพิ่มพื้นที่" เพื่อเริ่มต้น</p>
+                )}
+                <div className="space-y-2">
+                  {localSettings.locations.map((loc) => (
+                    <div key={loc.id} className="flex items-center gap-2 bg-slate-50 rounded-2xl p-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-700 Prompt truncate">{loc.name}</p>
+                        <p className="text-[10px] text-slate-400 Prompt">{loc.lat.toFixed(5)}, {loc.lng.toFixed(5)} · รัศมี {loc.radius_meters} ม.</p>
+                      </div>
+                      <button
+                        onClick={() => setGeofenceModal({ open: true, editId: loc.id })}
+                        className="w-7 h-7 flex items-center justify-center text-blue-500 hover:bg-blue-100 rounded-xl transition"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setLocalSettings(prev => ({ ...prev, locations: prev.locations.filter(l => l.id !== loc.id) }))}
+                        className="w-7 h-7 flex items-center justify-center text-rose-400 hover:bg-rose-50 rounded-xl transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide Prompt">รัศมีอนุญาต</label>
-                    <span className="text-xs font-bold text-blue-600">{localSettings.radius_meters} เมตร</span>
-                  </div>
-                  <input type="range" min={30} max={500} step={10}
-                    value={localSettings.radius_meters}
-                    onChange={(e) => setLocalSettings(prev => ({ ...prev, radius_meters: parseInt(e.target.value) }))}
-                    className="w-full accent-blue-600"
-                  />
-                </div>
+
                 <button
-                  onClick={() => setGeofenceModal(true)}
+                  onClick={() => setGeofenceModal({ open: true, editId: null })}
                   className="w-full flex items-center justify-center gap-2 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-2xl border border-blue-200 transition active:scale-95 Prompt"
                 >
-                  <MapPin className="w-4 h-4" />
-                  ปักหมุดบนแผนที่
+                  <Plus className="w-4 h-4" />
+                  เพิ่มพื้นที่ใหม่
                 </button>
               </div>
 
@@ -808,22 +877,37 @@ export default function AdminView() {
 
                 {/* Active employees */}
                 <div className="space-y-2">
-                  {employees.map(emp => (
-                    <div key={emp.username} className="flex items-center gap-3 py-2.5 px-3 bg-slate-50 rounded-2xl">
-                      <div className="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center font-bold text-blue-700 text-xs flex-shrink-0">
+                  {employees.map(emp => {
+                    const hasFace = faceRegistered[emp.username] === true;
+                    return (
+                    <div key={emp.username} className={`flex items-center gap-3 py-2.5 px-3 rounded-2xl border transition-colors ${hasFace ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-transparent'}`}>
+                      {/* Avatar with face-status ring */}
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 ${hasFace ? 'bg-emerald-100 text-emerald-700 ring-2 ring-emerald-400' : 'bg-blue-100 text-blue-700'}`}>
                         {emp.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-700 Prompt truncate">{emp.name}</p>
-                        <p className="text-[9px] text-slate-400 Prompt">{emp.username}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-[9px] text-slate-400 Prompt">{emp.username}</p>
+                          {hasFace && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                              ✓ ลงทะเบียนแล้ว
+                            </span>
+                          )}
+                          {!hasFace && (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                              ยังไม่ได้ลงทะเบียน
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleRegisterFace(emp)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-50 hover:bg-violet-100 text-violet-600 font-bold text-[9px] rounded-xl border border-violet-200 transition Prompt"
+                          className={`flex items-center gap-1 px-2.5 py-1.5 font-bold text-[9px] rounded-xl border transition Prompt ${hasFace ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border-emerald-200' : 'bg-violet-50 hover:bg-violet-100 text-violet-600 border-violet-200'}`}
                         >
                           <Camera className="w-3 h-3" />
-                          สแกนใบหน้า
+                          {hasFace ? 'อัปเดต' : 'สแกนใบหน้า'}
                         </button>
                         <button
                           onClick={() => handleExcludeEmployee(emp)}
@@ -834,7 +918,8 @@ export default function AdminView() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
 
                 {/* Excluded employees list */}
@@ -1011,17 +1096,35 @@ export default function AdminView() {
       />
 
       {/* Geofence Modal */}
-      <GeofenceMapModal
-        isOpen={geofenceModal}
-        onClose={() => setGeofenceModal(false)}
-        onSave={(lat, lng, radius) => {
-          setLocalSettings(prev => ({ ...prev, office_lat: lat, office_lng: lng, radius_meters: radius }));
-          showToast('อัปเดตพิกัดแล้ว กด "บันทึกการตั้งค่า" เพื่อยืนยัน', 'info');
-        }}
-        initialLat={localSettings.office_lat}
-        initialLng={localSettings.office_lng}
-        initialRadius={localSettings.radius_meters}
-      />
+      {(() => {
+        const editing = geofenceModal.editId
+          ? localSettings.locations.find(l => l.id === geofenceModal.editId)
+          : null;
+        return (
+          <GeofenceMapModal
+            isOpen={geofenceModal.open}
+            onClose={() => setGeofenceModal({ open: false, editId: null })}
+            onSave={(lat, lng, radius, name) => {
+              if (geofenceModal.editId) {
+                setLocalSettings(prev => ({
+                  ...prev,
+                  locations: prev.locations.map(l =>
+                    l.id === geofenceModal.editId ? { ...l, lat, lng, radius_meters: radius, name } : l
+                  ),
+                }));
+              } else {
+                const newLoc: OfficeLocation = { id: Date.now().toString(), name, lat, lng, radius_meters: radius };
+                setLocalSettings(prev => ({ ...prev, locations: [...prev.locations, newLoc] }));
+              }
+              showToast('อัปเดตพิกัดแล้ว กด "บันทึกการตั้งค่า" เพื่อยืนยัน', 'info');
+            }}
+            initialLat={editing?.lat ?? localSettings.office_lat}
+            initialLng={editing?.lng ?? localSettings.office_lng}
+            initialRadius={editing?.radius_meters ?? localSettings.radius_meters}
+            initialName={editing?.name ?? ''}
+          />
+        );
+      })()}
 
       {/* Face Registration Modal */}
       <FaceScanModal

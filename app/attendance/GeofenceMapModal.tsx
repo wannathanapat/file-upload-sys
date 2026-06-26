@@ -7,10 +7,11 @@ import { X, MapPin, Save, Target, Crosshair } from 'lucide-react';
 interface GeofenceMapModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (lat: number, lng: number, radius: number) => void;
+  onSave: (lat: number, lng: number, radius: number, name: string) => void;
   initialLat?: number;
   initialLng?: number;
   initialRadius?: number;
+  initialName?: string;
 }
 
 // Leaflet is loaded via dynamic script injection (no npm install needed)
@@ -22,7 +23,7 @@ declare global {
 
 export default function GeofenceMapModal({
   isOpen, onClose, onSave,
-  initialLat = 19.9071, initialLng = 99.8314, initialRadius = 100,
+  initialLat = 19.9071, initialLng = 99.8314, initialRadius = 100, initialName = '',
 }: GeofenceMapModalProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<any>(null);
@@ -32,8 +33,14 @@ export default function GeofenceMapModal({
   const [lat, setLat] = useState(initialLat);
   const [lng, setLng] = useState(initialLng);
   const [radius, setRadius] = useState(initialRadius);
+  const [name, setName] = useState(initialName);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [useGPS, setUseGPS] = useState(false);
+
+  // Sync name when modal re-opens for a different location
+  useEffect(() => {
+    if (isOpen) setName(initialName);
+  }, [isOpen, initialName]);
 
   // Load Leaflet CSS + JS dynamically
   useEffect(() => {
@@ -134,7 +141,7 @@ export default function GeofenceMapModal({
   };
 
   const handleSave = () => {
-    onSave(lat, lng, radius);
+    onSave(lat, lng, radius, name.trim() || 'ออฟฟิศ');
     onClose();
   };
 
@@ -188,6 +195,16 @@ export default function GeofenceMapModal({
 
           {/* Controls */}
           <div className="px-5 py-4 space-y-3 overflow-y-auto">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wide Prompt">ชื่อพื้นที่</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="เช่น ออฟฟิศหลัก, สาขาเชียงใหม่"
+                className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 focus:bg-white transition"
+              />
+            </div>
             <button
               onClick={handleUseCurrentLocation}
               disabled={useGPS}
@@ -246,9 +263,9 @@ export default function GeofenceMapModal({
               </div>
               <input
                 type="range"
-                min={30}
+                min={3}
                 max={500}
-                step={10}
+                step={1}
                 value={radius}
                 onChange={(e) => setRadius(parseInt(e.target.value))}
                 className="w-full accent-blue-600"
