@@ -440,13 +440,45 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
         // Save token to Firestore under notification_tokens collection
         const db = getDb();
-        const { doc: firestoreDoc, setDoc: firestoreSetDoc, serverTimestamp } = await import('firebase/firestore');
+        const {
+          doc: firestoreDoc,
+          setDoc: firestoreSetDoc,
+          deleteDoc: firestoreDeleteDoc,
+          getDocs: firestoreGetDocs,
+          collection: firestoreCollection,
+          query: firestoreQuery,
+          where: firestoreWhere,
+          serverTimestamp,
+        } = await import('firebase/firestore');
+
+        const username = currentUser.username || currentUser.name || 'unknown';
+        const device = /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'pc';
+
+        // Remove stale tokens for same user + device type to prevent duplicate pushes.
+        // Multi-device is preserved: mobile and pc tokens are kept independently.
+        try {
+          const staleSnap = await firestoreGetDocs(
+            firestoreQuery(
+              firestoreCollection(db, 'notification_tokens'),
+              firestoreWhere('username', '==', username),
+              firestoreWhere('device', '==', device),
+            )
+          );
+          await Promise.all(
+            staleSnap.docs
+              .filter(d => d.id !== token)
+              .map(d => firestoreDeleteDoc(d.ref))
+          );
+        } catch (e) {
+          console.warn('[FCM] Could not clean up stale tokens:', e);
+        }
+
         const tokenDocRef = firestoreDoc(db, 'notification_tokens', token);
         await firestoreSetDoc(tokenDocRef, {
           token,
-          username: currentUser.username || currentUser.name || 'unknown',
+          username,
           role: currentUser.role,
-          device: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'pc',
+          device,
           updated_at: serverTimestamp(),
         }, { merge: true });
 

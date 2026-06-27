@@ -4,26 +4,28 @@ import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/sidebar';
 import { useApp } from '../providers';
 import { getDb } from '@/lib/firebase';
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  setDoc, 
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
   writeBatch,
   deleteDoc,
+  addDoc,
+  serverTimestamp,
   query,
   orderBy
 } from 'firebase/firestore';
 import type { JobRow, SubmissionData, UserData, DuplicateAnalysis } from '@/lib/utils';
 import { analyzeJobDuplicate, findMatchingTechnician } from '@/lib/utils';
 import * as XLSX from 'xlsx';
-import { 
-  FileSpreadsheet, 
-  Upload, 
-  CheckCircle, 
-  AlertTriangle, 
-  Info, 
-  Trash2, 
+import {
+  FileSpreadsheet,
+  Upload,
+  CheckCircle,
+  AlertTriangle,
+  Info,
+  Trash2,
   Search,
   CheckCircle2,
   X,
@@ -36,6 +38,8 @@ import {
   ShieldAlert,
   ScanSearch,
   ArrowRight,
+  Bell,
+  Send,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -157,7 +161,7 @@ function extractOrderTokens(fileName: string): string[] {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ImportJobsPage() {
-  const { showToast, showConfirm, setLoading, setLoadingText, systemSettings } = useApp();
+  const { currentUser, showToast, showConfirm, setLoading, setLoadingText, systemSettings } = useApp();
   
   // Active tab
   const [activeTab, setActiveTab] = useState<'import' | 'dedup'>('import');
@@ -172,6 +176,14 @@ export default function ImportJobsPage() {
   const [parsedJobs, setParsedJobs] = useState<ParsedJob[]>([]);
   const [selectedImportIds, setSelectedImportIds] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Notify-staff banner (shown after successful import) ──
+  const [lastImportedJobs, setLastImportedJobs] = useState<ParsedJob[]>([]);
+  const [lastImportedInsCount, setLastImportedInsCount] = useState(0);
+  const [lastImportedAsCount, setLastImportedAsCount] = useState(0);
+  const [notifyBannerVisible, setNotifyBannerVisible] = useState(false);
+  const [sendingNotify, setSendingNotify] = useState(false);
+  const [notifySent, setNotifySent] = useState(false);
 
   // ── Tab 2: Legacy Sheet Dedup States ──
   const [sheetUrl, setSheetUrl] = useState('');
@@ -516,6 +528,108 @@ export default function ImportJobsPage() {
     }
   };
 
+  const handleSendStaffNotify = async () => {
+    if (!systemSettings.push_service_account) {
+      showToast("ยังไม่ได้ตั้งค่า Service Account JSON — กรุณาตั้งค่าในหน้า Settings → Push Notification ก่อนครับ", "error");
+      return;
+    }
+
+    setSendingNotify(true);
+    try {
+      const db = getDb();
+
+      // 1. Group imported jobs by assigned_to (tech name)
+      const byTech = new Map<string, ParsedJob[]>();
+      for (const job of lastImportedJobs) {
+        const techName = job.assigned_to?.trim() || '';
+        if (!techName) continue;
+        if (!byTech.has(techName)) byTech.set(techName, []);
+        byTech.get(techName)!.push(job);
+      }
+
+      // 2. Load all staff tokens once
+      const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
+      const allTokenDocs = tokensSnap.docs.map(d => d.data());
+
+      // 3. Send personalized notification to each tech
+      let totalDevicesSent = 0;
+      let techsNotified = 0;
+
+      for (const [techName, jobs] of byTech) {
+        // Match token by name or username (token.username = currentUser.username || currentUser.name)
+        const user = dbUsers.find(u => u.name === techName);
+        const matchKeys = new Set<string>([techName, user?.username].filter(Boolean) as string[]);
+
+        const techTokens = allTokenDocs
+          .filter(d => d.role === 'staff' && matchKeys.has(d.username))
+          .map(d => d.token as string)
+          .filter(Boolean);
+
+        if (techTokens.length === 0) continue;
+
+        // Build personalized title & body for this tech
+        const ins = jobs.filter(j => j.job_type === 'งานติดตั้ง (INS)').length;
+        const as  = jobs.filter(j => j.job_type !== 'งานติดตั้ง (INS)').length;
+
+        let title: string;
+        let body: string;
+        if (ins > 0 && as === 0) {
+          title = `📦 งานติดตั้ง (INS) ของคุณเข้าระบบ ${ins} รายการ`;
+          body  = `มีงานติดตั้ง (INS) จำนวน ${ins} รายการถูกจ่ายให้คุณแล้ว กรุณาตรวจสอบคิวงานและอัปโหลดไฟล์ใบงานด้วยครับ`;
+        } else if (as > 0 && ins === 0) {
+          title = `🔧 งานบริการ (AS) ของคุณเข้าระบบ ${as} รายการ`;
+          body  = `มีงานบริการ (AS) จำนวน ${as} รายการถูกจ่ายให้คุณแล้ว กรุณาตรวจสอบคิวงานและอัปโหลดไฟล์ใบงานด้วยครับ`;
+        } else {
+          title = `📋 งานของคุณเข้าระบบ ${ins + as} รายการ`;
+          body  = `INS ${ins} รายการ · AS ${as} รายการถูกจ่ายให้คุณแล้ว กรุณาตรวจสอบคิวงานและอัปโหลดไฟล์ใบงานด้วยครับ`;
+        }
+
+        // Save notification to Firestore (per tech)
+        const notifRef = await addDoc(collection(db, 'notifications'), {
+          title,
+          body,
+          type: 'broadcast',
+          category: 'announce',
+          category_label: 'ประกาศทั่วไป',
+          target: 'staff',
+          created_by: currentUser?.username || currentUser?.name || 'admin',
+          created_at: serverTimestamp(),
+          sent: false,
+          sent_count: 0,
+        });
+
+        await fetch('/api/push-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            body,
+            url: '/notifications',
+            serviceAccountJson: systemSettings.push_service_account,
+            tokens: techTokens,
+            notifId: notifRef.id,
+          }),
+        });
+
+        totalDevicesSent += techTokens.length;
+        techsNotified++;
+      }
+
+      if (techsNotified > 0) {
+        showToast(`ส่งการแจ้งเตือนถึงช่าง ${techsNotified} คน (${totalDevicesSent} อุปกรณ์) สำเร็จ! 🔔`, "success");
+      } else {
+        showToast("ยังไม่มีช่างเทคนิคที่ลงทะเบียนรับการแจ้งเตือนครับ", "error");
+      }
+
+      setNotifySent(true);
+    } catch (e: any) {
+      console.error('[notify-staff]', e);
+      showToast("ส่งการแจ้งเตือนล้มเหลว: " + e.message, "error");
+    } finally {
+      setSendingNotify(false);
+    }
+  };
+
   const triggerImportCommit = async () => {
     if (selectedImportIds.size === 0) return;
     
@@ -554,6 +668,13 @@ export default function ImportJobsPage() {
 
       await batch.commit();
       showToast(`นำเข้างานจ่ายช่างจำนวน ${selectedJobs.length} รายการสำเร็จเรียบร้อย! 🚀`, "success");
+      const insJobs = selectedJobs.filter(j => j.job_type === 'งานติดตั้ง (INS)');
+      const asJobs  = selectedJobs.filter(j => j.job_type !== 'งานติดตั้ง (INS)');
+      setLastImportedJobs(selectedJobs);
+      setLastImportedInsCount(insJobs.length);
+      setLastImportedAsCount(asJobs.length);
+      setNotifyBannerVisible(true);
+      setNotifySent(false);
       setParsedJobs([]);
       setSelectedImportIds(new Set());
       fetchCacheData();
@@ -878,6 +999,72 @@ export default function ImportJobsPage() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.18 }}
             >
+              {/* ── Notify-staff banner (shown after successful import) ── */}
+              <AnimatePresence>
+                {notifyBannerVisible && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="mb-5 overflow-hidden"
+                  >
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-2xl px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500 text-white flex items-center justify-center shadow-md shadow-indigo-200 shrink-0">
+                          <Bell className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-indigo-800 Prompt">
+                            นำเข้างานสำเร็จ {lastImportedInsCount + lastImportedAsCount} รายการ
+                            {lastImportedInsCount > 0 && lastImportedAsCount > 0 && (
+                              <span className="ml-2 text-xs font-normal text-indigo-500">
+                                (INS {lastImportedInsCount} · AS {lastImportedAsCount})
+                              </span>
+                            )}
+                            {lastImportedInsCount > 0 && lastImportedAsCount === 0 && (
+                              <span className="ml-2 text-xs font-normal text-indigo-500">📦 INS ทั้งหมด</span>
+                            )}
+                            {lastImportedAsCount > 0 && lastImportedInsCount === 0 && (
+                              <span className="ml-2 text-xs font-normal text-indigo-500">🔧 AS ทั้งหมด</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-indigo-600 Sarabun mt-0.5">
+                            ต้องการแจ้งเตือนช่างเทคนิคให้ตรวจสอบและอัปโหลดงานไหมครับ?
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {notifySent ? (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-100 border border-green-200 px-4 py-2 rounded-xl">
+                            <CheckCircle2 className="w-4 h-4" />
+                            ส่งแจ้งเตือนแล้ว
+                          </span>
+                        ) : (
+                          <button
+                            onClick={handleSendStaffNotify}
+                            disabled={sendingNotify}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-200 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer Prompt"
+                          >
+                            {sendingNotify ? (
+                              <><div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> กำลังส่ง...</>
+                            ) : (
+                              <><Send className="w-3.5 h-3.5" /> แจ้งเตือนช่างทันที</>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setNotifyBannerVisible(false)}
+                          className="p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-100 rounded-full transition cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Drag and Drop Zone */}
               <div className="relative group mb-8">
                 <div 

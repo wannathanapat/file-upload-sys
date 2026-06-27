@@ -4,14 +4,15 @@ import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Megaphone, Send, Users, Shield, Wrench, Bell, Clock, CheckCheck,
-  Trash2, RefreshCw, ChevronRight, AlertTriangle, Info, PartyPopper, Settings2
+  Trash2, RefreshCw, ChevronRight, AlertTriangle, Info, PartyPopper, Settings2,
+  CalendarClock, Repeat2,
 } from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { useApp } from '@/app/providers';
 import { getDb } from '@/lib/firebase';
 import {
   collection, query, orderBy, limit, getDocs,
-  addDoc, doc, deleteDoc, serverTimestamp, writeBatch,
+  addDoc, doc, getDoc, setDoc, deleteDoc, serverTimestamp, writeBatch, Timestamp,
 } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
@@ -39,6 +40,7 @@ interface BroadcastDoc {
   target: string;
   created_by: string;
   created_at: any;
+  scheduled_at?: any;
   sent: boolean;
   sent_count: number;
   type: 'broadcast';
@@ -87,6 +89,16 @@ function BroadcastInner() {
   const [preview, setPreview] = useState(false);
   const [sent, setSent] = useState(false);
 
+  // Schedule state
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
+
+  // Daily reminder state
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useState(false);
+  const [dailySendHour, setDailySendHour] = useState(8);
+  const [dailyCustomBody, setDailyCustomBody] = useState('');
+  const [savingDailyConfig, setSavingDailyConfig] = useState(false);
+
   // History state
   const [history, setHistory] = useState<BroadcastDoc[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
@@ -116,10 +128,61 @@ function BroadcastInner() {
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
+  useEffect(() => {
+    const loadDailyConfig = async () => {
+      try {
+        const db = getDb();
+        const snap = await getDoc(doc(db, 'app_config', 'daily_reminder_settings'));
+        if (snap.exists()) {
+          const d = snap.data();
+          setDailyReminderEnabled(d?.enabled ?? false);
+          setDailySendHour(d?.send_hour_th ?? 8);
+          setDailyCustomBody(d?.custom_body ?? '');
+        }
+      } catch (e) {
+        console.error('Failed to load daily reminder config', e);
+      }
+    };
+    loadDailyConfig();
+  }, []);
+
+  const saveDailyConfig = async (patch: Record<string, unknown>) => {
+    setSavingDailyConfig(true);
+    try {
+      const db = getDb();
+      await setDoc(doc(db, 'app_config', 'daily_reminder_settings'), patch, { merge: true });
+    } catch (e) {
+      console.error('Failed to save daily reminder config', e);
+      throw e;
+    } finally {
+      setSavingDailyConfig(false);
+    }
+  };
+
+  const handleToggleDailyReminder = async (enabled: boolean) => {
+    setDailyReminderEnabled(enabled);
+    try {
+      await saveDailyConfig({ enabled });
+    } catch {
+      setDailyReminderEnabled(!enabled);
+    }
+  };
+
+  const handleSaveDailySettings = async () => {
+    await saveDailyConfig({
+      send_hour_th: dailySendHour,
+      custom_body: dailyCustomBody.trim(),
+    });
+  };
+
   const handleSend = async () => {
     if (!title.trim() || !body.trim()) return;
     if (!systemSettings.push_service_account) {
       alert('กรุณาตั้งค่า Service Account JSON ในหน้า Settings → Push Notification ก่อนครับ');
+      return;
+    }
+    if (isScheduled && !scheduledAt) {
+      alert('กรุณาเลือกวันและเวลาที่ต้องการส่งครับ');
       return;
     }
 
@@ -130,8 +193,8 @@ function BroadcastInner() {
       const catInfo = getCategoryInfo(category);
       const broadcastTitle = `${catInfo.emoji} ${title.trim()}`;
 
-      // 1. Save to Firestore
-      const notifRef = await addDoc(collection(db, 'notifications'), {
+      // 1. Save to Firestore (with optional scheduled_at)
+      const payload: Record<string, any> = {
         title: broadcastTitle,
         body: body.trim(),
         type: 'broadcast',
@@ -142,9 +205,28 @@ function BroadcastInner() {
         created_at: serverTimestamp(),
         sent: false,
         sent_count: 0,
-      });
+      };
+      if (isScheduled && scheduledAt) {
+        payload.scheduled_at = Timestamp.fromDate(new Date(scheduledAt));
+      }
 
-      // 2. Read tokens filtered by target
+      const notifRef = await addDoc(collection(db, 'notifications'), payload);
+
+      // 2. If scheduled → done; cron will send it later
+      if (isScheduled && scheduledAt) {
+        setSent(true);
+        setTitle('');
+        setBody('');
+        setCategory('announce');
+        setTarget('all');
+        setIsScheduled(false);
+        setScheduledAt('');
+        fetchHistory();
+        setTimeout(() => setSent(false), 4000);
+        return;
+      }
+
+      // 3. Immediate send — read tokens & call push-notify
       const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
       const fcmTokens: string[] = tokensSnap.docs
         .map(d => d.data())
@@ -157,7 +239,6 @@ function BroadcastInner() {
         .map(d => d.token as string)
         .filter(Boolean);
 
-      // 3. Send FCM
       if (fcmTokens.length > 0) {
         await fetch('/api/push-notify', {
           method: 'POST',
@@ -238,7 +319,9 @@ function BroadcastInner() {
                   className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl px-4 py-3"
                 >
                   <CheckCheck size={18} className="text-green-600 shrink-0" />
-                  <p className="text-sm font-semibold text-green-700">ส่งบรอดแคสต์เรียบร้อยแล้ว! 🎉</p>
+                  <p className="text-sm font-semibold text-green-700">
+                    {isScheduled ? 'บันทึกตั้งเวลาส่งเรียบร้อยแล้ว! ⏰' : 'ส่งบรอดแคสต์เรียบร้อยแล้ว! 🎉'}
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -337,6 +420,118 @@ function BroadcastInner() {
               </div>
             </div>
 
+            {/* Schedule send */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <CalendarClock size={17} className="text-indigo-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">ตั้งเวลาส่ง</p>
+                    <p className="text-[11px] text-slate-400">ส่งทันทีหรือเลือกวัน-เวลาล่วงหน้า</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsScheduled(v => !v); setScheduledAt(''); }}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${isScheduled ? 'bg-indigo-500' : 'bg-slate-200'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${isScheduled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {isScheduled && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">วัน-เวลาที่ต้องการส่ง</p>
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    onChange={e => setScheduledAt(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition"
+                  />
+                  {scheduledAt && (
+                    <p className="text-[11px] text-indigo-500 flex items-center gap-1">
+                      <Clock size={11} />
+                      จะส่งวันที่ {new Date(scheduledAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Daily auto-reminder toggle */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${dailyReminderEnabled ? 'bg-indigo-500' : 'bg-slate-100'}`}>
+                    <Repeat2 size={17} className={dailyReminderEnabled ? 'text-white' : 'text-slate-400'} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">แจ้งเตือนรายวันอัตโนมัติ</p>
+                    <p className="text-[11px] text-slate-400">
+                      {String(dailySendHour).padStart(2, '0')}:00 น. ทุกวัน — แจ้งช่างเรื่องงานค้างส่งของแต่ละคน
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleDailyReminder(!dailyReminderEnabled)}
+                  disabled={savingDailyConfig}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 disabled:opacity-60 ${dailyReminderEnabled ? 'bg-indigo-500' : 'bg-slate-200'}`}
+                >
+                  <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${dailyReminderEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Editable settings — always visible so admin can adjust even when disabled */}
+              <div className="mt-4 space-y-4 border-t border-slate-100 pt-4">
+                {/* Time picker */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">เวลาส่ง (ทุกวัน)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[6, 7, 8, 9, 10, 12, 14, 16, 18].map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => setDailySendHour(h)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          dailySendHour === h
+                            ? 'bg-indigo-500 text-white shadow-md shadow-indigo-200'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        {String(h).padStart(2, '0')}:00
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Custom body message */}
+                <div>
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">ข้อความเตือน</p>
+                  <textarea
+                    value={dailyCustomBody}
+                    onChange={e => setDailyCustomBody(e.target.value.slice(0, 300))}
+                    rows={3}
+                    placeholder="กรุณาเข้าระบบตรวจสอบคิวงานและอัปโหลดไฟล์ใบงานให้ครบถ้วนด้วยครับ"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition resize-none"
+                  />
+                  <p className="text-right text-[10px] text-slate-400 mt-0.5">{dailyCustomBody.length}/300</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">ข้อความนี้จะต่อท้ายหลังจำนวนงานค้างส่งของช่างแต่ละคน</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleSaveDailySettings}
+                  disabled={savingDailyConfig}
+                  className="w-full py-2.5 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold transition disabled:opacity-50"
+                >
+                  {savingDailyConfig ? 'กำลังบันทึก...' : '💾 บันทึกการตั้งค่า'}
+                </button>
+              </div>
+            </div>
+
             {/* Action buttons */}
             <div className="flex gap-3">
               <button
@@ -348,11 +543,13 @@ function BroadcastInner() {
               </button>
               <button
                 onClick={handleSend}
-                disabled={!title.trim() || !body.trim() || sending}
+                disabled={!title.trim() || !body.trim() || sending || (isScheduled && !scheduledAt)}
                 className="flex-[2] flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-600 text-white text-sm font-bold shadow-lg shadow-rose-200 hover:shadow-xl hover:shadow-rose-200 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 {sending ? (
-                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> กำลังส่ง...</>
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> กำลังบันทึก...</>
+                ) : isScheduled ? (
+                  <><CalendarClock size={16} /> ตั้งเวลาส่ง</>
                 ) : (
                   <><Send size={16} /> ส่งบรอดแคสต์</>
                 )}
@@ -410,11 +607,15 @@ function BroadcastInner() {
                           <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{h.body}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-[9px] text-slate-400">{formatDate(h.created_at)}</span>
-                            {h.sent && (
+                            {h.sent ? (
                               <span className="text-[9px] text-green-600 font-bold flex items-center gap-0.5">
                                 <CheckCheck size={9} /> {h.sent_count}
                               </span>
-                            )}
+                            ) : h.scheduled_at ? (
+                              <span className="text-[9px] text-amber-600 font-bold flex items-center gap-0.5">
+                                <Clock size={9} /> {formatDate(h.scheduled_at)}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                         <ChevronRight size={14} className={`text-slate-300 transition-transform ${isSelected ? 'rotate-90 text-rose-400' : ''}`} />

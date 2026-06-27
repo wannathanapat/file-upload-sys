@@ -107,23 +107,19 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
       const batch = tokens.slice(i, i + BATCH_SIZE);
 
+      // Data-only message: omit the top-level `notification` field so the
+      // Firebase SDK does NOT auto-display a notification. The service worker's
+      // onBackgroundMessage handler is the sole place that calls showNotification,
+      // which prevents the duplicate-notification problem.
       const message: MulticastMessage = {
         tokens: batch,
-        notification: {
+        data: {
           title,
           body: msgBody ?? '',
-        },
-        data: {
-          // Pass notifId so service worker can build /notifications?id=xxx
           notifId: notifId ?? '',
           url: url ?? '/notifications',
         },
         webpush: {
-          notification: {
-            icon: '/coway-logo-new.png',
-            badge: '/coway-logo-new.png',
-            requireInteraction: true,
-          },
           fcmOptions: {
             link: notifId ? `/notifications?id=${notifId}` : (url ?? '/notifications'),
           },

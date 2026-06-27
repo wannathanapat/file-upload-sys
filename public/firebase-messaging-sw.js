@@ -18,7 +18,10 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message', payload);
 
-  const notificationTitle = payload.notification?.title || 'แจ้งเตือนระบบส่งงาน';
+  // Title and body come from payload.data (data-only message) to avoid
+  // the double-notification bug where the FCM SDK also auto-displays
+  // a notification when a top-level `notification` field is present.
+  const notificationTitle = payload.data?.title || payload.notification?.title || 'แจ้งเตือนระบบส่งงาน';
 
   // Build the destination URL: prefer /notifications?id=xxx if notifId is present
   const notifId = payload.data?.notifId || '';
@@ -26,7 +29,7 @@ messaging.onBackgroundMessage((payload) => {
   const clickUrl = notifId ? `/notifications?id=${notifId}` : baseUrl;
 
   const notificationOptions = {
-    body: payload.notification?.body || '',
+    body: payload.data?.body || payload.notification?.body || '',
     icon: '/coway-logo-new.png',
     badge: '/coway-logo-new.png',
     tag: 'job-alert',          // replaces previous same-tag notification
