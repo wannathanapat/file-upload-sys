@@ -558,6 +558,25 @@ function DashboardContent() {
 
       await updateDoc(subRef, updatedData);
 
+      // ถ้าแอดมินสั่งแก้ไข → ลบไฟล์ใน GDrive + reset assigned_job กลับเป็น pending
+      if (newStatus === 'แก้ไข') {
+        if (gdrivePrefs?.connected && selectedSub.file_name) {
+          const accessToken = await getValidAccessToken();
+          if (accessToken) {
+            await deleteTargetUploadFolder(
+              accessToken,
+              selectedSub.work_type,
+              selectedSub.file_name,
+              selectedSub.sub_work_type || ""
+            );
+          }
+        }
+        if (selectedSub.job_id) {
+          const jobRef = doc(db, 'assigned_jobs', selectedSub.job_id);
+          await updateDoc(jobRef, { status: 'pending' });
+        }
+      }
+
       const updatedList = [...submissions];
       const matchIndex = updatedList.findIndex(s => s.submission_date === selectedSub.submission_date);
       if (matchIndex !== -1) {
