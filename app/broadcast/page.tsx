@@ -43,6 +43,7 @@ interface BroadcastDoc {
   scheduled_at?: any;
   sent: boolean;
   sent_count: number;
+  sent_to?: string[];
   type: 'broadcast';
 }
 
@@ -228,7 +229,7 @@ function BroadcastInner() {
 
       // 3. Immediate send — read tokens & call push-notify
       const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
-      const fcmTokens: string[] = tokensSnap.docs
+      const fcmTokens = tokensSnap.docs
         .map(d => d.data())
         .filter(d => {
           if (target === 'all') return true;
@@ -236,8 +237,12 @@ function BroadcastInner() {
           if (target === 'staff') return d.role === 'staff';
           return true;
         })
-        .map(d => d.token as string)
-        .filter(Boolean);
+        .map(d => ({
+          token: d.token as string,
+          username: d.username as string,
+          name: d.name as string || d.username as string || 'unknown'
+        }))
+        .filter(t => t.token);
 
       if (fcmTokens.length > 0) {
         await fetch('/api/push-notify', {

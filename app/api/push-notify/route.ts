@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       body?: string;
       url?: string;
       serviceAccountJson?: string;
-      tokens?: string[];
+      tokens?: (string | { token: string; username?: string; name?: string })[];
       notifId?: string;
     };
 
@@ -84,6 +84,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Normalize tokens to objects
+    const tokenObjects = tokens.map(t => {
+      if (typeof t === 'string') {
+        return { token: t, username: '', name: '' };
+      }
+      return {
+        token: t.token,
+        username: t.username || '',
+        name: t.name || t.username || '',
+      };
+    });
+
     // ----------------------------------------------------------------
     // 1. Init (or reuse) Firebase Admin app
     // ----------------------------------------------------------------
@@ -103,16 +115,18 @@ export async function POST(req: NextRequest) {
     const BATCH_SIZE = 500;
     let successCount = 0;
     const staleTokens: string[] = [];
+    const successfulNames: string[] = [];
 
-    for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
-      const batch = tokens.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < tokenObjects.length; i += BATCH_SIZE) {
+      const batch = tokenObjects.slice(i, i + BATCH_SIZE);
+      const batchTokens = batch.map(t => t.token);
 
       // Data-only message: omit the top-level `notification` field so the
       // Firebase SDK does NOT auto-display a notification. The service worker's
       // onBackgroundMessage handler is the sole place that calls showNotification,
       // which prevents the duplicate-notification problem.
       const message: MulticastMessage = {
-        tokens: batch,
+        tokens: batchTokens,
         data: {
           title,
           body: msgBody ?? '',
@@ -143,17 +157,24 @@ export async function POST(req: NextRequest) {
       successCount += response.successCount;
 
       response.responses.forEach((res, idx: number) => {
-        if (!res.success) {
+        if (res.success) {
+          const nameToUse = batch[idx].name || batch[idx].username;
+          if (nameToUse) {
+            successfulNames.push(nameToUse);
+          }
+        } else {
           const errCode = (res.error as any)?.code ?? '';
           if (
             errCode === 'messaging/registration-token-not-registered' ||
             errCode === 'messaging/invalid-registration-token'
           ) {
-            staleTokens.push(batch[idx]);
+            staleTokens.push(batch[idx].token);
           }
         }
       });
     }
+
+    const uniqueSuccessfulNames = Array.from(new Set(successfulNames)).filter(Boolean);
 
     // ----------------------------------------------------------------
     // 3. Mark notification as sent in Firestore (write-only, no read)
@@ -165,6 +186,7 @@ export async function POST(req: NextRequest) {
           sent: true,
           sent_count: successCount,
           sent_at: FieldValue.serverTimestamp(),
+          sent_to: uniqueSuccessfulNames,
         });
       } catch (e) {
         // Non-critical — don't fail the whole request
@@ -175,7 +197,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       message: successCount > 0 ? 'ส่งแจ้งเตือนสำเร็จ' : 'ส่งแจ้งเตือนไม่สำเร็จ (token อาจหมดอายุ)',
       successCount,
-      totalTokens: tokens.length,
+      totalTokens: tokenObjects.length,
       staleTokens,
     });
   } catch (err: unknown) {

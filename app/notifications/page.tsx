@@ -32,6 +32,7 @@ interface NotifDoc {
   video_url?: string | null;
   sent: boolean;
   sent_count?: number;
+  sent_to?: string[];
   created_at?: any;
   category?: string;
   category_label?: string;
@@ -98,6 +99,7 @@ function NotificationsInner() {
   const { currentUser } = useApp();
   const searchParams = useSearchParams();
   const deepLinkId = searchParams.get('id');
+  const isAdmin = currentUser?.role === 'admin';
 
   const [notifications, setNotifications] = useState<NotifDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -322,9 +324,12 @@ function NotificationsInner() {
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.badgeClass}`}>
                                 {cfg.filterIcon} {cfg.label}
                               </span>
-                              {n.sent && (
+                              {isAdmin && n.sent && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
-                                  <CheckCheck size={10} /> ส่งแล้ว {n.sent_count} เครื่อง
+                                  <CheckCheck size={10} />
+                                  {n.sent_to && n.sent_to.length > 0
+                                    ? `ส่งแล้ว: ${n.sent_to.slice(0, 3).join(', ')}${n.sent_to.length > 3 ? '...' : ''}`
+                                    : `ส่งแล้ว ${n.sent_count} เครื่อง`}
                                 </span>
                               )}
                             </div>
@@ -350,7 +355,7 @@ function NotificationsInner() {
                               className="overflow-hidden lg:hidden"
                             >
                               <div className="mx-4 mb-4 mt-0 border-t border-slate-100 pt-3">
-                                <DetailBody n={selected!} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
+                                <DetailBody n={selected!} isAdmin={isAdmin} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
                               </div>
                             </motion.div>
                           )}
@@ -383,7 +388,7 @@ function NotificationsInner() {
                   >
                     <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl shadow-indigo-100/40 overflow-hidden sticky top-6">
                       <DetailHeader n={selected} onClose={() => setSelected(null)} />
-                      <DetailBody n={selected} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
+                      <DetailBody n={selected} isAdmin={isAdmin} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
                     </div>
                   </motion.div>
                 )}
@@ -426,7 +431,7 @@ function DetailHeader({ n, onClose }: { n: NotifDoc; onClose: () => void }) {
 }
 
 // ─── Detail Body ──────────────────────────────────────────────────────────────
-function DetailBody({ n, onDelete }: { n: NotifDoc; onDelete?: (id: string) => void }) {
+function DetailBody({ n, isAdmin, onDelete }: { n: NotifDoc; isAdmin: boolean; onDelete?: (id: string) => void }) {
   return (
     <div className="p-4 flex flex-col gap-3.5">
       {/* Message */}
@@ -480,14 +485,28 @@ function DetailBody({ n, onDelete }: { n: NotifDoc; onDelete?: (id: string) => v
       )}
 
       {/* Sent status */}
-      <div className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold border ${
-        n.sent
-          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-          : 'bg-slate-50 text-slate-500 border-slate-100'
-      }`}>
-        <CheckCheck size={14} />
-        {n.sent ? `ส่งแจ้งเตือนสำเร็จ ${n.sent_count ?? 0} เครื่อง` : 'ยังไม่ได้ส่งแจ้งเตือน'}
-      </div>
+      {isAdmin && (
+        <div className={`flex flex-col gap-1.5 px-3.5 py-2.5 rounded-xl text-xs border ${
+          n.sent
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+            : 'bg-slate-50 text-slate-500 border-slate-100'
+        }`}>
+          <div className="flex items-center gap-2 font-semibold">
+            <CheckCheck size={14} />
+            {n.sent ? 'ส่งแจ้งเตือนสำเร็จ' : 'ยังไม่ได้ส่งแจ้งเตือน'}
+          </div>
+          {n.sent && n.sent_to && n.sent_to.length > 0 && (
+            <div className="text-[11px] text-emerald-600/90 font-medium pl-6 leading-relaxed break-words">
+              ผู้รับ: {n.sent_to.join(', ')}
+            </div>
+          )}
+          {n.sent && (!n.sent_to || n.sent_to.length === 0) && (
+            <div className="text-[11px] text-emerald-600/90 font-medium pl-6">
+              จำนวน: {n.sent_count ?? 0} เครื่อง
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Delete */}
       {onDelete && (

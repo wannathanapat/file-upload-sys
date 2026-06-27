@@ -456,6 +456,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         await firestoreSetDoc(tokenDocRef, {
           token,
           username,
+          name: currentUser.name || '',
           role: currentUser.role,
           device,
           updated_at: serverTimestamp(),

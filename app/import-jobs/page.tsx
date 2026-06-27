@@ -562,8 +562,12 @@ export default function ImportJobsPage() {
 
         const techTokens = allTokenDocs
           .filter(d => d.role === 'staff' && matchKeys.has(d.username))
-          .map(d => d.token as string)
-          .filter(Boolean);
+          .map(d => ({
+            token: d.token as string,
+            username: d.username as string,
+            name: d.name as string || d.username as string || 'unknown'
+          }))
+          .filter(t => t.token);
 
         if (techTokens.length === 0) continue;
 

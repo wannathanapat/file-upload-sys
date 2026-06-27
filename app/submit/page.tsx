@@ -926,15 +926,19 @@ function SubmitPageInner() {
 
           // Read tokens: notify admin/auditor + the submitting technician only
           const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
-          const fcmTokens: string[] = tokensSnap.docs
+          const fcmTokens = tokensSnap.docs
             .map(d => d.data())
             .filter(d =>
               d.role === 'admin' ||
               d.role === 'auditor' ||
               d.username === submitterUsername
             )
-            .map(d => d.token as string)
-            .filter(Boolean);
+            .map(d => ({
+              token: d.token as string,
+              username: d.username as string,
+              name: d.name as string || d.username as string || 'unknown'
+            }))
+            .filter(t => t.token);
 
           if (fcmTokens.length > 0) {
             fetch('/api/push-notify', {
