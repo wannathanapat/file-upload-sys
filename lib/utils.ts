@@ -9,6 +9,8 @@ export interface UserData {
   name: string;
   role: string;
   status: string;
+  idCard?: string;
+  birthDate?: string;
   lineId?: string;
   avatar_url?: string;
   _docId?: string;

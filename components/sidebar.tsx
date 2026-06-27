@@ -62,10 +62,12 @@ function SidebarInner() {
 
   if (!currentUser) return null;
 
-  const isAdmin = currentUser.role === 'admin' || currentUser.role === 'auditor';
+  const isAdmin = currentUser.role === 'admin';
+  const isAuditor = currentUser.role === 'auditor';
+  const isPrivileged = isAdmin || isAuditor;
 
   // All nav items (used by desktop sidebar)
-  const navItems = isAdmin ? [
+  const navItems = isPrivileged ? [
     { name: 'ภาพรวมระบบและสถิติ', path: '/dashboard?view=overview', icon: LayoutDashboard },
     { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
     { name: 'ประวัติส่งงานช่าง', path: '/dashboard?view=history', icon: History },
@@ -74,7 +76,7 @@ function SidebarInner() {
     { name: 'ระบบลงเวลาช่าง', path: '/attendance', icon: ClipboardCheck },
     { name: 'บรอดคาสต์ประชาสัมพันธ์', path: '/broadcast', icon: Megaphone },
     { name: 'ประวัติการแจ้งเตือน', path: '/notifications', icon: Bell },
-    { name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings },
+    ...(isAdmin ? [{ name: systemSettings.menu_settings || 'ตั้งค่าระบบหลัก', path: '/settings', icon: Settings }] : []),
   ] : [
     { name: 'แผงควบคุมผลงาน', path: '/submit?tab=dashboard', icon: LayoutDashboard },
     { name: 'รายการงานค้างส่ง', path: '/submit?tab=queue', icon: ScanLine },

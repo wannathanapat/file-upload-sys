@@ -1717,7 +1717,7 @@ function DashboardContent() {
                       </button>
                     </div>
                     
-                    <div className={`flex-grow bg-slate-950 flex items-center justify-center relative ${previewFile.type === 'video' ? 'p-4' : ''}`}>
+                    <div className={`flex-grow min-h-0 bg-slate-950 relative flex flex-col ${previewFile.type === 'video' ? 'p-4 items-center justify-center' : ''}`}>
                       {previewFile.type === 'video' ? (
                         isNativeVideo(previewFile.url, previewFile.name) ? (
                           <video 

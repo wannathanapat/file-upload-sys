@@ -35,66 +35,117 @@ function extractFileId(url: string): string {
 export default function CustomPdfViewer({ url }: { url: string }) {
   const [status, setStatus] = useState<'loading' | 'done' | 'error'>('loading');
   const [progress, setProgress] = useState('กำลังโหลด...');
+  const [pdfDoc, setPdfDoc] = useState<any>(null);
+  const [zoom, setZoom] = useState(1.0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const cancelRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const cancelRenderRef = useRef(false);
 
   const fileId = extractFileId(url);
   const proxyUrl = fileId ? `/api/gdrive/proxy?fileId=${fileId}` : url;
 
+  // Effect 1: Load PDF Document
   useEffect(() => {
-    cancelRef.current = false;
-
-    async function render() {
+    let active = true;
+    async function loadDoc() {
       try {
         setStatus('loading');
-        if (containerRef.current) containerRef.current.innerHTML = '';
-
+        setPdfDoc(null);
         setProgress('กำลังโหลด PDF.js...');
         await loadPdfJs();
-        if (cancelRef.current) return;
+        if (!active) return;
 
         setProgress('กำลังดึงไฟล์...');
         const res = await fetch(proxyUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buffer = await res.arrayBuffer();
-        if (cancelRef.current) return;
+        if (!active) return;
 
         setProgress('กำลังประมวลผล...');
         const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
-        if (cancelRef.current) return;
+        if (!active) return;
 
-        const numPages: number = pdf.numPages;
+        setPdfDoc(pdf);
+      } catch (err) {
+        console.error("PDF loading error:", err);
+        if (active) setStatus('error');
+      }
+    }
+    loadDoc();
+    return () => { active = false; };
+  }, [proxyUrl]);
+
+  // Effect 2: Render PDF pages when pdfDoc or zoom changes
+  useEffect(() => {
+    if (!pdfDoc) return;
+    cancelRenderRef.current = false;
+
+    async function renderPages() {
+      try {
+        setStatus('loading');
+        if (containerRef.current) containerRef.current.innerHTML = '';
+        const numPages: number = pdfDoc.numPages;
 
         for (let i = 1; i <= numPages; i++) {
-          if (cancelRef.current) return;
-          setProgress(`กำลังโหลดหน้า ${i}/${numPages}...`);
+          if (cancelRenderRef.current) return;
+          setProgress(`กำลังเรนเดอร์หน้า ${i}/${numPages}...`);
 
-          const page = await pdf.getPage(i);
+          const page = await pdfDoc.getPage(i);
           const naturalVp = page.getViewport({ scale: 1 });
-          const containerWidth = containerRef.current?.clientWidth ?? window.innerWidth;
-          const scale = (containerWidth - 16) / naturalVp.width;
+          
+          // Use scrollRef's clientWidth to prevent width-collapse bug when containerRef is cleared
+          const parentWidth = scrollRef.current?.clientWidth ?? window.innerWidth;
+          const containerWidth = parentWidth > 40 ? parentWidth : window.innerWidth;
+          const scale = ((containerWidth - 24) / naturalVp.width) * zoom;
           const viewport = page.getViewport({ scale });
 
           const canvas = document.createElement('canvas');
           canvas.width = viewport.width;
           canvas.height = viewport.height;
-          canvas.style.cssText = 'width:100%;height:auto;display:block;border-radius:4px;margin-bottom:8px;';
+          canvas.style.cssText = 'max-width:none;display:block;border-radius:6px;margin-bottom:12px;margin-left:auto;margin-right:auto;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
 
           await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise;
-          if (cancelRef.current) return;
+          if (cancelRenderRef.current) return;
 
           containerRef.current?.appendChild(canvas);
         }
-
-        if (!cancelRef.current) setStatus('done');
-      } catch {
-        if (!cancelRef.current) setStatus('error');
+        if (!cancelRenderRef.current) setStatus('done');
+      } catch (err) {
+        console.error("PDF rendering error:", err);
+        if (!cancelRenderRef.current) setStatus('error');
       }
     }
 
-    render();
-    return () => { cancelRef.current = true; };
-  }, [proxyUrl]);
+    renderPages();
+    return () => { cancelRenderRef.current = true; };
+  }, [pdfDoc, zoom]);
+
+  // Effect 3: Handle Ctrl + Mouse Scroll Shortcut for Zooming
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          // Scroll Up: Zoom In
+          setZoom(z => Math.min(z + 0.1, 3.0));
+        } else {
+          // Scroll Down: Zoom Out
+          setZoom(z => Math.max(z - 0.1, 0.5));
+        }
+      }
+    };
+
+    const container = scrollRef.current;
+    if (container) {
+      container.addEventListener('wheel', handleWheel, { passive: false });
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('wheel', handleWheel);
+      }
+    };
+  }, [scrollRef]);
 
   if (status === 'error') {
     return (
@@ -109,14 +160,46 @@ export default function CustomPdfViewer({ url }: { url: string }) {
   }
 
   return (
-    <div className="w-full h-full bg-slate-950 overflow-y-auto">
-      {status === 'loading' && (
-        <div className="flex flex-col items-center justify-center gap-3 text-slate-400 py-20">
-          <div className="w-8 h-8 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin" />
-          <span className="text-xs">{progress}</span>
+    <div className="relative w-full h-full bg-slate-950 flex flex-col overflow-hidden">
+      {/* Floating Zoom Controls */}
+      {status === 'done' && (
+        <div className="absolute top-3 right-3 z-30 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md px-3.5 py-2 rounded-full border border-white/10 text-white text-xs shadow-lg select-none">
+          <button
+            onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))}
+            className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded-full transition active:scale-90 font-black text-sm cursor-pointer"
+            title="ย่อขนาด (Ctrl + Scroll Down)"
+          >
+            -
+          </button>
+          <span className="font-mono min-w-[36px] text-center font-bold">{Math.round(zoom * 100)}%</span>
+          <button
+            onClick={() => setZoom(z => Math.min(z + 0.25, 3.0))}
+            className="w-6 h-6 flex items-center justify-center hover:bg-white/10 rounded-full transition active:scale-90 font-black text-sm cursor-pointer"
+            title="ขยายขนาด (Ctrl + Scroll Up)"
+          >
+            +
+          </button>
+          <div className="w-[1px] h-3 bg-white/20 mx-1" />
+          <button
+            onClick={() => setZoom(1.0)}
+            className="px-2 py-0.5 hover:bg-white/10 rounded-md transition active:scale-90 text-[10px] font-bold cursor-pointer"
+            title="รีเซ็ตเป็นขนาดเริ่มต้น"
+          >
+            พอดีหน้า
+          </button>
         </div>
       )}
-      <div ref={containerRef} className="p-2" />
+
+      {/* Main content scroll container */}
+      <div ref={scrollRef} className="flex-grow overflow-auto w-full h-full flex flex-col">
+        {status === 'loading' && (
+          <div className="flex flex-col items-center justify-center gap-3 text-slate-400 py-20 my-auto">
+            <div className="w-8 h-8 border-2 border-slate-600 border-t-indigo-400 rounded-full animate-spin" />
+            <span className="text-xs">{progress}</span>
+          </div>
+        )}
+        <div ref={containerRef} className="p-3 mx-auto my-auto" style={{ width: zoom === 1.0 ? '100%' : 'auto' }} />
+      </div>
     </div>
   );
 }

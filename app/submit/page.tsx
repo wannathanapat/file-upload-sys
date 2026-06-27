@@ -2360,7 +2360,7 @@ function SubmitPageInner() {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 bg-black/50 w-full h-full relative pt-[60px] sm:pt-[72px]">
+                    <div className="flex-1 min-h-0 bg-black/50 w-full relative pt-[60px] sm:pt-[72px]">
                       {previewFile.type === 'pdf' ? (
                         <CustomPdfViewer url={`/api/gdrive/proxy?fileId=${previewFileId}`} />
                       ) : (

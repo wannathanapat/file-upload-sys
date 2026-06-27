@@ -122,8 +122,10 @@ function todayString() {
 const shortName = (name: string) => name.split('-').pop()?.trim() ?? name;
 
 export default function AdminView() {
-  const { currentUser, showToast, systemSettings } = useApp();
+  const { currentUser, showToast, systemSettings, updateSystemSettings } = useApp();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayName, setNewHolidayName] = useState('');
 
   // Data
   const DEFAULT_SETTINGS: AttendanceSettings = {
@@ -910,6 +912,110 @@ export default function AdminView() {
                 >
                   &#128266; ทดสอบเสียง
                 </button>
+              </div>
+
+              {/* Holidays Section */}
+              <div className="bg-white rounded-3xl border border-slate-100 p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-7 h-7 bg-violet-50 rounded-xl flex items-center justify-center">
+                    <CalendarDays className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-800 Prompt">วันหยุดการลงเวลา</h3>
+                </div>
+                <p className="text-xs text-slate-400">วันที่ตั้งค่าไว้จะไม่นับว่าช่างขาดงาน</p>
+
+                {/* Sunday toggle */}
+                <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold text-slate-800 Prompt">หยุดวันอาทิตย์อัตโนมัติ</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">ทุกวันอาทิตย์จะไม่นับว่าขาดงาน</p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      const next = !systemSettings.attendance_exclude_sundays;
+                      await updateSystemSettings({ attendance_exclude_sundays: next });
+                      showToast(next ? 'เปิดใช้งานหยุดวันอาทิตย์แล้ว' : 'ปิดการหยุดวันอาทิตย์แล้ว', 'success');
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                      systemSettings.attendance_exclude_sundays ? 'bg-indigo-500' : 'bg-slate-200'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                      systemSettings.attendance_exclude_sundays ? 'translate-x-5.5' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                {/* Custom holidays */}
+                <div className="space-y-3 pt-2">
+                  <p className="text-xs font-bold text-slate-700 Prompt">วันหยุดพิเศษ</p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="date"
+                      value={newHolidayDate}
+                      onChange={e => setNewHolidayDate(e.target.value)}
+                      className="px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newHolidayName}
+                        onChange={e => setNewHolidayName(e.target.value)}
+                        placeholder="ชื่อวันหยุด เช่น วันสงกรานต์"
+                        className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all Prompt"
+                      />
+                      <button
+                        onClick={async () => {
+                          if (!newHolidayDate || !newHolidayName.trim()) {
+                            showToast('กรุณาระบุวันที่และชื่อวันหยุด', 'info'); return;
+                          }
+                          const current = systemSettings.attendance_holidays ?? [];
+                          if (current.some(h => h.date === newHolidayDate)) {
+                            showToast('วันที่นี้มีอยู่แล้ว', 'info'); return;
+                          }
+                          const next = [...current, { date: newHolidayDate, name: newHolidayName.trim() }]
+                            .sort((a, b) => a.date.localeCompare(b.date));
+                          await updateSystemSettings({ attendance_holidays: next });
+                          setNewHolidayDate('');
+                          setNewHolidayName('');
+                          showToast('เพิ่มวันหยุดแล้ว', 'success');
+                        }}
+                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus size={12} /> เพิ่ม
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* List */}
+                  {(systemSettings.attendance_holidays ?? []).length === 0 ? (
+                    <p className="text-[10px] text-slate-400 text-center py-3">ยังไม่มีวันหยุดพิเศษ</p>
+                  ) : (
+                    <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {[...(systemSettings.attendance_holidays ?? [])].sort((a, b) => a.date.localeCompare(b.date)).map(h => (
+                        <li key={h.date} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-violet-700 Prompt truncate">{h.name}</p>
+                            <p className="text-[10px] text-slate-500 Prompt mt-0.5">
+                              {new Date(h.date + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
+                            </p>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              const next = (systemSettings.attendance_holidays ?? []).filter(x => x.date !== h.date);
+                              await updateSystemSettings({ attendance_holidays: next });
+                              showToast('ลบวันหยุดแล้ว', 'success');
+                            }}
+                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <X size={12} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
 
               {/* Save Settings Button */}
