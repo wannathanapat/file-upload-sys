@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+out/
+
+# ของเก่า / ทดลอง (ไม่เกี่ยวกับงานปัจจุบัน)
+backup-old-vanilla/
+scratch/
+
+# Static assets (ไม่มี logic)
+public/
+
+# Excel files (อ่านผ่าน xlsx library ใน code แทน)
+*.xlsx
+*.xls
+
+# Logs & debug
+*.log
+git_diff.txt
+
+# Lock files (ใหญ่ ไม่จำเป็น)
+package-lock.json
+
+# Config ที่ไม่ต้องอ่านทุกครั้ง
+.gitignore
+postcss.config.mjs
+eslint.config.mjs
+tsconfig.json
