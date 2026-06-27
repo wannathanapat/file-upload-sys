@@ -16,6 +16,7 @@ import {
   Clock, 
   FileUp, 
   ExternalLink,
+  ChevronLeft,
   ChevronRight,
   Info,
   ScanLine,
@@ -174,6 +175,13 @@ function SubmitPageInner() {
   const [historyDateTo, setHistoryDateTo] = useState('');
   const historySearchInputRef = useRef<HTMLInputElement>(null);
 
+  const [currentHistoryPage, setCurrentHistoryPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  useEffect(() => {
+    setCurrentHistoryPage(1);
+  }, [historySearch, historyTypeFilter, historyStatusFilter, historyDateFrom, historyDateTo]);
+
   // Computed filtered lists
   const filteredQueue = assignedJobs.filter(job => {
     const q = queueSearch.toLowerCase();
@@ -222,6 +230,43 @@ function SubmitPageInner() {
 
     return matchSearch && matchType && matchStatus && matchDate;
   });
+
+  // History Pagination calculations
+  const totalHistoryPages = Math.ceil(filteredHistory.length / ITEMS_PER_PAGE);
+  const startHistoryIndex = (currentHistoryPage - 1) * ITEMS_PER_PAGE;
+  const endHistoryIndex = startHistoryIndex + ITEMS_PER_PAGE;
+  const displayedHistory = filteredHistory.slice(startHistoryIndex, endHistoryIndex);
+
+  const getHistoryPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalHistoryPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalHistoryPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      
+      const start = Math.max(2, currentHistoryPage - 1);
+      const end = Math.min(totalHistoryPages - 1, currentHistoryPage + 1);
+      
+      if (start > 2) {
+        pages.push('...');
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (end < totalHistoryPages - 1) {
+        pages.push('...');
+      }
+      
+      pages.push(totalHistoryPages);
+    }
+    return pages;
+  };
 
 
   // States for Admin/Auditor to submit on behalf of tech
@@ -1580,7 +1625,8 @@ function SubmitPageInner() {
                   : "🔍 ไม่พบประวัติการส่งงานตามเงื่อนไขที่เลือก"}
               </div>
             ) : (
-              <div className="glass-card overflow-hidden">
+              <>
+                <div className="glass-card overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs font-sans">
                     <thead>
@@ -1593,7 +1639,7 @@ function SubmitPageInner() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-600 Sarabun font-medium">
-                      {filteredHistory.map((item, idx) => {
+                      {displayedHistory.map((item, idx) => {
                         const statusVal = item.status || 'รอตรวจ';
                         return (
                           <tr key={idx} onClick={() => openHistoryModal(item)} className="hover:bg-slate-50/50 transition cursor-pointer">
@@ -1629,7 +1675,61 @@ function SubmitPageInner() {
                     </tbody>
                   </table>
                 </div>
+                {totalHistoryPages > 1 && (
+                  <div className="p-4 border-t border-slate-100/50 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/20">
+                    <span className="text-xs text-slate-500 font-medium Sarabun">
+                      แสดง {filteredHistory.length === 0 ? 0 : startHistoryIndex + 1} - {Math.min(endHistoryIndex, filteredHistory.length)} จาก {filteredHistory.length} รายการ
+                    </span>
+                    
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Prev Button */}
+                      <button
+                        onClick={() => setCurrentHistoryPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentHistoryPage === 1}
+                        className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition duration-150 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                        title="หน้าก่อนหน้า"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+
+                      {/* Page Numbers */}
+                      {getHistoryPageNumbers().map((p, idx) => {
+                        if (p === '...') {
+                          return (
+                            <span key={idx} className="px-3 py-1.5 text-slate-400 text-xs font-semibold Sarabun select-none">
+                              ...
+                            </span>
+                          );
+                        }
+                        return (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentHistoryPage(Number(p))}
+                            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition duration-150 cursor-pointer ${
+                              currentHistoryPage === p
+                                ? 'bg-indigo-500 text-white shadow-md shadow-indigo-200'
+                                : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        );
+                      })}
+
+                      {/* Next Button */}
+                      <button
+                        onClick={() => setCurrentHistoryPage(prev => Math.min(totalHistoryPages, prev + 1))}
+                        disabled={currentHistoryPage === totalHistoryPages}
+                        className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition duration-150 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                        title="หน้าถัดไป"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
+            </>
             )}
           </section>
         )}

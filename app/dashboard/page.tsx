@@ -29,6 +29,7 @@ import {
   CheckCircle, 
   CheckCircle2,
   XCircle, 
+  ChevronLeft,
   ChevronRight,
   Eye,
   Trash2,
@@ -150,10 +151,18 @@ function DashboardContent() {
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [showAllHistory, setShowAllHistory] = useState(false);
-  
-  // Queue Table Filter
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentQueuePage, setCurrentQueuePage] = useState(1);
   const [queueTechFilter, setQueueTechFilter] = useState(searchParams.get('tech') || '');
+  const ITEMS_PER_PAGE = 20;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, techFilter, statusFilter, typeFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    setCurrentQueuePage(1);
+  }, [searchQuery, queueTechFilter]);
 
   // Detail Modal State
   const [selectedSub, setSelectedSub] = useState<SubmissionData | null>(null);
@@ -373,8 +382,42 @@ function DashboardContent() {
     return matchSearch && matchTech && matchCat && matchStatus && matchDate;
   });
 
-  // Limit display to 15 unless "Show All" clicked
-  const displayedSubmissions = showAllHistory ? filteredSubmissions : filteredSubmissions.slice(0, 15);
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredSubmissions.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const displayedSubmissions = filteredSubmissions.slice(startIndex, endIndex);
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      
+      if (start > 2) {
+        pages.push('...');
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (end < totalPages - 1) {
+        pages.push('...');
+      }
+      
+      pages.push(totalPages);
+    }
+    return pages;
+  };
 
   // Filter Logic for Queue
   const filteredQueue = assignedJobs.filter(job => {
@@ -391,6 +434,43 @@ function DashboardContent() {
     const matchTech = !queueTechFilter || job.assigned_to === queueTechFilter;
     return matchSearch && matchTech;
   });
+
+  // Queue Pagination calculations
+  const totalQueuePages = Math.ceil(filteredQueue.length / ITEMS_PER_PAGE);
+  const startQueueIndex = (currentQueuePage - 1) * ITEMS_PER_PAGE;
+  const endQueueIndex = startQueueIndex + ITEMS_PER_PAGE;
+  const displayedQueue = filteredQueue.slice(startQueueIndex, endQueueIndex);
+
+  const getQueuePageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisiblePages = 5;
+    
+    if (totalQueuePages <= maxVisiblePages) {
+      for (let i = 1; i <= totalQueuePages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      
+      const start = Math.max(2, currentQueuePage - 1);
+      const end = Math.min(totalQueuePages - 1, currentQueuePage + 1);
+      
+      if (start > 2) {
+        pages.push('...');
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (end < totalQueuePages - 1) {
+        pages.push('...');
+      }
+      
+      pages.push(totalQueuePages);
+    }
+    return pages;
+  };
 
   // Open detail modal
   const openSubDetail = (sub: SubmissionData, index: number) => {
@@ -1327,19 +1407,63 @@ function DashboardContent() {
                   </tbody>
                 </table>
               </div>
-              {filteredSubmissions.length > 15 && (
-                <div className="p-4 border-t border-slate-100 flex justify-center bg-slate-50/20">
-                  <button
-                    onClick={() => setShowAllHistory(!showAllHistory)}
-                    className="px-6 py-2 bg-white hover:bg-slate-50 text-slate-600 text-xs font-bold border border-slate-200 rounded-xl transition Prompt cursor-pointer"
-                  >
-                    {showAllHistory ? 'แสดงย่อลง' : `แสดงทั้งหมด (${filteredSubmissions.length} รายการ)`}
-                  </button>
+              {totalPages > 1 && (
+                <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/20">
+                  <span className="text-xs text-slate-500 font-medium Sarabun">
+                    แสดง {filteredSubmissions.length === 0 ? 0 : startIndex + 1} - {Math.min(endIndex, filteredSubmissions.length)} จาก {filteredSubmissions.length} รายการ
+                  </span>
+                  
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Prev Button */}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition duration-150 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                      title="หน้าก่อนหน้า"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {/* Page Numbers */}
+                    {getPageNumbers().map((p, idx) => {
+                      if (p === '...') {
+                        return (
+                          <span key={idx} className="px-3 py-1.5 text-slate-400 text-xs font-semibold Sarabun select-none">
+                            ...
+                          </span>
+                        );
+                      }
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentPage(Number(p))}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-xl transition duration-150 cursor-pointer ${
+                            currentPage === p
+                              ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                              : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+
+                    {/* Next Button */}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition duration-150 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                      title="หน้าถัดไป"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
             </>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 font-bold tracking-wider uppercase Prompt">
@@ -1370,7 +1494,7 @@ function DashboardContent() {
                       </td>
                     </tr>
                   ) : (
-                    filteredQueue.map((job, idx) => {
+                    displayedQueue.map((job, idx) => {
                       let typeColorClass = 'text-indigo-600';
                       if (job.job_type.includes('ถอด')) typeColorClass = 'text-purple-600';
                       else if (job.job_type.includes('ซ่อม')) typeColorClass = 'text-emerald-600';
@@ -1403,6 +1527,60 @@ function DashboardContent() {
                 </tbody>
               </table>
             </div>
+            {totalQueuePages > 1 && (
+              <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/20">
+                <span className="text-xs text-slate-500 font-medium Sarabun">
+                  แสดง {filteredQueue.length === 0 ? 0 : startQueueIndex + 1} - {Math.min(endQueueIndex, filteredQueue.length)} จาก {filteredQueue.length} รายการ
+                </span>
+                
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {/* Prev Button */}
+                  <button
+                    onClick={() => setCurrentQueuePage(prev => Math.max(1, prev - 1))}
+                    disabled={currentQueuePage === 1}
+                    className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition duration-150 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                    title="หน้าก่อนหน้า"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+
+                  {/* Page Numbers */}
+                  {getQueuePageNumbers().map((p, idx) => {
+                    if (p === '...') {
+                      return (
+                        <span key={idx} className="px-3 py-1.5 text-slate-400 text-xs font-semibold Sarabun select-none">
+                          ...
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentQueuePage(Number(p))}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-xl transition duration-150 cursor-pointer ${
+                          currentQueuePage === p
+                            ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                            : 'bg-white hover:bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => setCurrentQueuePage(prev => Math.min(totalQueuePages, prev + 1))}
+                    disabled={currentQueuePage === totalQueuePages}
+                    className="p-2 bg-white hover:bg-slate-50 text-slate-500 border border-slate-200 rounded-xl transition duration-150 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                    title="หน้าถัดไป"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
         )}
