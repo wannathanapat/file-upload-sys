@@ -1065,7 +1065,7 @@ function SubmitPageInner() {
                   </div>
                   <div className="relative z-10">
                     <h2 className="text-xl font-bold Prompt mb-1">
-                      {isAdminOrAuditor ? `ส่งงานแทน ช่าง ${formatDisplayName(selectedTech)}` : `สวัสดีครับ ช่าง ${currentUser?.name}`} 👋
+                      {isAdminOrAuditor ? `ส่งงานแทน ช่าง ${formatDisplayName(selectedTech)}` : `สวัสดีครับ ช่าง ${formatDisplayName(currentUser?.name ?? '')}`} 👋
                     </h2>
                     <p className="text-xs opacity-90 Sarabun">
                       {isAdminOrAuditor 
@@ -1368,7 +1368,7 @@ function SubmitPageInner() {
                         </div>
                         <div className="min-w-0 flex-grow">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="font-extrabold text-slate-800 text-xs font-mono tracking-tight">
+                            <span className="font-extrabold text-slate-800 text-xs tracking-tight Prompt">
                               {job.order_no && job.order_no !== '-' ? job.order_no : job.job_id}
                             </span>
                             <span className={`px-2 py-0.5 rounded-lg text-[8px] font-extrabold text-white uppercase tracking-wider ${badgeColor}`}>
@@ -1379,7 +1379,7 @@ function SubmitPageInner() {
                             <span className="text-slate-400 font-medium">ลูกค้า:</span> {job.customer_name}
                           </p>
                           {job.order_no && job.order_no !== '-' && (
-                            <span className="text-[9px] text-slate-400 font-semibold font-mono block mt-0.5">รหัสงาน: {job.job_id}</span>
+                            <span className="text-[9px] text-slate-400 font-semibold block mt-0.5">รหัสงาน: {job.job_id}</span>
                           )}
                         </div>
                       </div>

@@ -75,6 +75,8 @@ export interface SystemSettings {
   menu_import: string;
   menu_settings: string;
   menu_submit: string;
+  attendance_exclude_sundays: boolean;
+  attendance_holidays: { date: string; name: string }[];
   [key: string]: any;
 }
 
@@ -115,7 +117,9 @@ const defaultSettings: SystemSettings = {
   menu_dashboard: 'ตารางงานคิว/ประวัติ',
   menu_import: 'นำเข้างาน/จ่ายงาน',
   menu_settings: 'ตั้งค่าระบบ',
-  menu_submit: 'งานค้างส่งของฉัน'
+  menu_submit: 'งานค้างส่งของฉัน',
+  attendance_exclude_sundays: true,
+  attendance_holidays: [],
 };
 
 const defaultGDrivePrefs: GDrivePrefs = {
@@ -162,13 +166,10 @@ interface AppContextType {
   updateSystemSettings: (updates: Partial<SystemSettings>) => Promise<void>;
   updateGDrivePrefs: (updates: Partial<GDrivePrefs>) => Promise<void>;
   logout: () => void;
-  liffError: string | null;
-  liffId: string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-export const LIFF_ID = "2009682051-EZTCTb4z";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUserState] = useState<UserData | null>(null);
@@ -176,7 +177,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [gdrivePrefs, setGDrivePrefs] = useState<GDrivePrefs>(defaultGDrivePrefs);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadingText, setLoadingText] = useState<string>('กำลังเริ่มต้นระบบ...');
-  const [liffError, setLiffError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -234,16 +234,25 @@ export function Providers({ children }: { children: React.ReactNode }) {
     router.push('/');
   };
 
+  // Migrate attendance_holidays from legacy string[] to {date, name}[]
+  const normalizeHolidays = (settings: Partial<SystemSettings>): Partial<SystemSettings> => {
+    if (!settings.attendance_holidays) return settings;
+    const normalized = (settings.attendance_holidays as unknown[]).map(h =>
+      typeof h === 'string' ? { date: h, name: 'วันหยุด' } : h
+    );
+    return { ...settings, attendance_holidays: normalized as { date: string; name: string }[] };
+  };
+
   // 1. Initialize Firebase & Cache Settings
   useEffect(() => {
     initFirebase();
-    
+
     // Load caches immediately for initial UI responsiveness
     if (typeof window !== 'undefined') {
       const cachedSettings = localStorage.getItem('cfg_system_settings_cache');
       if (cachedSettings) {
         try {
-          setSystemSettings(prev => ({ ...prev, ...JSON.parse(cachedSettings) }));
+          setSystemSettings(prev => ({ ...prev, ...normalizeHolidays(JSON.parse(cachedSettings)) }));
         } catch (_) {}
       }
       
@@ -261,6 +270,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
         } catch (_) {}
       }
     }
+
+    setLoading(false);
   }, []);
 
   // 2. Fetch config from Firestore in background
@@ -273,7 +284,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         const settingsRef = doc(db, 'app_config', 'system_settings');
         const settingsSnap = await getDoc(settingsRef);
         if (settingsSnap.exists()) {
-          const remoteData = settingsSnap.data() as Partial<SystemSettings>;
+          const remoteData = normalizeHolidays(settingsSnap.data() as Partial<SystemSettings>);
           const merged = { ...defaultSettings, ...remoteData };
           setSystemSettings(merged);
           localStorage.setItem('cfg_system_settings_cache', JSON.stringify(merged));
@@ -296,61 +307,29 @@ export function Providers({ children }: { children: React.ReactNode }) {
     fetchRemoteConfig();
   }, []);
 
-  // 3. Initialize LINE LIFF
+  // 3. Background-refresh user data from Firestore on app load
   useEffect(() => {
-    const initLiff = async () => {
-      if (typeof window === 'undefined') return;
-      
-      // If we already have a session, skip LINE LIFF verification to make desktop testing faster
-      const sessionUser = localStorage.getItem('appUserSession');
-      if (sessionUser) {
-        setLoading(false);
-        return;
-      }
+    if (typeof window === 'undefined') return;
 
-      if (!LIFF_ID) {
-        setLoading(false);
-        return;
-      }
+    const sessionUser = localStorage.getItem('appUserSession');
+    if (!sessionUser) return;
 
-      setLoadingText("กำลังเชื่อมต่อ LINE LIFF...");
+    void (async () => {
       try {
-        const { default: liff } = await import('@line/liff');
-        
-        await liff.init({ liffId: LIFF_ID });
-        
-        if (liff.isLoggedIn()) {
-          const profile = await liff.getProfile();
-          if (profile) {
-            setLoadingText("กำลังเข้าสู่ระบบผ่าน LINE...");
-            const db = getDb();
-            const { collection, query, where, getDocs } = await import('firebase/firestore');
-            const q = query(collection(db, 'users'), where('lineId', '==', profile.userId));
-            const querySnap = await getDocs(q);
-            
-            if (!querySnap.empty) {
-              const u = querySnap.docs[0].data() as UserData;
-              if (u.status === 'active') {
-                setCurrentUser(u);
-              } else {
-                setLiffError("บัญชีของคุณถูกระงับการใช้งานชั่วคราว");
-              }
-            } else {
-              setLiffError("ไม่พบข้อมูลบัญชีที่เชื่อมโยงกับ LINE ID นี้");
-            }
-          }
-        } else if (liff.isInClient()) {
-          liff.login();
+        const parsed = JSON.parse(sessionUser) as UserData;
+        if (!parsed.username) return;
+        const db = getDb();
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const q = query(collection(db, 'users'), where('username', '==', parsed.username));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const refreshed = { ...snap.docs[0].data(), _docId: snap.docs[0].id } as UserData;
+          if (refreshed.status === 'active') setCurrentUser(refreshed);
         }
-      } catch (err: any) {
-        console.warn("LINE LIFF initialization skipped or failed:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initLiff();
+      } catch (_) {}
+    })();
   }, []);
+
 
   // Route protection inside frontend
   useEffect(() => {
@@ -551,8 +530,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       updateSystemSettings,
       updateGDrivePrefs,
       logout,
-      liffError,
-      liffId: LIFF_ID
     }}>
       <div 
         style={{

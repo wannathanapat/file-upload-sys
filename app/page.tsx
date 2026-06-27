@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useApp } from './providers';
 import { getDb } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, limit } from 'firebase/firestore';
@@ -16,18 +16,11 @@ async function sha256(message: string): Promise<string> {
 }
 
 export default function LoginPage() {
-  const { currentUser, setCurrentUser, systemSettings, showToast, liffError, liffId } = useApp();
+  const { currentUser, setCurrentUser, systemSettings, showToast } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // If there's a LIFF authentication error, display it
-  useEffect(() => {
-    if (liffError) {
-      setErrorMsg(liffError);
-    }
-  }, [liffError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,7 +45,6 @@ export default function LoginPage() {
           name: 'System Admin (Bypass)',
           role: 'admin',
           status: 'active',
-          lineId: ''
         };
         setCurrentUser(adminSession);
         showToast("ยินดีต้อนรับเข้าสู่ระบบจัดการงานครับ แอดมิน! 🔑", "success");
@@ -71,7 +63,6 @@ export default function LoginPage() {
           name: 'System Admin (Default)',
           role: 'admin',
           status: 'active',
-          lineId: ''
         };
         await setDoc(doc(db, 'users', 'admin'), defaultAdmin);
         setCurrentUser(defaultAdmin);
@@ -103,13 +94,7 @@ export default function LoginPage() {
             userData.password = hashedInputPass;
           }
           
-          setCurrentUser({
-            username: userData.username,
-            name: userData.name,
-            role: userData.role,
-            status: userData.status,
-            lineId: userData.lineId || ''
-          });
+          setCurrentUser({ ...userData as any, _docId: userDoc.id });
           
           showToast(`สวัสดีครับคุณ ${userData.name.split(' ')[0]} ยินดีต้อนรับกลับเข้าสู่ระบบครับ! ✨`, "success");
         } else {
@@ -227,7 +212,7 @@ export default function LoginPage() {
 
         <div className="text-center mt-6">
           <p className="text-[10px] text-slate-400 Sarabun leading-relaxed">
-            ระบบรองรับการเข้าสู่ระบบผ่านการกดลิงก์จาก LINE LIFF อัตโนมัติ<br />
+            เข้าสู่ระบบด้วยชื่อผู้ใช้และรหัสผ่านที่ได้รับจากผู้ดูแลระบบ<br />
             หากเปิดผ่านเบราว์เซอร์ปกติกรุณากรอกรหัสพนักงานเพื่อระบุสิทธิ์
           </p>
         </div>

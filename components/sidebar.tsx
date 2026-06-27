@@ -24,14 +24,16 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import UserProfileModal from '@/components/UserProfileModal';
 
 function SidebarInner() {
-  const { currentUser, logout, systemSettings } = useApp();
+  const { currentUser, setCurrentUser, logout, systemSettings } = useApp();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
   const [showBottomNav, setShowBottomNav] = useState(true);
+  const [showProfile, setShowProfile] = useState(false);
   const lastScrollY = useRef(0);
 
   // Build full current path+query for active matching
@@ -62,6 +64,7 @@ function SidebarInner() {
 
   const isAdmin = currentUser.role === 'admin' || currentUser.role === 'auditor';
 
+  // All nav items (used by desktop sidebar)
   const navItems = isAdmin ? [
     { name: 'ภาพรวมระบบและสถิติ', path: '/dashboard?view=overview', icon: LayoutDashboard },
     { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
@@ -80,11 +83,28 @@ function SidebarInner() {
     { name: 'ลงเวลาเข้างาน', path: '/attendance', icon: ClipboardCheck },
   ];
 
+  // Hamburger menu — exclude items already in the bottom nav bar
+  const adminBottomNavPaths = new Set([
+    '/dashboard?view=overview', '/dashboard?view=queue', '/dashboard?view=history',
+    '/import-jobs', '/attendance',
+  ]);
+  const staffBottomNavPaths = new Set([
+    '/submit?tab=dashboard', '/submit?tab=queue', '/submit?tab=history', '/attendance',
+  ]);
+  const menuItems = navItems.filter(item =>
+    isAdmin ? !adminBottomNavPaths.has(item.path) : !staffBottomNavPaths.has(item.path)
+  );
+
   const toggleSidebar = () => setIsOpen(!isOpen);
 
   const getInitials = (name: string) => {
     return name ? name.trim().charAt(0).toUpperCase() : '?';
   };
+
+  const validAvatar = (url: string | undefined): string | null =>
+    url?.startsWith('data:') ? url : null;
+
+  const shortName = (name: string) => name.split('-').pop()?.trim() ?? name;
 
   // Navigate to dashboard with a specific tab selected
   const goToDashboardTab = (tab: 'submissions' | 'queue') => {
@@ -119,11 +139,14 @@ function SidebarInner() {
  
       {/* User Info Profile Panel */}
       <div className="p-3 mx-4 mt-5 bg-current/5 rounded-2xl border border-current/10 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-current/10 text-current font-bold flex items-center justify-center text-sm border border-current/15">
-          {getInitials(currentUser.name)}
+        <div className="w-9 h-9 rounded-xl overflow-hidden bg-current/10 border border-current/15 shrink-0">
+          {validAvatar(currentUser.avatar_url)
+            ? <img src={validAvatar(currentUser.avatar_url)!} alt={currentUser.name} className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center text-current font-bold text-sm">{getInitials(currentUser.name)}</div>
+          }
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-current opacity-90 truncate Prompt leading-none">{currentUser.name}</p>
+          <p className="text-xs font-bold text-current opacity-90 truncate Prompt leading-none">{shortName(currentUser.name)}</p>
           <p className="text-[9px] text-current opacity-70 font-extrabold uppercase mt-1 Prompt">
             {currentUser.role === 'admin' ? 'ผู้ดูแลระบบ' : 
              currentUser.role === 'auditor' ? 'ผู้ตรวจสอบ' : 'ช่างเทคนิค'}
@@ -241,11 +264,14 @@ function SidebarInner() {
         {/* Profile Card (Glassmorphic) */}
         <div className="bg-white/70 backdrop-blur-md border border-white/50 rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.03)] p-4 flex items-center justify-between mb-8 relative z-10">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full bg-white/95 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex items-center justify-center font-bold text-slate-600 text-base border border-slate-200/50">
-              {getInitials(currentUser.name)}
+            <div className="w-12 h-12 rounded-full overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-slate-200/50 shrink-0">
+              {validAvatar(currentUser.avatar_url)
+                ? <img src={validAvatar(currentUser.avatar_url)!} alt={currentUser.name} className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-white/95 flex items-center justify-center font-bold text-slate-600 text-base">{getInitials(currentUser.name)}</div>
+              }
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-800 Prompt leading-none">{currentUser.name}</p>
+              <p className="text-sm font-bold text-slate-800 Prompt leading-none">{shortName(currentUser.name)}</p>
               <div className="flex items-center gap-1.5 mt-1.5">
                 <span className="px-2 py-0.5 bg-blue-50/70 border border-blue-100/50 text-blue-600 font-extrabold rounded-lg text-[9px] uppercase tracking-wider Prompt">
                   {currentUser.role === 'admin' ? 'ADMIN' : 
@@ -273,7 +299,7 @@ function SidebarInner() {
 
         {/* Menu Items Container - pb-28 to clear the bottom navigation bar */}
         <div className="flex-grow space-y-3 pb-28 relative z-10">
-          {navItems.map((item) => {
+          {menuItems.map((item) => {
             const colors = iconColors[item.path] || { bg: 'bg-indigo-500 text-white', shadow: 'shadow-[0_8px_20px_rgba(99,102,241,0.35)]' };
             const subLabel = subLabels[item.path] || 'Section';
             const Icon = item.icon;
@@ -318,9 +344,18 @@ function SidebarInner() {
           />
           <span className="text-slate-800 text-sm font-bold Prompt">{systemSettings.app_name}</span>
         </div>
-        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-          <span className="text-slate-600 font-bold text-xs">{getInitials(currentUser.name)}</span>
-        </div>
+        <button
+          onClick={() => setShowProfile(true)}
+          className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 hover:ring-2 hover:ring-indigo-300 transition-all shrink-0"
+          title="จัดการบัญชีผู้ใช้"
+        >
+          {currentUser.avatar_url
+            ? <img src={currentUser.avatar_url} alt={currentUser.name} className="w-full h-full object-cover" />
+            : <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                <span className="text-slate-600 font-bold text-xs">{getInitials(currentUser.name)}</span>
+              </div>
+          }
+        </button>
       </div>
 
       {/* ─── Floating Pill Bottom Navigation (Mobile only) ─── */}
@@ -337,61 +372,63 @@ function SidebarInner() {
               <button
                 onClick={() => router.push('/dashboard?view=overview')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/dashboard' && (searchParams.get('view') === 'overview' || !searchParams.get('view')) ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/dashboard' && (searchParams.get('view') === 'overview' || !searchParams.get('view')) ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="Dashboard"
               >
-                <LayoutDashboard className="w-[22px] h-[22px]" strokeWidth={pathname === '/dashboard' && (searchParams.get('view') === 'overview' || !searchParams.get('view')) ? 2.2 : 1.8} />
+                <LayoutDashboard className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/dashboard' && (searchParams.get('view') === 'overview' || !searchParams.get('view')) ? 2.2 : 1.8} />
               </button>
 
               {/* 2: Dashboard - Queue */}
               <button
                 onClick={() => router.push('/dashboard?view=queue')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/dashboard' && searchParams.get('view') === 'queue' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/dashboard' && searchParams.get('view') === 'queue' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="คิวงานค้าง"
               >
-                <Clock className="w-[22px] h-[22px]" strokeWidth={pathname === '/dashboard' && searchParams.get('view') === 'queue' ? 2.2 : 1.8} />
+                <Clock className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/dashboard' && searchParams.get('view') === 'queue' ? 2.2 : 1.8} />
               </button>
 
               {/* 3: Dashboard - History */}
               <button
                 onClick={() => router.push('/dashboard?view=history')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/dashboard' && searchParams.get('view') === 'history' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/dashboard' && searchParams.get('view') === 'history' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="ประวัติส่งงาน"
               >
-                <History className="w-[22px] h-[22px]" strokeWidth={pathname === '/dashboard' && searchParams.get('view') === 'history' ? 2.2 : 1.8} />
+                <History className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/dashboard' && searchParams.get('view') === 'history' ? 2.2 : 1.8} />
               </button>
 
               {/* 4: Import Jobs */}
               <button
                 onClick={() => router.push('/import-jobs')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/import-jobs' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/import-jobs' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="นำเข้างาน"
               >
-                <UploadCloud className="w-[22px] h-[22px]" strokeWidth={pathname === '/import-jobs' ? 2.2 : 1.8} />
+                <UploadCloud className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/import-jobs' ? 2.2 : 1.8} />
               </button>
 
               {/* 5: Attendance */}
               <button
                 onClick={() => router.push('/attendance')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/attendance' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/attendance' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="ลงเวลา"
               >
-                <ClipboardCheck className="w-[22px] h-[22px]" strokeWidth={pathname === '/attendance' ? 2.2 : 1.8} />
+                <ClipboardCheck className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/attendance' ? 2.2 : 1.8} />
               </button>
 
               {/* 6: Menu / Drawer toggle */}
               <button
                 onClick={toggleSidebar}
-                className="flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer text-slate-400 hover:text-slate-700"
+                className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
+                  isOpen ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-700'
+                }`}
                 title="เมนู"
               >
                 <Menu className="w-[22px] h-[22px]" strokeWidth={1.8} />
@@ -403,50 +440,52 @@ function SidebarInner() {
               <button
                 onClick={() => router.push('/submit?tab=dashboard')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/submit' && (searchParams.get('tab') === 'dashboard' || !searchParams.get('tab')) ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/submit' && (searchParams.get('tab') === 'dashboard' || !searchParams.get('tab')) ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="Dashboard ช่าง"
               >
-                <LayoutDashboard className="w-[22px] h-[22px]" strokeWidth={pathname === '/submit' && (searchParams.get('tab') === 'dashboard' || !searchParams.get('tab')) ? 2.2 : 1.8} />
+                <LayoutDashboard className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/submit' && (searchParams.get('tab') === 'dashboard' || !searchParams.get('tab')) ? 2.2 : 1.8} />
               </button>
 
               {/* Staff: งานค้างส่ง */}
               <button
                 onClick={() => router.push('/submit?tab=queue')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/submit' && searchParams.get('tab') === 'queue' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/submit' && searchParams.get('tab') === 'queue' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="งานค้างส่ง"
               >
-                <ScanLine className="w-[22px] h-[22px]" strokeWidth={pathname === '/submit' && searchParams.get('tab') === 'queue' ? 2.2 : 1.8} />
+                <ScanLine className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/submit' && searchParams.get('tab') === 'queue' ? 2.2 : 1.8} />
               </button>
 
               {/* Staff: ประวัติส่งงาน */}
               <button
                 onClick={() => router.push('/submit?tab=history')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/submit' && searchParams.get('tab') === 'history' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/submit' && searchParams.get('tab') === 'history' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="ประวัติส่งงาน"
               >
-                <History className="w-[22px] h-[22px]" strokeWidth={pathname === '/submit' && searchParams.get('tab') === 'history' ? 2.2 : 1.8} />
+                <History className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/submit' && searchParams.get('tab') === 'history' ? 2.2 : 1.8} />
               </button>
 
               {/* Staff: ลงเวลา */}
               <button
                 onClick={() => router.push('/attendance')}
                 className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
-                  pathname === '/attendance' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                  !isOpen && pathname === '/attendance' ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-600'
                 }`}
                 title="ลงเวลา"
               >
-                <ClipboardCheck className="w-[22px] h-[22px]" strokeWidth={pathname === '/attendance' ? 2.2 : 1.8} />
+                <ClipboardCheck className="w-[22px] h-[22px]" strokeWidth={!isOpen && pathname === '/attendance' ? 2.2 : 1.8} />
               </button>
 
               {/* Staff: Drawer / profile */}
               <button
                 onClick={toggleSidebar}
-                className="flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer text-slate-400 hover:text-slate-700"
+                className={`flex flex-col items-center justify-center w-12 h-10 rounded-full transition-all duration-200 cursor-pointer ${
+                  isOpen ? 'mobile-nav-active shadow-sm' : 'text-slate-400 hover:text-slate-700'
+                }`}
                 title="เมนู"
               >
                 <Menu className="w-[22px] h-[22px]" strokeWidth={1.8} />
@@ -475,6 +514,17 @@ function SidebarInner() {
       <aside className="hidden lg:block w-72 h-screen sticky top-0 flex-shrink-0 shadow-xl border-r border-slate-200">
         <SidebarContent />
       </aside>
+
+      {/* User Profile Modal */}
+      {showProfile && currentUser && (
+        <UserProfileModal
+          user={currentUser}
+          onClose={() => setShowProfile(false)}
+          onUpdate={(updated) => {
+            setCurrentUser({ ...currentUser, ...updated });
+          }}
+        />
+      )}
     </>
   );
 }

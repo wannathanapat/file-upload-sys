@@ -62,3 +62,9 @@ export function getDb(): Firestore {
   }
   return db;
 }
+
+// Helper to get Firebase app instance safely
+export function getFirebaseApp(): FirebaseApp {
+  if (!app) initFirebase();
+  return app!;
+}

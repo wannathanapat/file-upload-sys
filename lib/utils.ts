@@ -10,6 +10,8 @@ export interface UserData {
   role: string;
   status: string;
   lineId?: string;
+  avatar_url?: string;
+  _docId?: string;
 }
 
 export interface JobRow {

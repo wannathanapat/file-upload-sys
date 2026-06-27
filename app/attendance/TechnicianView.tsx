@@ -74,8 +74,18 @@ function todayString() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function getHolidayName(dateStr: string, excludeSundays: boolean, holidays: { date: string; name: string }[]): string | null {
+  const found = holidays.find(h => h.date === dateStr);
+  if (found) return found.name;
+  if (excludeSundays) {
+    const day = new Date(dateStr + 'T00:00:00').getDay();
+    if (day === 0) return 'วันอาทิตย์';
+  }
+  return null;
+}
+
 export default function TechnicianView() {
-  const { currentUser, showToast } = useApp();
+  const { currentUser, showToast, systemSettings } = useApp();
   const [activeTab, setActiveTab] = useState<'home' | 'history'>('home');
   const [settings, setSettings] = useState<AttendanceSettings | null>(null);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
@@ -112,7 +122,13 @@ export default function TechnicianView() {
       const todaySnap = await getDoc(doc(db, 'attendance_records', todayId));
       setTodayRecord(todaySnap.exists() ? { id: todayId, ...todaySnap.data() } as AttendanceRecord : null);
 
-      // Load history (last 30 records) — sort client-side to avoid composite index
+      // Load history — filter client-side to avoid composite index requirement
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const monthStart = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+      const d30 = new Date(now); d30.setDate(d30.getDate() - 29);
+      const d30Str = `${d30.getFullYear()}-${pad(d30.getMonth() + 1)}-${pad(d30.getDate())}`;
+      const historyFrom = d30Str > monthStart ? d30Str : monthStart;
       const q = query(
         collection(db, 'attendance_records'),
         where('username', '==', currentUser.username)
@@ -120,8 +136,9 @@ export default function TechnicianView() {
       const snap = await getDocs(q);
       const sorted = snap.docs
         .map(d => ({ id: d.id, ...d.data() }) as AttendanceRecord)
+        .filter(r => r.date >= historyFrom && r.date <= todayString())
         .sort((a, b) => b.date.localeCompare(a.date));
-      setHistory(sorted.slice(0, 30));
+      setHistory(sorted);
     } catch (err) {
       console.error(err);
     } finally {
@@ -220,8 +237,11 @@ export default function TechnicianView() {
     }
   };
 
-  const statusKey = todayRecord ? getStatusKey(todayRecord) : null;
-  const statusCfg = statusKey ? STATUS_CONFIG[statusKey] : null;
+  const todayHolidayName = !todayRecord
+    ? getHolidayName(todayString(), systemSettings.attendance_exclude_sundays, systemSettings.attendance_holidays ?? [])
+    : null;
+  const statusKey = todayRecord ? getStatusKey(todayRecord) : (todayHolidayName ? 'holiday' : null);
+  const statusCfg = statusKey ? (STATUS_CONFIG[statusKey] ?? STATUS_CONFIG['not_checked_in']) : null;
 
   const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = now.toLocaleDateString('th-TH', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -276,6 +296,11 @@ export default function TechnicianView() {
                       {statusCfg.label}
                       {todayRecord.check_in_time && ` — ${new Date(todayRecord.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`}
                     </div>
+                  ) : todayHolidayName ? (
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-violet-100 text-violet-700 rounded-full text-xs font-bold Prompt border border-violet-200">
+                      <span className="w-2 h-2 rounded-full bg-violet-400" />
+                      วันหยุด — {todayHolidayName}
+                    </div>
                   ) : (
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 text-white/90 rounded-full text-xs font-bold Prompt">
                       <span className="w-2 h-2 rounded-full bg-white/60 animate-pulse" />
@@ -327,15 +352,25 @@ export default function TechnicianView() {
 
               {/* Check-in Button */}
               {!todayRecord ? (
-                <motion.button
-                  onClick={handleCheckin}
-                  disabled={phase === 'checking-location' || phase === 'loading-face' || phase === 'location-ok'}
-                  whileTap={{ scale: 0.97 }}
-                  className="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-500 disabled:from-slate-300 disabled:to-slate-300 text-white font-black text-lg rounded-3xl shadow-2xl shadow-blue-500/40 disabled:shadow-none transition-all active:scale-95 Prompt flex items-center justify-center gap-3"
-                >
-                  <Fingerprint className="w-7 h-7" />
-                  {phase === 'checking-location' ? 'กำลังตรวจสอบ...' : 'เช็คอินเข้างาน'}
-                </motion.button>
+                todayHolidayName ? (
+                  <div className="w-full py-6 bg-violet-50 rounded-3xl flex flex-col items-center justify-center gap-2 border border-violet-200 shadow-sm">
+                    <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center">
+                      <CalendarDays className="w-8 h-8 text-violet-500" />
+                    </div>
+                    <p className="font-black text-violet-700 text-lg Prompt mt-1">วันหยุด</p>
+                    <p className="text-sm text-violet-500 Prompt">{todayHolidayName} — ไม่ต้องสแกนเข้างาน</p>
+                  </div>
+                ) : (
+                  <motion.button
+                    onClick={handleCheckin}
+                    disabled={phase === 'checking-location' || phase === 'loading-face' || phase === 'location-ok'}
+                    whileTap={{ scale: 0.97 }}
+                    className="w-full py-5 bg-gradient-to-r from-blue-600 to-blue-500 disabled:from-slate-300 disabled:to-slate-300 text-white font-black text-lg rounded-3xl shadow-2xl shadow-blue-500/40 disabled:shadow-none transition-all active:scale-95 Prompt flex items-center justify-center gap-3"
+                  >
+                    <Fingerprint className="w-7 h-7" />
+                    {phase === 'checking-location' ? 'กำลังตรวจสอบ...' : 'เช็คอินเข้างาน'}
+                  </motion.button>
+                )
               ) : (
                 <div className="w-full py-5 bg-slate-100 rounded-3xl flex items-center justify-center gap-3 text-slate-400">
                   <CheckCircle2 className="w-7 h-7 text-emerald-400" />
@@ -378,23 +413,71 @@ export default function TechnicianView() {
                 </button>
               </div>
 
-              {history.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
-                  <History className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                  <p className="text-sm Prompt">ยังไม่มีประวัติการลงเวลา</p>
-                </div>
-              ) : (
-                history.map((rec) => {
+              {(() => {
+                const today = todayString();
+                const now2 = new Date();
+                const pad2 = (n: number) => String(n).padStart(2, '0');
+                const monthStart = `${now2.getFullYear()}-${pad2(now2.getMonth() + 1)}-01`;
+                const d30b = new Date(now2); d30b.setDate(d30b.getDate() - 29);
+                const d30Str = `${d30b.getFullYear()}-${pad2(d30b.getMonth() + 1)}-${pad2(d30b.getDate())}`;
+                const rangeFrom = d30Str > monthStart ? d30Str : monthStart;
+                const holidays = systemSettings.attendance_holidays ?? [];
+                const excSundays = systemSettings.attendance_exclude_sundays;
+                const holidayEntries: { date: string; name: string }[] = [];
+                const recDates = new Set(history.map(r => r.date));
+                const start = new Date(rangeFrom + 'T00:00:00');
+                const end = new Date(today + 'T00:00:00');
+                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                  const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                  const hName = getHolidayName(ds, excSundays, holidays);
+                  if (hName && !recDates.has(ds)) holidayEntries.push({ date: ds, name: hName });
+                }
+                const combined: ({ type: 'rec'; data: typeof history[0] } | { type: 'hol'; date: string; name: string })[] = [
+                  ...history.map(r => ({ type: 'rec' as const, data: r })),
+                  ...holidayEntries.map(h => ({ type: 'hol' as const, ...h })),
+                ].sort((a, b) => {
+                  const da = a.type === 'rec' ? a.data.date : a.date;
+                  const db = b.type === 'rec' ? b.data.date : b.date;
+                  return db.localeCompare(da);
+                });
+
+                if (combined.length === 0) return (
+                  <div className="text-center py-16 text-slate-400">
+                    <History className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm Prompt">ยังไม่มีประวัติการลงเวลา</p>
+                  </div>
+                );
+
+                return combined.map((item, idx) => {
+                  if (item.type === 'hol') {
+                    return (
+                      <div key={`hol-${item.date}`} className="bg-violet-50 rounded-2xl border border-violet-200 p-4 shadow-sm flex items-center gap-3">
+                        <div className="w-10 h-10 bg-violet-100 text-violet-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <CalendarDays className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-slate-700 Prompt">
+                            {new Date(item.date + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                          <p className="text-[11px] text-violet-500 Prompt mt-0.5">{item.name}</p>
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-violet-100 text-violet-700 border border-violet-200 Prompt flex-shrink-0">
+                          วันหยุด
+                        </span>
+                      </div>
+                    );
+                  }
+                  const rec = item.data;
                   const sk = getStatusKey(rec);
                   const cfg = STATUS_CONFIG[sk] || STATUS_CONFIG['absent'];
                   return (
-                    <div key={rec.id} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
+                    <div key={rec.id ?? idx} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center gap-3">
                       <div className={`w-10 h-10 ${cfg.bg} ${cfg.text} rounded-xl flex items-center justify-center flex-shrink-0`}>
                         <Clock className="w-5 h-5" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-700 Prompt">
-                          {new Date(rec.date).toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                          {new Date(rec.date + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                         <p className="text-[11px] text-slate-500 Prompt mt-0.5">
                           {rec.check_in_time
@@ -409,8 +492,8 @@ export default function TechnicianView() {
                       </span>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
             </motion.div>
           )}
         </AnimatePresence>

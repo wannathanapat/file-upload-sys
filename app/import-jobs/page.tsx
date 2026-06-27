@@ -955,11 +955,7 @@ export default function ImportJobsPage() {
     <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 font-sans">
       <Sidebar />
 
-      <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-800 Prompt">นำเข้างานและจ่ายงานช่าง</h1>
-          <p className="text-sm text-slate-500 Sarabun">จัดการคิวงาน และตรวจสอบงานซ้ำจากประวัติ Google Sheet เก่า</p>
-        </header>
+      <main className="flex-1 p-4 lg:p-8 overflow-y-auto pb-28 lg:pb-8">
 
         {/* ── Tab Switcher ── */}
         <div className="flex gap-1.5 mb-6 bg-slate-100/80 p-1.5 rounded-2xl w-fit">

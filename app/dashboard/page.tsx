@@ -1387,7 +1387,7 @@ function DashboardContent() {
                             </td>
                           )}
                           <td className={`p-4 font-bold text-slate-800 ${isAdmin ? '' : 'pl-6'}`}>{job.job_id}</td>
-                          <td className="p-4 font-mono font-medium text-slate-500">{job.order_no || '-'}</td>
+                          <td className="p-4 font-medium text-slate-500 Prompt">{job.order_no || '-'}</td>
                           <td className="p-4 font-bold text-slate-700 Prompt">{job.customer_name}</td>
                           <td className="p-4 font-bold"><span className={typeColorClass}>{job.job_type}{job.sub_work_type ? ` (${job.sub_work_type})` : ''}</span></td>
                           <td className="p-4 font-bold text-slate-800 Prompt">{formatDisplayName(job.assigned_to)}</td>
@@ -1442,7 +1442,7 @@ function DashboardContent() {
                       <><FileSpreadsheet className="w-5 h-5 text-indigo-500" /><span>รายละเอียดการส่งงาน</span></>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">รหัสงาน: {selectedSub.job_id || '-'}</p>
+                  <p className="text-xs text-slate-500 Prompt mt-0.5">รหัสงาน: {selectedSub.job_id || '-'}</p>
                 </div>
                 <button onClick={closeSubDetail} className="text-slate-400 hover:text-slate-600 text-lg p-1.5 hover:bg-slate-100/50 rounded-full transition cursor-pointer">✕</button>
               </div>

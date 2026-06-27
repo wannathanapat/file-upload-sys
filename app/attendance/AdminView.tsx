@@ -74,11 +74,42 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; b
   sick_leave:     { label: 'ลาป่วย',       bg: 'bg-orange-50',  text: 'text-orange-600',  border: 'border-orange-200',  dot: 'bg-orange-500'  },
   onsite:         { label: 'ลงพื้นที่',    bg: 'bg-sky-50',     text: 'text-sky-700',     border: 'border-sky-200',     dot: 'bg-sky-500'     },
   not_checked_in: { label: 'ยังไม่เข้า',  bg: 'bg-slate-50',   text: 'text-slate-500',   border: 'border-slate-200',   dot: 'bg-slate-400'   },
+  holiday:        { label: 'วันหยุด',     bg: 'bg-violet-50',  text: 'text-violet-600',  border: 'border-violet-200',  dot: 'bg-violet-400'  },
 };
 
 function getStatusKey(record?: AttendanceRecord | null): string {
   if (!record) return 'not_checked_in';
   return record.override_status || record.status;
+}
+
+function getHolidayName(dateStr: string, excludeSundays: boolean, holidays: { date: string; name: string }[]): string | null {
+  const found = holidays.find(h => h.date === dateStr);
+  if (found) return found.name;
+  if (excludeSundays) {
+    const day = new Date(dateStr + 'T00:00:00').getDay();
+    if (day === 0) return 'วันอาทิตย์';
+  }
+  return null;
+}
+
+function isHoliday(dateStr: string, excludeSundays: boolean, holidays: { date: string; name: string }[]): boolean {
+  return getHolidayName(dateStr, excludeSundays, holidays) !== null;
+}
+
+function getHolidaysInRange(from: string, to: string, excludeSundays: boolean, holidays: { date: string; name: string }[]): { date: string; name: string }[] {
+  const result: { date: string; name: string }[] = [];
+  const start = new Date(from + 'T00:00:00');
+  const end = new Date(to + 'T00:00:00');
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const name = getHolidayName(ds, excludeSundays, holidays);
+    if (name) result.push({ date: ds, name });
+  }
+  return result;
+}
+
+function fmtDate(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function todayString() {
@@ -88,8 +119,10 @@ function todayString() {
 
 /* ─────────────────── AdminView Component ─────────────────────── */
 
+const shortName = (name: string) => name.split('-').pop()?.trim() ?? name;
+
 export default function AdminView() {
-  const { currentUser, showToast } = useApp();
+  const { currentUser, showToast, systemSettings } = useApp();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'reports'>('dashboard');
 
   // Data
@@ -137,8 +170,8 @@ export default function AdminView() {
 
   // Report filters
   const [reportDateFrom, setReportDateFrom] = useState(() => {
-    const d = new Date(); d.setDate(d.getDate() - 7);
-    return d.toISOString().slice(0, 10);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   });
   const [reportDateTo, setReportDateTo] = useState(todayString);
   const [reportEmployee, setReportEmployee] = useState('');
@@ -384,20 +417,26 @@ export default function AdminView() {
   const exportCSV = () => {
     if (reportRecords.length === 0) { showToast('ไม่มีข้อมูลสำหรับ Export', 'info'); return; }
     const headers = ['วันที่', 'ชื่อ', 'เวลาเข้า', 'สถานะ', 'จังหวัด', 'อำเภอ', 'หมายเหตุ'];
-    const rows = reportRecords.map(r => {
+    const recRows = reportRecords.map(r => {
       const sk = getStatusKey(r);
       const cfg = STATUS_CONFIG[sk];
-      return [
-        r.date,
-        r.name,
-        r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-',
-        cfg?.label || sk,
-        r.override_province || '-',
-        r.override_district || '-',
-        r.note || '-',
-      ];
+      return {
+        sortKey: r.date,
+        cols: [
+          fmtDate(r.date),
+          r.name,
+          r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-',
+          cfg?.label || sk,
+          r.override_province || '-',
+          r.override_district || '-',
+          r.note || '-',
+        ],
+      };
     });
-    const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+    const holidaysList = getHolidaysInRange(reportDateFrom, reportDateTo, systemSettings.attendance_exclude_sundays, systemSettings.attendance_holidays ?? []);
+    const holidayRows = holidaysList.map(h => ({ sortKey: h.date, cols: [fmtDate(h.date), '\u2014', '\u2014', `\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14: ${h.name}`, '-', '-', '-'] }));
+    const allRows = [...recRows, ...holidayRows].sort((a, b) => b.sortKey.localeCompare(a.sortKey)).map(r => r.cols);
+    const csv = '\uFEFF' + [headers, ...allRows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -412,19 +451,26 @@ export default function AdminView() {
 
   const exportPDF = () => {
     if (reportRecords.length === 0) { showToast('ไม่มีข้อมูลสำหรับ Export', 'info'); return; }
-    const rows = reportRecords.map(r => {
+    const recRows = reportRecords.map(r => {
       const sk = getStatusKey(r);
       const cfg = STATUS_CONFIG[sk];
       const location = r.override_province ? `${r.override_province} › ${r.override_district}` : '-';
-      return `<tr>
-        <td>${r.date}</td>
+      return { date: r.date, html: `<tr>
+        <td>${fmtDate(r.date)}</td>
         <td>${r.name}</td>
         <td>${r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
         <td>${cfg?.label || sk}</td>
         <td>${location}</td>
         <td>${r.note || '-'}</td>
-      </tr>`;
-    }).join('');
+      </tr>` };
+    });
+    const pdfHolidays = getHolidaysInRange(reportDateFrom, reportDateTo, systemSettings.attendance_exclude_sundays, systemSettings.attendance_holidays ?? []);
+    const holidayPdfRows = pdfHolidays.map(h => ({ date: h.date, html: `<tr style="background:#f5f3ff">
+        <td>${fmtDate(h.date)}</td>
+        <td colspan="4" style="color:#7c3aed;font-weight:bold">วันหยุด: ${h.name}</td>
+        <td>-</td>
+      </tr>` }));
+    const rows = [...recRows, ...holidayPdfRows].sort((a, b) => b.date.localeCompare(a.date)).map(r => r.html).join('');
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <title>รายงานการลงเวลา</title>
       <style>
@@ -437,7 +483,7 @@ export default function AdminView() {
         @media print{body{padding:10px}}
       </style></head><body>
       <h1>รายงานการลงเวลาช่าง</h1>
-      <p>ช่วงวันที่ ${reportDateFrom} ถึง ${reportDateTo}${reportEmployee ? ` | ช่าง: ${employees.find(e => e.username === reportEmployee)?.name}` : ''}</p>
+      <p>ช่วงวันที่ ${fmtDate(reportDateFrom)} ถึง ${fmtDate(reportDateTo)}${reportEmployee ? ` | ช่าง: ${employees.find(e => e.username === reportEmployee)?.name}` : ''}</p>
       <table><thead><tr><th>วันที่</th><th>ชื่อ</th><th>เวลาเข้า</th><th>สถานะ</th><th>พื้นที่</th><th>หมายเหตุ</th></tr></thead>
       <tbody>${rows}</tbody></table>
       </body></html>`;
@@ -451,11 +497,17 @@ export default function AdminView() {
 
   /* ────── Summary counts ────── */
 
+  const todayIsHoliday = isHoliday(
+    todayString(),
+    systemSettings.attendance_exclude_sundays,
+    systemSettings.attendance_holidays ?? []
+  );
   const totalEmp = employees.length;
   const checkedIn = employees.filter(e => todayRecords[e.username]).length;
   const late = employees.filter(e => getStatusKey(todayRecords[e.username]) === 'late').length;
   const onLeave = employees.filter(e => ['personal_leave', 'sick_leave', 'absent', 'onsite'].includes(getStatusKey(todayRecords[e.username]))).length;
-  const notIn = totalEmp - checkedIn - onLeave;
+  const onHoliday = todayIsHoliday ? employees.filter(e => !todayRecords[e.username]).length : 0;
+  const notIn = totalEmp - checkedIn - onLeave - onHoliday;
 
   /* ────── Render ────── */
 
@@ -492,6 +544,7 @@ export default function AdminView() {
                   { label: 'ยังไม่เข้า',  value: notIn < 0 ? 0 : notIn, icon: Clock,         bg: 'from-slate-500 to-slate-600', shadow: 'shadow-slate-300/40' },
                   { label: 'มาสาย',       value: late,       icon: AlertCircle, bg: 'from-red-500 to-red-600',     shadow: 'shadow-red-300/40'     },
                   { label: 'ลา/ขาด',      value: onLeave,    icon: CalendarDays,bg: 'from-amber-500 to-amber-600', shadow: 'shadow-amber-300/40'   },
+                  ...(onHoliday > 0 ? [{ label: 'วันหยุด', value: onHoliday, icon: CalendarDays, bg: 'from-violet-500 to-violet-600', shadow: 'shadow-violet-300/40' }] : []),
                 ].map((card) => {
                   const Icon = card.icon;
                   return (
@@ -526,8 +579,13 @@ export default function AdminView() {
                 <div className="space-y-2">
                   {employees.map((emp, i) => {
                     const rec = todayRecords[emp.username];
-                    const sk = getStatusKey(rec);
-                    const cfg = STATUS_CONFIG[sk];
+                    const holidayName = !rec ? getHolidayName(
+                      todayString(),
+                      systemSettings.attendance_exclude_sundays,
+                      systemSettings.attendance_holidays ?? []
+                    ) : null;
+                    const sk = holidayName ? 'holiday' : getStatusKey(rec);
+                    const cfg = STATUS_CONFIG[sk] ?? STATUS_CONFIG['not_checked_in'];
                     const checkTime = rec?.check_in_time
                       ? new Date(rec.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
                       : null;
@@ -535,12 +593,13 @@ export default function AdminView() {
                       on_time: 'bg-emerald-500', late: 'bg-red-500',
                       absent: 'bg-rose-700', not_checked_in: 'bg-slate-200',
                       personal_leave: 'bg-amber-400', sick_leave: 'bg-orange-400', onsite: 'bg-sky-500',
+                      holiday: 'bg-violet-300',
                     };
                     const avatarCls: Record<string, string> = {
                       on_time: 'bg-emerald-100 text-emerald-700', late: 'bg-red-100 text-red-600',
                       absent: 'bg-rose-100 text-rose-700', not_checked_in: 'bg-slate-100 text-slate-500',
                       personal_leave: 'bg-amber-100 text-amber-700', sick_leave: 'bg-orange-100 text-orange-600',
-                      onsite: 'bg-sky-100 text-sky-700',
+                      onsite: 'bg-sky-100 text-sky-700', holiday: 'bg-violet-100 text-violet-600',
                     };
                     return (
                       <motion.button
@@ -562,11 +621,11 @@ export default function AdminView() {
 
                         {/* Text */}
                         <div className="flex-1 min-w-0 px-3 py-2.5">
-                          <p className="text-xs font-bold text-slate-800 Prompt truncate">{emp.name}</p>
+                          <p className="text-xs font-bold text-slate-800 Prompt truncate">{shortName(emp.name)}</p>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text}`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-                              {cfg.label}
+                              {holidayName ?? cfg.label}
                             </span>
                             {checkTime && <span className="text-[9px] text-slate-400 font-semibold">⏰ {checkTime} น.</span>}
                           </div>
@@ -626,7 +685,7 @@ export default function AdminView() {
                               {emp.name.charAt(0)}
                             </div>
                             <div>
-                              <p className="text-base font-black text-white Prompt leading-snug">{emp.name}</p>
+                              <p className="text-base font-black text-white Prompt leading-snug">{shortName(emp.name)}</p>
                               <p className="text-[11px] text-white/70 Prompt mt-0.5">{emp.username}</p>
                             </div>
                           </div>
@@ -886,7 +945,7 @@ export default function AdminView() {
                         {emp.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-700 Prompt truncate">{emp.name}</p>
+                        <p className="text-xs font-bold text-slate-700 Prompt truncate">{shortName(emp.name)}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <p className="text-[9px] text-slate-400 Prompt">{emp.username}</p>
                           {hasFace && (
@@ -1050,27 +1109,48 @@ export default function AdminView() {
                         </tr>
                       </thead>
                       <tbody>
-                        {reportRecords.map(r => {
-                          const sk = getStatusKey(r);
-                          const cfg = STATUS_CONFIG[sk] || STATUS_CONFIG['absent'];
-                          return (
-                            <tr key={r.id} className="border-t border-slate-50 hover:bg-slate-50/50 transition">
-                              <td className="px-3 py-2.5 text-slate-600 Prompt whitespace-nowrap">{r.date}</td>
-                              <td className="px-3 py-2.5 text-slate-700 font-semibold Prompt whitespace-nowrap">{r.name}</td>
-                              <td className="px-3 py-2.5 text-slate-600 Prompt whitespace-nowrap">
-                                {r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border Prompt ${cfg.bg} ${cfg.text} ${cfg.border} whitespace-nowrap`}>
-                                  {cfg.label}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2.5 text-slate-500 Prompt whitespace-nowrap">
-                                {r.override_province ? `${r.override_province} › ${r.override_district}` : '-'}
-                              </td>
-                            </tr>
-                          );
-                        })}
+                        {(() => {
+                          const uiHolidays = getHolidaysInRange(reportDateFrom, reportDateTo, systemSettings.attendance_exclude_sundays, systemSettings.attendance_holidays ?? []);
+                          const recItems = reportRecords.map(r => ({ type: 'rec' as const, date: r.date, data: r }));
+                          const holItems = uiHolidays.map(h => ({ type: 'hol' as const, date: h.date, name: h.name }));
+                          const combined = [...recItems, ...holItems].sort((a, b) => b.date.localeCompare(a.date));
+                          return combined.map((item, idx) => {
+                            if (item.type === 'hol') {
+                              return (
+                                <tr key={`h-${item.date}`} className="border-t border-violet-100 bg-violet-50/60">
+                                  <td className="px-3 py-2 text-violet-600 Prompt whitespace-nowrap font-semibold">{fmtDate(item.date)}</td>
+                                  <td colSpan={3} className="px-3 py-2">
+                                    <span className="inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border border-violet-200 Prompt">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400 inline-block" />
+                                      วันหยุด: {item.name}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-violet-400 Prompt">-</td>
+                                </tr>
+                              );
+                            }
+                            const r = item.data;
+                            const sk = getStatusKey(r);
+                            const cfg = STATUS_CONFIG[sk] || STATUS_CONFIG['absent'];
+                            return (
+                              <tr key={r.id ?? idx} className="border-t border-slate-50 hover:bg-slate-50/50 transition">
+                                <td className="px-3 py-2.5 text-slate-600 Prompt whitespace-nowrap">{fmtDate(r.date)}</td>
+                                <td className="px-3 py-2.5 text-slate-700 font-semibold Prompt whitespace-nowrap">{r.name}</td>
+                                <td className="px-3 py-2.5 text-slate-600 Prompt whitespace-nowrap">
+                                  {r.check_in_time ? new Date(r.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border Prompt ${cfg.bg} ${cfg.text} ${cfg.border} whitespace-nowrap`}>
+                                    {cfg.label}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 text-slate-500 Prompt whitespace-nowrap">
+                                  {r.override_province ? `${r.override_province} › ${r.override_district}` : '-'}
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
                       </tbody>
                     </table>
                   </div>

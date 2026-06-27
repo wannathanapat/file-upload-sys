@@ -3,22 +3,17 @@
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bell, CheckCircle2, AlertCircle, Trash2, RefreshCw, ChevronRight, FileText, Video, Hash, User, StickyNote, CheckCheck } from 'lucide-react';
+import {
+  Bell, CheckCircle2, AlertCircle, Trash2, RefreshCw,
+  ChevronRight, FileText, Video, Hash, User, StickyNote,
+  CheckCheck, Megaphone, Send, Zap, X,
+} from 'lucide-react';
 import Sidebar from '@/components/sidebar';
 import { useApp } from '@/app/providers';
 import { getDb } from '@/lib/firebase';
 import {
-  collection,
-  query,
-  orderBy,
-  limit,
-  getDocs,
-  deleteDoc,
-  doc,
-  getDoc,
-  writeBatch,
-  startAfter,
-  QueryDocumentSnapshot,
+  collection, query, orderBy, limit, getDocs, deleteDoc,
+  doc, getDoc, writeBatch, startAfter, QueryDocumentSnapshot,
 } from 'firebase/firestore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,7 +22,7 @@ interface NotifDoc {
   title: string;
   body: string;
   type: 'job_submit' | 'test' | 'broadcast' | string;
-  user_id?: string;         // submitter username (job_submit only)
+  user_id?: string;
   job_id?: string;
   order_no?: string;
   work_category?: string;
@@ -38,10 +33,9 @@ interface NotifDoc {
   sent: boolean;
   sent_count?: number;
   created_at?: any;
-  // broadcast-specific
-  category?: string;        // emoji category
+  category?: string;
   category_label?: string;
-  target?: string;          // 'all' | 'admin_auditor' | 'staff'
+  target?: string;
   created_by?: string;
 }
 
@@ -56,18 +50,54 @@ function formatDate(ts: any): string {
   });
 }
 
-function typeLabel(type: string) {
-  if (type === 'job_submit') return { label: 'ส่งงาน', color: 'bg-indigo-100 text-indigo-700', icon: <CheckCircle2 size={11} /> };
-  if (type === 'test') return { label: 'ทดสอบ', color: 'bg-amber-100 text-amber-700', icon: <AlertCircle size={11} /> };
-  if (type === 'broadcast') return { label: 'ประชาสัมพันธ์', color: 'bg-rose-100 text-rose-700', icon: <Bell size={11} /> };
-  return { label: type, color: 'bg-slate-100 text-slate-600', icon: <Bell size={11} /> };
+const TYPE_CONFIG = {
+  job_submit: {
+    label: 'ส่งงาน',
+    badgeClass: 'bg-indigo-100 text-indigo-700',
+    iconBg: 'bg-gradient-to-br from-indigo-500 to-purple-600',
+    accentFrom: 'from-indigo-400',
+    accentTo: 'to-purple-500',
+    icon: <Send size={16} className="text-white" />,
+    filterIcon: <Send size={12} />,
+  },
+  broadcast: {
+    label: 'ประกาศ',
+    badgeClass: 'bg-rose-100 text-rose-700',
+    iconBg: 'bg-gradient-to-br from-rose-400 to-pink-500',
+    accentFrom: 'from-rose-400',
+    accentTo: 'to-pink-500',
+    icon: <Megaphone size={16} className="text-white" />,
+    filterIcon: <Megaphone size={12} />,
+  },
+  test: {
+    label: 'ทดสอบ',
+    badgeClass: 'bg-amber-100 text-amber-700',
+    iconBg: 'bg-gradient-to-br from-amber-400 to-orange-400',
+    accentFrom: 'from-amber-400',
+    accentTo: 'to-orange-400',
+    icon: <Zap size={16} className="text-white" />,
+    filterIcon: <Zap size={12} />,
+  },
+  default: {
+    label: 'อื่นๆ',
+    badgeClass: 'bg-slate-100 text-slate-600',
+    iconBg: 'bg-gradient-to-br from-slate-400 to-slate-500',
+    accentFrom: 'from-slate-300',
+    accentTo: 'to-slate-400',
+    icon: <Bell size={16} className="text-white" />,
+    filterIcon: <Bell size={12} />,
+  },
+};
+
+function getTypeConfig(type: string) {
+  return TYPE_CONFIG[type as keyof typeof TYPE_CONFIG] ?? TYPE_CONFIG.default;
 }
 
-// ─── Inner Component (needs useSearchParams) ──────────────────────────────────
+// ─── Inner Component ──────────────────────────────────────────────────────────
 function NotificationsInner() {
   const { currentUser } = useApp();
   const searchParams = useSearchParams();
-  const deepLinkId = searchParams.get('id'); // ?id=xxx from push notification click
+  const deepLinkId = searchParams.get('id');
 
   const [notifications, setNotifications] = useState<NotifDoc[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,33 +110,18 @@ function NotificationsInner() {
     setLoading(true);
     try {
       const db = getDb();
-      let q = query(
-        collection(db, 'notifications'),
-        orderBy('created_at', 'desc'),
-        limit(PAGE_SIZE)
-      );
+      let q = query(collection(db, 'notifications'), orderBy('created_at', 'desc'), limit(PAGE_SIZE));
       if (!reset && lastDoc) {
-        q = query(
-          collection(db, 'notifications'),
-          orderBy('created_at', 'desc'),
-          startAfter(lastDoc),
-          limit(PAGE_SIZE)
-        );
+        q = query(collection(db, 'notifications'), orderBy('created_at', 'desc'), startAfter(lastDoc), limit(PAGE_SIZE));
       }
-
       const snap = await getDocs(q);
       const allDocs = snap.docs.map(d => ({ id: d.id, ...d.data() } as NotifDoc));
-
-      // Role-based filtering:
-      // - admin/auditor: see everything
-      // - staff: see only their own job_submit + all broadcasts
       const isStaff = currentUser?.role === 'staff';
       const myUsername = currentUser?.username || currentUser?.name || '';
       const docs = isStaff
         ? allDocs.filter(n => n.type === 'broadcast' || n.user_id === myUsername)
         : allDocs;
       const filtered = filter === 'all' ? docs : docs.filter(n => n.type === filter);
-
       setNotifications(prev => reset ? filtered : [...prev, ...filtered]);
       setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMore(snap.docs.length === PAGE_SIZE);
@@ -117,17 +132,14 @@ function NotificationsInner() {
     }
   }, [filter, lastDoc]);
 
-  // Initial load
   useEffect(() => {
     setLastDoc(null);
     fetchNotifications(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  // Deep-link: if ?id=xxx is in URL, fetch and auto-open that specific notification
   useEffect(() => {
     if (!deepLinkId) return;
-
     const fetchSpecific = async () => {
       try {
         const db = getDb();
@@ -135,7 +147,6 @@ function NotificationsInner() {
         if (snap.exists()) {
           const item = { id: snap.id, ...snap.data() } as NotifDoc;
           setSelected(item);
-          // Also make sure it appears in the list
           setNotifications(prev => {
             if (prev.find(n => n.id === item.id)) return prev;
             return [item, ...prev];
@@ -145,7 +156,6 @@ function NotificationsInner() {
         console.warn('Could not fetch specific notification:', e);
       }
     };
-
     fetchSpecific();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkId]);
@@ -177,188 +187,211 @@ function NotificationsInner() {
 
   const isAdminOrAuditor = currentUser?.role === 'admin' || currentUser?.role === 'auditor';
 
+  const FILTERS = [
+    { key: 'all', label: 'ทั้งหมด', icon: <Bell size={12} /> },
+    { key: 'job_submit', label: 'ส่งงาน', icon: <Send size={12} /> },
+    { key: 'broadcast', label: 'ประกาศ', icon: <Megaphone size={12} /> },
+    { key: 'test', label: 'ทดสอบ', icon: <Zap size={12} /> },
+  ] as const;
+
   return (
     <div className="flex flex-col lg:flex-row min-h-screen bg-slate-50 font-sans">
       <Sidebar />
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-28 lg:pb-8 overflow-y-auto overflow-x-hidden">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden pb-28 lg:pb-8">
 
         {/* ── Header ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-200">
-              <Bell size={20} className="text-white" />
+        <div className="px-4 sm:px-6 lg:px-8 pt-6 pb-4">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 flex items-center justify-center shadow-lg shadow-amber-200">
+                <Bell size={22} className="text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-slate-800">ประวัติการแจ้งเตือน</h1>
+                <p className="text-slate-400 text-xs mt-0.5">Push Notification History</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">ประวัติการแจ้งเตือน</h1>
-              <p className="text-xs text-slate-500">Push Notification History</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            {(['all', 'job_submit', 'broadcast', 'test'] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-                  filter === f
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                    : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'
-                }`}
-              >
-                {f === 'all' ? 'ทั้งหมด' : f === 'job_submit' ? 'ส่งงาน' : f === 'broadcast' ? '📢 ประกาศ' : 'ทดสอบ'}
-              </button>
-            ))}
 
             <button
               onClick={() => { setLastDoc(null); fetchNotifications(true); }}
-              className="p-2 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-all"
+              className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:shadow-sm transition-all"
               title="รีเฟรช"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={16} />
             </button>
+          </motion.div>
+        </div>
+
+        {/* ── Filter Bar ── */}
+        <div className="px-4 sm:px-6 lg:px-8 mb-6">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="bg-white rounded-2xl shadow-sm shadow-slate-100 border border-slate-100 p-2 flex items-center gap-2 flex-wrap"
+          >
+            {FILTERS.map(f => (
+              <button
+                key={f.key}
+                onClick={() => setFilter(f.key)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  filter === f.key
+                    ? 'bg-amber-500 text-white shadow-md shadow-amber-200'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {f.icon} {f.label}
+              </button>
+            ))}
+
+            <div className="flex-1" />
 
             {isAdminOrAuditor && notifications.length > 0 && (
               <button
                 onClick={handleDeleteAll}
-                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-all flex items-center gap-1"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-50 transition-all"
               >
-                <Trash2 size={12} /> ลบทั้งหมด
+                <Trash2 size={13} /> ลบทั้งหมด
               </button>
             )}
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
 
         {/* ── Content ── */}
-        {loading && notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3">
-            <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-            <p className="text-slate-400 text-sm">กำลังโหลด...</p>
-          </div>
-        ) : notifications.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center py-24 gap-4"
-          >
-            <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center">
-              <Bell size={36} className="text-slate-300" />
+        <div className="px-4 sm:px-6 lg:px-8">
+          {loading && notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 gap-3">
+              <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
+              <p className="text-slate-400 text-sm">กำลังโหลด...</p>
             </div>
-            <p className="text-slate-500 font-medium">ยังไม่มีการแจ้งเตือน</p>
-            <p className="text-slate-400 text-sm text-center">การแจ้งเตือนจะปรากฏที่นี่เมื่อมีงานส่งเข้ามา</p>
-          </motion.div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-5">
+          ) : notifications.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex flex-col items-center justify-center py-24 gap-4"
+            >
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                <Bell size={40} className="text-indigo-300" />
+              </div>
+              <p className="text-slate-600 font-semibold text-lg">ยังไม่มีการแจ้งเตือน</p>
+              <p className="text-slate-400 text-sm text-center max-w-xs">
+                การแจ้งเตือนจะปรากฏที่นี่เมื่อมีงานส่งเข้ามา
+              </p>
+            </motion.div>
+          ) : (
+            <div className="flex flex-col lg:flex-row gap-5">
 
-            {/* ── Notification List ── */}
-            <div className="flex-1 flex flex-col gap-3 min-w-0">
-              <AnimatePresence mode="popLayout">
-                {notifications.map((n, i) => {
-                  const tag = typeLabel(n.type);
-                  const isSelected = selected?.id === n.id;
-                  return (
-                    <motion.div
-                      key={n.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -30, scale: 0.95 }}
-                      transition={{ delay: i * 0.03 }}
-                      onClick={() => setSelected(isSelected ? null : n)}
-                      className={`relative bg-white rounded-2xl border transition-all cursor-pointer overflow-hidden
-                        ${isSelected
-                          ? 'border-indigo-400 shadow-lg shadow-indigo-100 ring-2 ring-indigo-100'
-                          : 'border-slate-200 hover:border-indigo-200 hover:shadow-md hover:shadow-slate-100'
-                        }`}
-                    >
-                      {/* Left accent bar */}
-                      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${
-                        n.type === 'job_submit' ? 'bg-gradient-to-b from-indigo-400 to-purple-500'
-                        : n.type === 'test' ? 'bg-gradient-to-b from-amber-400 to-orange-400'
-                        : 'bg-slate-300'
-                      }`} />
+              {/* ── List ── */}
+              <div className="flex-1 flex flex-col gap-3 min-w-0">
+                <AnimatePresence mode="popLayout">
+                  {notifications.map((n, i) => {
+                    const cfg = getTypeConfig(n.type);
+                    const isSelected = selected?.id === n.id;
+                    return (
+                      <motion.div
+                        key={n.id}
+                        layout
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -40, scale: 0.95 }}
+                        transition={{ delay: i * 0.03 }}
+                        onClick={() => setSelected(isSelected ? null : n)}
+                        className={`relative bg-white rounded-2xl border transition-all cursor-pointer overflow-hidden group
+                          ${isSelected
+                            ? 'border-indigo-300 shadow-xl shadow-indigo-100/60 ring-2 ring-indigo-100'
+                            : 'border-slate-100 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-50/80'
+                          }`}
+                      >
+                        {/* Gradient accent top bar */}
+                        <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${cfg.accentFrom} ${cfg.accentTo} opacity-0 group-hover:opacity-100 ${isSelected ? 'opacity-100' : ''} transition-opacity`} />
 
-                      <div className="pl-4 pr-4 py-3 flex items-start gap-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                          n.type === 'job_submit' ? 'bg-indigo-50 text-indigo-600'
-                          : n.type === 'test' ? 'bg-amber-50 text-amber-600'
-                          : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          <Bell size={16} />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${tag.color}`}>
-                              {tag.icon} {tag.label}
-                            </span>
-                            {n.sent && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">
-                                <CheckCheck size={10} /> ส่งแล้ว {n.sent_count} เครื่อง
-                              </span>
-                            )}
+                        <div className="px-4 py-3.5 flex items-start gap-3.5">
+                          {/* Type icon */}
+                          <div className={`w-10 h-10 rounded-xl ${cfg.iconBg} flex items-center justify-center shrink-0 shadow-md shadow-black/10`}>
+                            {cfg.icon}
                           </div>
-                          <p className="font-semibold text-slate-800 text-sm leading-snug truncate">{n.title}</p>
-                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{n.body}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{formatDate(n.created_at)}</p>
+
+                          <div className="flex-1 min-w-0">
+                            {/* Badges */}
+                            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${cfg.badgeClass}`}>
+                                {cfg.filterIcon} {cfg.label}
+                              </span>
+                              {n.sent && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                  <CheckCheck size={10} /> ส่งแล้ว {n.sent_count} เครื่อง
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="font-bold text-slate-800 text-sm leading-snug truncate">{n.title}</p>
+                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{n.body}</p>
+                            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">{formatDate(n.created_at)}</p>
+                          </div>
+
+                          <ChevronRight
+                            size={16}
+                            className={`text-slate-300 shrink-0 transition-all mt-1.5 group-hover:text-indigo-300 ${isSelected ? 'rotate-90 text-indigo-400' : ''}`}
+                          />
                         </div>
 
-                        <ChevronRight size={16} className={`text-slate-300 shrink-0 transition-transform mt-1 ${isSelected ? 'rotate-90 text-indigo-400' : ''}`} />
-                      </div>
+                        {/* Mobile inline expand */}
+                        <AnimatePresence>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden lg:hidden"
+                            >
+                              <div className="mx-4 mb-4 mt-0 border-t border-slate-100 pt-3">
+                                <DetailBody n={selected!} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
 
-                      {/* Inline detail (mobile: expands below) */}
-                      <AnimatePresence>
-                        {isSelected && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden lg:hidden"
-                          >
-                            <DetailBody n={selected!} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  );
-                })}
+                {hasMore && (
+                  <button
+                    onClick={() => fetchNotifications(false)}
+                    disabled={loading}
+                    className="w-full py-3.5 rounded-2xl border border-dashed border-slate-200 text-slate-400 text-sm font-medium hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all"
+                  >
+                    {loading ? 'กำลังโหลด...' : 'โหลดเพิ่มเติม'}
+                  </button>
+                )}
+              </div>
+
+              {/* ── Detail Panel (desktop) ── */}
+              <AnimatePresence>
+                {selected && (
+                  <motion.div
+                    key="detail"
+                    initial={{ opacity: 0, x: 24, scale: 0.98 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 24, scale: 0.98 }}
+                    className="hidden lg:block lg:w-80 xl:w-96 shrink-0"
+                  >
+                    <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl shadow-indigo-100/40 overflow-hidden sticky top-6">
+                      <DetailHeader n={selected} onClose={() => setSelected(null)} />
+                      <DetailBody n={selected} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
+                    </div>
+                  </motion.div>
+                )}
               </AnimatePresence>
 
-              {hasMore && (
-                <button
-                  onClick={() => fetchNotifications(false)}
-                  disabled={loading}
-                  className="w-full py-3 rounded-2xl border border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 hover:border-indigo-200 transition-all"
-                >
-                  {loading ? 'กำลังโหลด...' : 'โหลดเพิ่มเติม'}
-                </button>
-              )}
             </div>
-
-            {/* ── Detail Panel (desktop only) ── */}
-            <AnimatePresence>
-              {selected && (
-                <motion.div
-                  key="detail"
-                  initial={{ opacity: 0, x: 24 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 24 }}
-                  className="hidden lg:block lg:w-80 xl:w-96 shrink-0"
-                >
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-lg shadow-slate-100 overflow-hidden sticky top-6">
-                    <DetailHeader n={selected} onClose={() => setSelected(null)} />
-                    <DetailBody n={selected} onDelete={isAdminOrAuditor ? handleDelete : undefined} />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-          </div>
-        )}
+          )}
+        </div>
       </main>
     </div>
   );
@@ -366,20 +399,28 @@ function NotificationsInner() {
 
 // ─── Detail Header ────────────────────────────────────────────────────────────
 function DetailHeader({ n, onClose }: { n: NotifDoc; onClose: () => void }) {
+  const cfg = getTypeConfig(n.type);
   return (
-    <div className={`p-5 ${
-      n.type === 'job_submit'
-        ? 'bg-gradient-to-br from-indigo-500 to-purple-600'
-        : 'bg-gradient-to-br from-amber-400 to-orange-500'
-    }`}>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <span className="text-white/70 text-xs font-medium">{typeLabel(n.type).label}</span>
-          <h2 className="text-white font-bold text-base leading-snug mt-0.5">{n.title}</h2>
+    <div className={`relative overflow-hidden p-5 bg-gradient-to-br ${cfg.accentFrom} ${cfg.accentTo}`}>
+      <div className="absolute -top-4 -right-4 w-24 h-24 rounded-full bg-white/10 blur-xl" />
+      <div className="relative flex items-start justify-between gap-2">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shrink-0">
+            {cfg.icon}
+          </div>
+          <div>
+            <span className="text-white/70 text-xs font-semibold uppercase tracking-wide">{cfg.label}</span>
+            <h2 className="text-white font-bold text-base leading-snug mt-0.5">{n.title}</h2>
+          </div>
         </div>
-        <button onClick={onClose} className="text-white/70 hover:text-white transition-colors shrink-0">✕</button>
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-lg bg-white/20 text-white/80 hover:text-white hover:bg-white/30 transition-all shrink-0"
+        >
+          <X size={14} />
+        </button>
       </div>
-      <p className="text-white/80 text-xs mt-2">{formatDate(n.created_at)}</p>
+      <p className="relative text-white/70 text-xs mt-3 font-medium">{formatDate(n.created_at)}</p>
     </div>
   );
 }
@@ -387,59 +428,73 @@ function DetailHeader({ n, onClose }: { n: NotifDoc; onClose: () => void }) {
 // ─── Detail Body ──────────────────────────────────────────────────────────────
 function DetailBody({ n, onDelete }: { n: NotifDoc; onDelete?: (id: string) => void }) {
   return (
-    <div className="p-4 flex flex-col gap-4">
-      {/* Full message */}
+    <div className="p-4 flex flex-col gap-3.5">
+      {/* Message */}
       <div>
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ข้อความแจ้งเตือน</p>
-        <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-3 break-words">{n.body}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ข้อความแจ้งเตือน</p>
+        <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 rounded-xl p-3 break-words border border-slate-100">
+          {n.body}
+        </p>
       </div>
 
       {/* Job details */}
       {n.type === 'job_submit' && (
-        <div className="flex flex-col gap-2">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">รายละเอียดงาน</p>
-          {[
-            { icon: <Hash size={13} />, label: 'รหัสงาน', value: n.job_id },
-            { icon: <Hash size={13} />, label: 'ออเดอร์', value: n.order_no },
-            { icon: <CheckCircle2 size={13} />, label: 'ประเภทงาน', value: n.work_category },
-            { icon: <User size={13} />, label: 'ช่างเทคนิค', value: n.technician },
-            { icon: <StickyNote size={13} />, label: 'หมายเหตุ', value: n.note },
-          ].filter(r => r.value && r.value !== '-').map(row => (
-            <div key={row.label} className="flex items-start gap-2">
-              <span className="text-indigo-400 mt-0.5 shrink-0">{row.icon}</span>
-              <div>
-                <span className="text-[10px] text-slate-400">{row.label}</span>
-                <p className="text-sm font-medium text-slate-700">{row.value}</p>
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">รายละเอียดงาน</p>
+          <div className="flex flex-col gap-2">
+            {[
+              { icon: <Hash size={13} />, label: 'รหัสงาน', value: n.job_id },
+              { icon: <Hash size={13} />, label: 'ออเดอร์', value: n.order_no },
+              { icon: <CheckCircle2 size={13} />, label: 'ประเภทงาน', value: n.work_category },
+              { icon: <User size={13} />, label: 'ช่างเทคนิค', value: n.technician },
+              { icon: <StickyNote size={13} />, label: 'หมายเหตุ', value: n.note },
+            ].filter(r => r.value && r.value !== '-').map(row => (
+              <div key={row.label} className="flex items-start gap-2.5 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-indigo-400 mt-0.5 shrink-0">{row.icon}</span>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium">{row.label}</span>
+                  <p className="text-sm font-semibold text-slate-700">{row.value}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PDF / Video links */}
+      {(n.pdf_url || n.video_url) && (
+        <div className="flex flex-col gap-2">
           {n.pdf_url && (
             <a href={n.pdf_url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors">
-              <FileText size={13} /> ดูไฟล์ PDF
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors border border-indigo-100">
+              <FileText size={14} /> ดูไฟล์ PDF
             </a>
           )}
           {n.video_url && (
             <a href={n.video_url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors">
-              <Video size={13} /> ดูไฟล์วิดีโอ
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors border border-purple-100">
+              <Video size={14} /> ดูไฟล์วิดีโอ
             </a>
           )}
         </div>
       )}
 
       {/* Sent status */}
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold ${
-        n.sent ? 'bg-green-50 text-green-700' : 'bg-slate-50 text-slate-500'
+      <div className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold border ${
+        n.sent
+          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+          : 'bg-slate-50 text-slate-500 border-slate-100'
       }`}>
         <CheckCheck size={14} />
         {n.sent ? `ส่งแจ้งเตือนสำเร็จ ${n.sent_count ?? 0} เครื่อง` : 'ยังไม่ได้ส่งแจ้งเตือน'}
       </div>
 
-      {/* Delete button */}
+      {/* Delete */}
       {onDelete && (
-        <button onClick={() => onDelete(n.id)}
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-50 text-red-600 text-xs font-semibold hover:bg-red-100 border border-red-100 transition-colors">
+        <button
+          onClick={() => onDelete(n.id)}
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 border border-red-100 transition-colors"
+        >
           <Trash2 size={13} /> ลบการแจ้งเตือนนี้
         </button>
       )}
@@ -447,12 +502,12 @@ function DetailBody({ n, onDelete }: { n: NotifDoc; onDelete?: (id: string) => v
   );
 }
 
-// ─── Main Export (wrapped in Suspense for useSearchParams) ────────────────────
+// ─── Export ───────────────────────────────────────────────────────────────────
 export default function NotificationsPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
+        <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-500 rounded-full animate-spin" />
       </div>
     }>
       <NotificationsInner />

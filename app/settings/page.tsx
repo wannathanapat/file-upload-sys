@@ -29,7 +29,10 @@ import {
   Edit2, 
   Database,
   ChevronDown,
-  Bell
+  Bell,
+  CalendarDays,
+  Plus,
+  X as XIcon
 } from 'lucide-react';
 import Script from 'next/script';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -56,7 +59,9 @@ export default function SettingsPage() {
   } = useApp();
 
   // Active Settings Tab state matching requested design layout
-  const [activeSettingTab, setActiveSettingTab] = useState<'theme' | 'gdrive' | 'apis' | 'filesize' | 'users' | 'normalizer'>('theme');
+  const [activeSettingTab, setActiveSettingTab] = useState<'theme' | 'gdrive' | 'apis' | 'filesize' | 'users' | 'normalizer' | 'holidays'>('theme');
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayName, setNewHolidayName] = useState('');
 
   // Settings State Form
   const [telegramStatus, setTelegramStatus] = useState<'enabled' | 'disabled'>('disabled');
@@ -728,7 +733,8 @@ export default function SettingsPage() {
                   { id: 'apis', label: 'การแจ้งเตือน Telegram', icon: Send },
                   { id: 'filesize', label: 'ขนาดไฟล์สูงสุด', icon: Sliders },
                   { id: 'users', label: 'จัดการบัญชีผู้ใช้งาน', icon: Users },
-                  { id: 'normalizer', label: 'เครื่องมือชื่อช่าง (Normalizer)', icon: Database }
+                  { id: 'normalizer', label: 'เครื่องมือชื่อช่าง (Normalizer)', icon: Database },
+                  { id: 'holidays', label: 'วันหยุดการลงเวลา', icon: CalendarDays },
                 ].map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeSettingTab === tab.id;
@@ -1695,6 +1701,118 @@ export default function SettingsPage() {
                   </div>
                 </motion.section>
               )}
+              {activeSettingTab === 'holidays' && (
+                <motion.section
+                  key="holidays"
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-6"
+                >
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800 Prompt">วันหยุดการลงเวลา</h2>
+                    <p className="text-xs text-slate-400 mt-1">วันที่ตั้งค่าไว้จะไม่นับว่าช่างขาดงาน</p>
+                  </div>
+
+                  {/* Sunday toggle */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-bold text-slate-800 Prompt">หยุดวันอาทิตย์อัตโนมัติ</p>
+                      <p className="text-xs text-slate-400 mt-0.5">ทุกวันอาทิตย์จะไม่นับว่าขาดงาน</p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const next = !systemSettings.attendance_exclude_sundays;
+                        await updateSystemSettings({ attendance_exclude_sundays: next });
+                        showToast(next ? 'เปิดใช้งานหยุดวันอาทิตย์แล้ว' : 'ปิดการหยุดวันอาทิตย์แล้ว', 'success');
+                      }}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                        systemSettings.attendance_exclude_sundays ? 'bg-indigo-500' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                        systemSettings.attendance_exclude_sundays ? 'translate-x-5.5' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+
+                  {/* Custom holidays */}
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+                    <p className="text-sm font-bold text-slate-800 Prompt">วันหยุดพิเศษ</p>
+
+                    {/* Add date + name */}
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={newHolidayDate}
+                          onChange={e => setNewHolidayDate(e.target.value)}
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newHolidayName}
+                          onChange={e => setNewHolidayName(e.target.value)}
+                          placeholder="ชื่อวันหยุด เช่น วันสงกรานต์"
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition-all Prompt"
+                        />
+                        <button
+                          onClick={async () => {
+                            if (!newHolidayDate || !newHolidayName.trim()) {
+                              showToast('กรุณาระบุวันที่และชื่อวันหยุด', 'info'); return;
+                            }
+                            const current = systemSettings.attendance_holidays ?? [];
+                            if (current.some(h => h.date === newHolidayDate)) {
+                              showToast('วันที่นี้มีอยู่แล้ว', 'info'); return;
+                            }
+                            const next = [...current, { date: newHolidayDate, name: newHolidayName.trim() }]
+                              .sort((a, b) => a.date.localeCompare(b.date));
+                            await updateSystemSettings({ attendance_holidays: next });
+                            setNewHolidayDate('');
+                            setNewHolidayName('');
+                            showToast('เพิ่มวันหยุดแล้ว', 'success');
+                          }}
+                          className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          <Plus size={14} /> เพิ่ม
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* List */}
+                    {(systemSettings.attendance_holidays ?? []).length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-4">ยังไม่มีวันหยุดพิเศษ</p>
+                    ) : (
+                      <ul className="space-y-2 max-h-72 overflow-y-auto">
+                        {[...(systemSettings.attendance_holidays ?? [])].sort((a, b) => a.date.localeCompare(b.date)).map(h => (
+                          <li key={h.date} className="flex items-center justify-between px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-violet-700 Prompt truncate">{h.name}</p>
+                              <p className="text-xs text-slate-500 Prompt mt-0.5">
+                                {new Date(h.date + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}
+                              </p>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                const next = (systemSettings.attendance_holidays ?? []).filter(x => x.date !== h.date);
+                                await updateSystemSettings({ attendance_holidays: next });
+                                showToast('ลบวันหยุดแล้ว', 'success');
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition flex-shrink-0"
+                            >
+                              <XIcon size={13} />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </motion.section>
+              )}
+
             </AnimatePresence>
           </div>
         </div>

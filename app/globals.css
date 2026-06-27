@@ -204,11 +204,11 @@ body.theme-rose {
 }
 
 .Prompt {
-  font-family: var(--font-kanit), 'Kanit', sans-serif !important;
+  font-family: var(--font-noto-thai), 'Noto Sans Thai', ui-sans-serif, system-ui !important;
 }
 
 .Sarabun {
-  font-family: var(--font-kanit), 'Kanit', sans-serif !important;
+  font-family: var(--font-noto-thai), 'Noto Sans Thai', ui-sans-serif, system-ui !important;
 }
 
 /* Custom Date Input Polish */
