@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import Sidebar from '@/components/sidebar';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useApp } from '../providers';
@@ -45,7 +46,9 @@ import {
   RefreshCw,
   Users,
   X,
-  Info
+  Info,
+  Home,
+  Navigation
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { deleteTargetUploadFolder, getValidAccessToken } from '@/lib/gdrive';
@@ -206,6 +209,59 @@ function DashboardContent() {
     pending: 0,
     rejected: 0
   });
+
+  // ── Excel Export Function ──
+  const handleExportExcel = () => {
+    try {
+      const todayStr = new Date().toLocaleDateString('en-CA');
+      let dataToExport: any[] = [];
+      let filename = '';
+
+      if (viewMode === 'queue') {
+        filename = `queue_report_${todayStr}.xlsx`;
+        dataToExport = filteredQueue.map(item => ({
+          'รหัสงาน': item.job_id || '-',
+          'เลขออเดอร์': item.order_no || '-',
+          'ชื่อลูกค้า': item.customer_name || '-',
+          'ประเภทงาน': item.job_type || '-',
+          'ช่างผู้รับผิดชอบ': formatDisplayName(item.assigned_to) || '-',
+          'วันที่จ่ายงาน': item.timestamp ? new Date(item.timestamp).toLocaleString('th-TH') : '-',
+          'สถานะ': item.status === 'pending' ? 'ค้างส่ง' : item.status
+        }));
+      } else if (viewMode === 'history') {
+        filename = `history_report_${todayStr}.xlsx`;
+        dataToExport = filteredSubmissions.map(item => ({
+          'วันที่ส่งงาน': item.submission_date ? new Date(item.submission_date).toLocaleString('th-TH') : '-',
+          'รหัสงาน': item.job_id || '-',
+          'เลขออเดอร์': item.order_no || '-',
+          'ประเภทงาน': item.work_type || '-',
+          'ผู้ส่งงาน (ช่าง)': formatDisplayName(item.name) || '-',
+          'สถานะการตรวจ': item.status || 'รอตรวจ',
+          'พฤติกรรมเข้าหน้างาน (งานเฟล)': item.work_type === 'งานเฟล (Fail)'
+            ? (item.fail_detail === 'entered' ? 'เข้าหน้างานแล้ว' : 'ยังไม่เข้าหน้างาน')
+            : '-',
+          'หมายเหตุ / อาการเสีย': item.description || '-',
+          'ชื่อไฟล์ใบงาน': item.file_name || '-',
+          'ลิงก์ไฟล์ PDF': item.file_url || '-',
+          'ลิงก์วิดีโอประกอบ': item.video_url || '-'
+        }));
+      }
+
+      if (dataToExport.length === 0) {
+        showToast('ไม่มีข้อมูลสำหรับส่งออก', 'error');
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Report Data");
+      XLSX.writeFile(wb, filename);
+      showToast('ดาวน์โหลดรายงาน Excel เรียบร้อยแล้ว', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast(`ไม่สามารถดาวน์โหลด Excel ได้: ${err.message}`, 'error');
+    }
+  };
 
   // A ref to keep track of active subscriptions to avoid duplicating listeners
   const unsubscribersRef = useRef<{ unsubSubmissions?: () => void, unsubJobs?: () => void, unsubUsers?: () => void }>({});
@@ -875,6 +931,35 @@ function DashboardContent() {
     .filter(t => t.avgSpeedHours === null);
   const techStatsSpeedSorted = [...techStatsSpeed, ...techStatsNoSpeed];
 
+  // ── Failed Jobs Analytics Calculations ──
+  const failedSubmissions = submissions.filter(s => s.work_type === 'งานเฟล (Fail)');
+  const totalFailedCount = failedSubmissions.length;
+  const overallFailRate = submissions.length > 0 ? Math.round((totalFailedCount / submissions.length) * 100) : 0;
+  const failedEnteredCount = failedSubmissions.filter(s => s.fail_detail === 'entered').length;
+  const failedNotEnteredCount = failedSubmissions.filter(s => s.fail_detail === 'not_entered').length;
+
+  const techFailedStats = technicians.map(name => {
+    const techSuffix = getEnglishNameSuffix(name);
+    const techSubs = submissions.filter(s => 
+      s.name === name ||
+      (techSuffix && getEnglishNameSuffix(s.name) === techSuffix)
+    );
+    const techFailed = techSubs.filter(s => s.work_type === 'งานเฟล (Fail)');
+    const techFailedCount = techFailed.length;
+    const techFailRate = techSubs.length > 0 ? Math.round((techFailedCount / techSubs.length) * 100) : 0;
+    const entered = techFailed.filter(s => s.fail_detail === 'entered').length;
+    const notEntered = techFailed.filter(s => s.fail_detail === 'not_entered').length;
+
+    return {
+      name,
+      total: techSubs.length,
+      failedCount: techFailedCount,
+      failRate: techFailRate,
+      entered,
+      notEntered
+    };
+  }).sort((a, b) => b.failedCount - a.failedCount);
+
   const top5Techs = techStatsSubmitted.slice(0, 5);
   const maxTechTotal = top5Techs[0]?.total || 1;
 
@@ -1264,8 +1349,200 @@ function DashboardContent() {
           </>
         )}
 
+        {/* ── Failed Job Analytics View ─────────────────────────────────────────── */}
+        {viewMode === 'fail_analytics' && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.02)]">
+              <div>
+                <h1 className="text-base font-bold text-slate-800 Prompt flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
+                  <span>แดชบอร์ดวิเคราะห์ยอดงานเฟล (Failed Job Analytics)</span>
+                </h1>
+                <p className="text-xs text-slate-400 Sarabun mt-0.5">วิเคราะห์ข้อมูลความขัดข้องและพฤติกรรมหน้างานของช่างเทคนิคสะสม</p>
+              </div>
+              <button
+                onClick={fetchData}
+                className="p-2 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95 group"
+                title="รีเฟรชข้อมูล"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-500'}`} />
+              </button>
+            </div>
+
+            {/* KPI Cards Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'งานเฟลทั้งหมด', value: totalFailedCount, unit: 'งาน', icon: <AlertTriangle className="w-4 h-4" />, bg: 'bg-rose-500', color: 'text-rose-650', sub: 'งานไม่สำเร็จสะสม' },
+                { label: 'อัตราส่วนงานเฟล', value: overallFailRate, unit: '%', icon: <BarChart3 className="w-4 h-4" />, bg: 'bg-amber-500', color: 'text-amber-650', sub: 'จากงานส่งทั้งหมด' },
+                { label: 'เข้าหน้างานแล้ว (Entered)', value: failedEnteredCount, unit: 'งาน', icon: <Home className="w-4 h-4" />, bg: 'bg-indigo-500', color: 'text-indigo-650', sub: `${totalFailedCount > 0 ? Math.round((failedEnteredCount / totalFailedCount) * 100) : 0}% ของงานเฟล` },
+                { label: 'ยังไม่เข้าหน้างาน (Not Entered)', value: failedNotEnteredCount, unit: 'งาน', icon: <Navigation className="w-4 h-4" />, bg: 'bg-slate-600', color: 'text-slate-600', sub: `${totalFailedCount > 0 ? Math.round((failedNotEnteredCount / totalFailedCount) * 100) : 0}% ของงานเฟล` }
+              ].map((kpi, idx) => (
+                <div key={idx} className="bg-white rounded-2xl border border-slate-100 p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-7 h-7 rounded-lg ${kpi.bg} text-white flex items-center justify-center shadow-2xs`}>
+                      {kpi.icon}
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 Prompt uppercase tracking-wider">{kpi.label}</span>
+                  </div>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-2xl font-black tabular-nums ${kpi.color}`}>{kpi.value}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{kpi.unit}</span>
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-medium">{kpi.sub}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Proportion Bar Card */}
+            {totalFailedCount > 0 && (
+              <div className="glass-card p-5">
+                <h3 className="text-xs font-bold text-slate-700 Prompt mb-3">📊 สัดส่วนพฤติกรรมการเข้าหน้างานเมื่อส่งงานเฟล</h3>
+                <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden flex">
+                  {failedEnteredCount > 0 && (
+                    <div 
+                      style={{ width: `${(failedEnteredCount / totalFailedCount) * 100}%` }}
+                      className="bg-indigo-500 h-full flex items-center justify-center text-[9px] text-white font-bold"
+                      title={`เข้าหน้างานแล้ว: ${failedEnteredCount} งาน`}
+                    >
+                      {Math.round((failedEnteredCount / totalFailedCount) * 100)}%
+                    </div>
+                  )}
+                  {failedNotEnteredCount > 0 && (
+                    <div 
+                      style={{ width: `${(failedNotEnteredCount / totalFailedCount) * 100}%` }}
+                      className="bg-slate-400 h-full flex items-center justify-center text-[9px] text-white font-bold"
+                      title={`ยังไม่เข้าหน้างาน: ${failedNotEnteredCount} งาน`}
+                    >
+                      {Math.round((failedNotEnteredCount / totalFailedCount) * 100)}%
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 mt-3.5 text-[10px] font-semibold text-slate-500 Prompt">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-indigo-500" />
+                    <span>เข้าหน้างานแล้ว (🏠 {failedEnteredCount} งาน)</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded bg-slate-400" />
+                    <span>ยังไม่เข้าหน้างาน (🚗 {failedNotEnteredCount} งาน)</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Split layout: Tech Ranking & Recent Fail Table */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              {/* Tech Failure Ranking (Left 1/3) */}
+              <div className="glass-card p-5 xl:col-span-1">
+                <h3 className="text-xs font-bold text-slate-700 Prompt mb-4 flex items-center gap-1.5">
+                  <div className="w-1.5 h-4 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.4)]" />
+                  จัดอันดับงานเฟลของช่างเทคนิค
+                </h3>
+                <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+                  {techFailedStats.map((tech, idx) => {
+                    const hasFail = tech.failedCount > 0;
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`p-3.5 rounded-xl border border-slate-100/80 flex justify-between items-center gap-4 ${
+                          hasFail ? 'bg-white/40' : 'bg-slate-50/20 opacity-60'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-800 Prompt truncate" title={formatDisplayName(tech.name)}>
+                            {formatDisplayName(tech.name)}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-[9px] text-slate-400 font-semibold">
+                            <span>งานรวม: {tech.total}</span>
+                            <span>·</span>
+                            <span className="text-indigo-650">เข้างาน: {tech.entered}</span>
+                            <span>·</span>
+                            <span className="text-slate-500">ไม่เข้า: {tech.notEntered}</span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={`text-xs font-black ${hasFail ? 'text-rose-600' : 'text-slate-400'}`}>
+                            {tech.failedCount} งาน
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-bold mt-0.5">
+                            คิดเป็น {tech.failRate}%
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Recent Failed Jobs Table (Right 2/3) */}
+              <div className="glass-card p-5 xl:col-span-2">
+                <h3 className="text-xs font-bold text-slate-700 Prompt mb-4 flex items-center gap-1.5">
+                  <div className="w-1.5 h-4 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.4)]" />
+                  รายการงานเฟลล่าสุด (10 รายการล่าสุด)
+                </h3>
+                <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                  <table className="w-full border-collapse text-left text-xs font-sans">
+                    <thead>
+                      <tr className="bg-slate-50/75 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider Prompt">
+                        <th className="p-4 pl-6">วันที่</th>
+                        <th className="p-4">ช่างผู้ส่ง</th>
+                        <th className="p-4">รหัสงาน / ออเดอร์</th>
+                        <th className="p-4 text-center">พฤติกรรมหน้างาน</th>
+                        <th className="p-4 pr-6 text-center">ตรวจสอบ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700 Sarabun font-semibold">
+                      {failedSubmissions.slice(0, 10).length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="p-12 text-center text-slate-450">
+                            <CheckCircle2 className="w-7 h-7 text-emerald-450 mx-auto mb-2 animate-bounce" />
+                            <p className="Prompt text-xs text-slate-500">เยี่ยมมาก! ไม่มีงานที่ส่งเฟลในระบบเลย</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        failedSubmissions.slice(0, 10).map((sub, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition">
+                            <td className="p-4 pl-6 whitespace-nowrap text-slate-500 font-medium">
+                              {formatThaiDate(sub.submission_date)}
+                            </td>
+                            <td className="p-4 font-bold text-slate-800 Prompt">
+                              {formatDisplayName(sub.name)}
+                            </td>
+                            <td className="p-4 whitespace-nowrap">
+                              <span className="font-bold text-slate-800">{sub.job_id}</span>
+                              <p className="text-[10px] text-slate-400 font-medium mt-0.5">ออเดอร์: {sub.order_no || '-'}</p>
+                            </td>
+                            <td className="p-4 text-center whitespace-nowrap">
+                              <span className={`px-2.5 py-0.5 rounded-full font-bold text-[9px] Prompt ${
+                                sub.fail_detail === 'entered'
+                                  ? 'bg-indigo-50 border border-indigo-200 text-indigo-600'
+                                  : 'bg-slate-100 border border-slate-200 text-slate-600'
+                              }`}>
+                                {sub.fail_detail === 'entered' ? '🏠 เข้าหน้างานแล้ว' : '🚗 ยังไม่เข้าหน้างาน'}
+                              </span>
+                            </td>
+                            <td className="p-4 pr-6 text-center whitespace-nowrap">
+                              <button
+                                onClick={() => openSubDetail(sub, idx)}
+                                className="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-lg text-[10px] font-extrabold transition cursor-pointer Prompt"
+                              >
+                                ดูใบงาน
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Table Section: Tabs + Filters + Tables ───────────────────────── */}
-        {viewMode !== 'overview' && (
+        {(viewMode === 'queue' || viewMode === 'history') && (
           <div className="glass-card">
 
           {/* Tab + Filter Header */}
@@ -1343,6 +1620,15 @@ function DashboardContent() {
                   title="ตัวกรอง"
                 >
                   <Filter className="w-4 h-4 text-blue-500" />
+                </button>
+
+                {/* Export Excel Button */}
+                <button
+                  onClick={handleExportExcel}
+                  className="p-2 bg-white hover:bg-slate-50 text-slate-500 hover:text-emerald-600 border border-slate-200/80 rounded-full shadow-xs hover:shadow-sm transition-all duration-200 flex items-center justify-center cursor-pointer active:scale-95 text-xs font-bold Prompt"
+                  title="ดาวน์โหลดรายงาน Excel"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
                 </button>
 
                 {/* Dropdown Filter Panel */}

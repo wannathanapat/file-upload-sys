@@ -22,6 +22,7 @@ import {
   Bell,
   Megaphone,
   ClipboardCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserProfileModal from '@/components/UserProfileModal';
@@ -72,6 +73,7 @@ function SidebarInner() {
     { name: systemSettings.menu_import || 'นำเข้าและจัดสรรงาน', path: '/import-jobs', icon: UploadCloud },
     { name: 'ประวัติส่งงานช่าง', path: '/dashboard?view=history', icon: History },
     { name: 'รายการงานค้างส่ง', path: '/dashboard?view=queue', icon: Clock },
+    { name: 'วิเคราะห์งานเฟล', path: '/dashboard?view=fail_analytics', icon: AlertTriangle },
     { name: 'ส่งงานแทนช่าง', path: '/submit?tab=dashboard', icon: ScanLine },
     { name: 'ระบบลงเวลาช่าง', path: '/attendance', icon: ClipboardCheck },
     { name: 'บรอดคาสต์ประชาสัมพันธ์', path: '/broadcast', icon: Megaphone },
