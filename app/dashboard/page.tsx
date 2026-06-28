@@ -122,6 +122,19 @@ const formatDisplayName = (fullName: string): string => {
   return parts[parts.length - 1].trim();
 };
 
+const formatSpeed = (hours: number | null): string => {
+  if (hours === null) return '—';
+  if (hours < 1) {
+    const mins = Math.round(hours * 60);
+    return `${mins} นาที`;
+  }
+  if (hours < 24) {
+    return `${hours.toFixed(1)} ชม.`;
+  }
+  const days = hours / 24;
+  return `${days.toFixed(1)} วัน`;
+};
+
 function DashboardContent() {
   const { currentUser, showToast, showConfirm, systemSettings, gdrivePrefs } = useApp();
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'auditor';
@@ -131,6 +144,7 @@ function DashboardContent() {
   
   // No more activeTab state, we derive what to show based on viewMode
   const activeTab = viewMode === 'history' ? 'submissions' : 'queue';
+  const [leaderboardTab, setLeaderboardTab] = useState<'total' | 'speed'>('total');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
@@ -392,7 +406,9 @@ function DashboardContent() {
       (item.order_no && item.order_no.toLowerCase().includes(q)) ||
       (item.name && item.name.toLowerCase().includes(q));
 
-    const matchTech = !techFilter || item.name === techFilter;
+    const matchTech = !techFilter || 
+      item.name === techFilter ||
+      (getEnglishNameSuffix(item.name) && getEnglishNameSuffix(item.name) === getEnglishNameSuffix(techFilter));
     const matchCat = !typeFilter || item.work_type === typeFilter;
     const itemStatus = item.status || 'รอตรวจ';
     const matchStatus = !statusFilter || itemStatus === statusFilter;
@@ -793,20 +809,71 @@ function DashboardContent() {
 
   // Per-technician stats for leaderboard
   const techStats = technicians.map(name => {
-    const techSubs = submissions.filter(s => s.name === name);
+    const techSuffix = getEnglishNameSuffix(name);
+    const techSubs = submissions.filter(s => 
+      s.name === name ||
+      (techSuffix && getEnglishNameSuffix(s.name) === techSuffix)
+    );
     const approved = techSubs.filter(s => s.status === 'ตรวจแล้ว').length;
     const rate = techSubs.length > 0 ? Math.round((approved / techSubs.length) * 100) : 0;
     const pendingJobs = assignedJobs.filter(j => 
       j.status === 'pending' && (
         j.assigned_to === name ||
-        (getEnglishNameSuffix(j.assigned_to) && getEnglishNameSuffix(j.assigned_to) === getEnglishNameSuffix(name))
+        (techSuffix && getEnglishNameSuffix(j.assigned_to) === techSuffix)
       )
     ).length;
-    return { name, total: techSubs.length, approved, rate, pendingJobs };
+
+    // Calculate submission speed (last 7 days)
+    const techSubmittedJobs = assignedJobs.filter(j => {
+      const isTech = j.assigned_to === name || 
+                     (techSuffix && getEnglishNameSuffix(j.assigned_to) === techSuffix);
+      if (!isTech || !j.submission_date || !j.timestamp) return false;
+      
+      try {
+        const subTime = new Date(j.submission_date).getTime();
+        const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        return subTime >= oneWeekAgo;
+      } catch (_) {
+        return false;
+      }
+    });
+
+    const durations = techSubmittedJobs.map(j => {
+      try {
+        const start = new Date(j.timestamp).getTime();
+        const end = new Date(j.submission_date).getTime();
+        const diff = (end - start) / (1000 * 60 * 60); // hours
+        return diff >= 0 ? diff : null;
+      } catch (_) {
+        return null;
+      }
+    }).filter((d): d is number => d !== null);
+
+    const avgSpeedHours = durations.length > 0
+      ? durations.reduce((sum, d) => sum + d, 0) / durations.length
+      : null;
+
+    return { 
+      name, 
+      total: techSubs.length, 
+      approved, 
+      rate, 
+      pendingJobs,
+      avgSpeedHours,
+      weeklyCount: durations.length
+    };
   });
 
   const techStatsSubmitted = [...techStats].sort((a, b) => b.total - a.total);
   const techStatsPending = [...techStats].sort((a, b) => b.pendingJobs - a.pendingJobs);
+
+  // Speed Leaderboard: techs with weekly submissions sorted ascending, then techs with no weekly submissions
+  const techStatsSpeed = [...techStats]
+    .filter(t => t.avgSpeedHours !== null)
+    .sort((a, b) => (a.avgSpeedHours || 0) - (b.avgSpeedHours || 0));
+  const techStatsNoSpeed = [...techStats]
+    .filter(t => t.avgSpeedHours === null);
+  const techStatsSpeedSorted = [...techStatsSpeed, ...techStatsNoSpeed];
 
   const top5Techs = techStatsSubmitted.slice(0, 5);
   const maxTechTotal = top5Techs[0]?.total || 1;
@@ -1052,39 +1119,100 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* ── Leaderboard Strip (Submitted Works) ────────────────────────────────────────────── */}
+        {/* ── Leaderboard Strip (Submitted & Speed) ────────────────────────────────────────────── */}
         {!loading && techStatsSubmitted.length > 0 && (
           <div className="glass-card p-5 mb-6">
-            <h3 className="text-xs font-bold text-slate-700 Prompt mb-4 flex items-center gap-2">
-              <span className="w-1.5 h-4 bg-indigo-500 rounded-full inline-block shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
-              🏆 Leaderboard ช่างส่งงานสะสม
-            </h3>
-            <div className="flex flex-wrap gap-3">
-              {techStatsSubmitted.slice(0, 10).map((tech, i) => (
-                <motion.button
-                  key={i}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => router.push(`/dashboard?view=history&tech=${encodeURIComponent(tech.name)}`)}
-                  className="flex-1 min-w-[120px] max-w-[200px] flex flex-col items-center gap-2 p-4 rounded-2xl border border-slate-200/50 bg-white/40 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-200 cursor-pointer text-center group"
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-indigo-500 rounded-full inline-block shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                🏆 Leaderboard จัดอันดับช่างเทคนิค
+              </h3>
+              <div className="bg-slate-100/80 p-0.5 rounded-xl flex gap-0.5 text-[10px] font-bold Prompt w-fit">
+                <button
+                  onClick={() => setLeaderboardTab('total')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    leaderboardTab === 'total' 
+                      ? 'bg-white text-indigo-600 shadow-xs' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
                 >
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black ${
-                    i === 0 ? 'bg-amber-100 text-amber-600' :
-                    i === 1 ? 'bg-slate-100 text-slate-650' :
-                    i === 2 ? 'bg-orange-100 text-orange-600' :
-                    'bg-slate-50 text-slate-400'
-                  }`}>
-                    {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
-                  </div>
-                  <div className="w-full truncate">
-                    <p className="text-[10px] font-bold text-slate-700 Prompt leading-tight group-hover:text-indigo-700 transition truncate" title={formatDisplayName(tech.name)}>
-                      {formatDisplayName(tech.name)}
-                    </p>
-                    <p className="text-sm font-black text-slate-800 mt-1">{tech.total} <span className="text-[8px] font-semibold text-slate-400">งาน</span></p>
-                    <p className="text-[9px] text-emerald-600 font-bold mt-0.5">{tech.rate}% ผ่าน</p>
-                  </div>
-                </motion.button>
-              ))}
+                  🥇 ส่งงานสะสมสูงสุด
+                </button>
+                <button
+                  onClick={() => setLeaderboardTab('speed')}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    leaderboardTab === 'speed' 
+                      ? 'bg-white text-amber-600 shadow-xs' 
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  ⚡ ส่งงานไวเฉลี่ยสะสม (7 วันล่าสุด)
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {(leaderboardTab === 'total' ? techStatsSubmitted : techStatsSpeedSorted).slice(0, 10).map((tech, i) => {
+                const isSpeedTab = leaderboardTab === 'speed';
+                const hasSpeedData = tech.avgSpeedHours !== null;
+                
+                return (
+                  <motion.button
+                    key={i}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => router.push(`/dashboard?view=history&tech=${encodeURIComponent(tech.name)}`)}
+                    className={`flex-1 min-w-[120px] max-w-[200px] flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 cursor-pointer text-center group ${
+                      isSpeedTab
+                        ? hasSpeedData
+                          ? 'border-slate-200/50 bg-white/40 hover:border-amber-200 hover:bg-amber-50/30'
+                          : 'border-slate-100 bg-slate-50/20 opacity-60 hover:opacity-100'
+                        : 'border-slate-200/50 bg-white/40 hover:border-indigo-200 hover:bg-indigo-50/30'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black ${
+                      !isSpeedTab || hasSpeedData
+                        ? i === 0 ? 'bg-amber-100 text-amber-600' :
+                          i === 1 ? 'bg-slate-100 text-slate-650' :
+                          i === 2 ? 'bg-orange-100 text-orange-600' :
+                          'bg-slate-50 text-slate-400'
+                        : 'bg-slate-100 text-slate-300'
+                    }`}>
+                      {!isSpeedTab || hasSpeedData 
+                        ? i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`
+                        : '😴'
+                      }
+                    </div>
+                    <div className="w-full truncate">
+                      <p className={`text-[10px] font-bold text-slate-700 Prompt leading-tight transition truncate ${
+                        isSpeedTab ? 'group-hover:text-amber-700' : 'group-hover:text-indigo-700'
+                      }`} title={formatDisplayName(tech.name)}>
+                        {formatDisplayName(tech.name)}
+                      </p>
+                      
+                      {isSpeedTab ? (
+                        <>
+                          <p className="text-sm font-black text-slate-800 mt-1">
+                            {formatSpeed(tech.avgSpeedHours)}
+                          </p>
+                          <p className="text-[9px] text-amber-600 font-bold mt-0.5">
+                            {tech.weeklyCount > 0 ? `ส่ง ${tech.weeklyCount} งานใน 7 วัน` : 'ไม่มีงานใน 7 วัน'}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-black text-slate-800 mt-1">
+                            {tech.total} <span className="text-[8px] font-semibold text-slate-400">งาน</span>
+                          </p>
+                          <p className="text-[9px] text-emerald-600 font-bold mt-0.5">
+                            {tech.rate}% ผ่าน
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
         )}
