@@ -776,6 +776,11 @@ function SubmitPageInner() {
       return;
     }
 
+    if (activeJob.job_type === "งานติดตั้ง (INS)" && insStatus === 'fail' && !note.trim()) {
+      showToast("กรุณาระบุหมายเหตุเพิ่มเติมด้วยนะครับ 📝", "error");
+      return;
+    }
+
     if (activeJob.job_type === "งานถอดติดตั้ง (AS)" && !dismantleSub) {
       showToast("กรุณาเลือกประเภทย่อยงานถอดติดตั้งด้วยนะครับ 📂", "error");
       return;
@@ -1828,14 +1833,14 @@ function SubmitPageInner() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="text-lg font-bold text-slate-800 Prompt flex items-center gap-2 flex-wrap">
-                    <span className="text-indigo-600 font-mono">
+                    <span className="text-indigo-600">
                       {activeJob.order_no && activeJob.order_no !== '-' ? activeJob.order_no : activeJob.job_id}
                     </span>
                     <span className="text-slate-500 font-medium text-sm">
                       {activeJob.customer_name}
                     </span>
                   </h3>
-                  <p className="text-[10px] text-slate-400 font-mono tracking-tight mt-0.5">
+                  <p className="text-[10px] text-slate-400 Prompt tracking-tight mt-0.5">
                     รหัสงาน: {activeJob.job_id}
                   </p>
                 </div>
@@ -2100,7 +2105,11 @@ function SubmitPageInner() {
                 {/* 6. Notes text */}
                 <div className="space-y-1.5">
                   <label className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider Prompt">
-                    หมายเหตุเพิ่มเติม (ถ้ามี)
+                    {activeJob.job_type === "งานติดตั้ง (INS)" && insStatus === "fail" ? (
+                      <>หมายเหตุเพิ่มเติม <span className="text-rose-500">*</span></>
+                    ) : (
+                      "หมายเหตุเพิ่มเติม (ถ้ามี)"
+                    )}
                   </label>
                   <textarea
                     value={note}
