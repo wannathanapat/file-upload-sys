@@ -252,7 +252,53 @@ function DashboardContent() {
         return;
       }
 
+      // 1. Generate standard worksheet
       const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+      // 2. Post-process to add Excel Hyperlinks for cells starting with http
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          const cell = ws[cellAddress];
+          if (cell && cell.t === 's' && cell.v && cell.v.toString().startsWith('http')) {
+            const url = cell.v.toString();
+            const headerAddress = XLSX.utils.encode_cell({ r: range.s.r, c: C });
+            const headerCell = ws[headerAddress];
+            const headerVal = headerCell ? headerCell.v?.toString() || '' : '';
+
+            let label = '🔗 เปิดลิงก์';
+            if (headerVal.includes('PDF')) {
+              label = '📄 เปิดไฟล์ PDF';
+            } else if (headerVal.includes('วิดีโอ') || headerVal.includes('Video')) {
+              label = '🎥 เปิดวิดีโอประกอบ';
+            }
+
+            ws[cellAddress] = {
+              t: 's',
+              v: label,
+              f: `HYPERLINK("${url}", "${label}")`
+            };
+          }
+        }
+      }
+
+      // 3. Set column widths automatically (Auto-fit)
+      const cols: { wch: number }[] = [];
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        let maxLen = 12; // default min width
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          const cell = ws[cellAddress];
+          if (cell && cell.v) {
+            maxLen = Math.max(maxLen, cell.v.toString().length);
+          }
+        }
+        // Limit maximum width to 45 to prevent extremely wide columns
+        cols.push({ wch: Math.min(maxLen + 3, 45) });
+      }
+      ws['!cols'] = cols;
+
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Report Data");
       XLSX.writeFile(wb, filename);
