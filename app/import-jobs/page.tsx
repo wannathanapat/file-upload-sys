@@ -961,31 +961,7 @@ export default function ImportJobsPage() {
 
       <main className="flex-1 p-4 lg:p-8 overflow-y-auto pb-28 lg:pb-8">
 
-        {/* ── Tab Switcher ── */}
-        <div className="flex gap-1.5 mb-6 bg-slate-100/80 p-1.5 rounded-2xl w-fit">
-          <button
-            onClick={() => setActiveTab('import')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 Prompt cursor-pointer ${
-              activeTab === 'import'
-                ? 'bg-white text-indigo-600 shadow-sm shadow-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <Upload className="w-3.5 h-3.5" />
-            นำเข้างานใหม่
-          </button>
-          <button
-            onClick={() => setActiveTab('dedup')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 Prompt cursor-pointer ${
-              activeTab === 'dedup'
-                ? 'bg-white text-rose-600 shadow-sm shadow-slate-200'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <ScanSearch className="w-3.5 h-3.5" />
-            ตรวจงานซ้ำ (Sheet เก่า)
-          </button>
-        </div>
+
 
         {/* ════════════════════════════════════════
             TAB 1: Import New Jobs
