@@ -1897,9 +1897,9 @@ function DashboardContent() {
                   <div>
                     <span className="block text-[10px] text-slate-400 font-bold uppercase Prompt">เลขออเดอร์</span>
                     {isEditingSub ? (
-                      <input type="text" value={editOrderNo} onChange={(e) => setEditOrderNo(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition font-mono" />
+                      <input type="text" value={editOrderNo} onChange={(e) => setEditOrderNo(e.target.value)} className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition" />
                     ) : (
-                      <p className="text-xs font-bold text-slate-800 mt-1 font-mono">{selectedSub.order_no || '-'}</p>
+                      <p className="text-xs font-bold text-slate-800 mt-1">{selectedSub.order_no || '-'}</p>
                     )}
                   </div>
                   <div>
@@ -1910,10 +1910,10 @@ function DashboardContent() {
                         value={editJobId}
                         onChange={(e) => setEditJobId(e.target.value)}
                         placeholder="INS... หรือ AS..."
-                        className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition font-mono"
+                        className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-3 py-2 text-xs mt-1 focus:outline-none focus:border-indigo-500 transition"
                       />
                     ) : (
-                      <p className="text-xs font-bold text-slate-800 mt-1 font-mono">{selectedSub.job_id || '-'}</p>
+                      <p className="text-xs font-bold text-slate-800 mt-1">{selectedSub.job_id || '-'}</p>
                     )}
                   </div>
                 </div>

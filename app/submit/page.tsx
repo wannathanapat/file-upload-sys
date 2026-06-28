@@ -2151,7 +2151,7 @@ function SubmitPageInner() {
                       <><FileSpreadsheet className="w-5 h-5 text-indigo-500" /><span>รายละเอียดการส่งงาน</span></>
                     )}
                   </h2>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">รหัสงาน: {selectedHistory.job_id || selectedHistory.order_no}</p>
+                  <p className="text-xs text-slate-500 Prompt mt-0.5">รหัสงาน: {selectedHistory.job_id || selectedHistory.order_no}</p>
                 </div>
                 <button onClick={closeHistoryModal} className="text-slate-400 hover:text-slate-600 text-lg p-1.5 hover:bg-slate-100/50 rounded-full transition cursor-pointer">✕</button>
               </div>
