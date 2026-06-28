@@ -368,7 +368,9 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       
       const randomStatus = statuses[idx % statuses.length];
       const pendingCount = Math.floor(Math.random() * 4);
-      const hasRecentSub = Math.random() > 0.7;
+      // ONLY allow submission bubble for working or onsite techs
+      const isWorkingOrOnsite = randomStatus === 'working' || randomStatus === 'onsite';
+      const hasRecentSub = isWorkingOrOnsite && Math.random() > 0.6;
 
       const randHour = 7 + Math.floor(Math.random() * 3);
       const randMin = Math.floor(Math.random() * 60);
@@ -395,7 +397,6 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           if (Math.random() > 0.85) {
             const nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
             const newPending = Math.floor(Math.random() * 4);
-            const subChance = Math.random() > 0.6;
             
             let statusVal = 'offline';
             if (nextStatus === 'working') {
@@ -405,6 +406,10 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
             } else if (nextStatus === 'onsite') {
               statusVal = 'onsite';
             }
+
+            // ONLY allow submission bubble for working or onsite techs
+            const isWorkingOrOnsiteVal = statusVal === 'normal' || statusVal === 'late' || statusVal === 'onsite';
+            const subChance = isWorkingOrOnsiteVal && Math.random() > 0.6;
 
             return {
               ...t,
@@ -431,6 +436,8 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     const username = u.username || '';
     const name = u.name || '';
     const attRecord = todayAttendance[username] || todayAttendance[name];
+    const status = attRecord?.status || 'offline';
+    const isWorkingOrOnsiteLive = status === 'normal' || status === 'late' || status === 'onsite';
     
     const pendingJobs = assignedJobs.filter(j => 
       j.status !== 'submitted' && 
@@ -438,7 +445,8 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
        j.technician?.trim().toLowerCase() === username.trim().toLowerCase())
     );
 
-    const hasRecentSub = submissions.some(s => {
+    // ONLY check recent submissions if they are active/onsite
+    const hasRecentSub = isWorkingOrOnsiteLive && submissions.some(s => {
       if (s.name?.trim().toLowerCase() !== name.trim().toLowerCase()) return false;
       const subTime = new Date(s.submission_date).getTime();
       return (Date.now() - subTime) < 2 * 60 * 60 * 1000;
@@ -451,7 +459,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       pendingCount: pendingJobs.length,
       hasRecentSub,
       checkInTime: attRecord?.check_in_time ? new Date(attRecord.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '',
-      status: attRecord?.status || 'offline',
+      status,
       province: attRecord?.province || '',
       district: attRecord?.district || ''
     };
