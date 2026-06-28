@@ -175,43 +175,71 @@ const PlantSVG = () => (
   </svg>
 );
 
-const VendingMachineSVG = () => (
-  <svg viewBox="0 0 20 36" className="w-8 h-14" style={{ imageRendering: 'pixelated' }}>
-    <rect x="1" y="1" width="18" height="34" fill="#ef4444" rx="1.5" />
-    <rect x="3" y="3" width="14" height="15" fill="#1e293b" /> {/* Glass */}
-    {/* Cans */}
-    <rect x="5" y="5" width="2" height="4" fill="#38bdf8" />
-    <rect x="9" y="5" width="2" height="4" fill="#22c55e" />
-    <rect x="13" y="5" width="2" height="4" fill="#eab308" />
-    <rect x="5" y="12" width="2" height="4" fill="#ea580c" />
-    <rect x="9" y="12" width="2" height="4" fill="#a855f7" />
-    <rect x="13" y="12" width="2" height="4" fill="#ec4899" />
-    {/* Coin panel */}
-    <rect x="4" y="22" width="4" height="4" fill="#cbd5e1" />
-    <rect x="5" y="23" width="1" height="2" fill="#1e293b" />
-    <rect x="4" y="28" width="12" height="5" fill="#334155" />
+const CozyBedSVG = () => (
+  <svg viewBox="0 0 28 32" className="w-10 h-11" style={{ imageRendering: 'pixelated' }}>
+    {/* Wood frame */}
+    <rect x="2" y="2" width="24" height="28" fill="#5c3f15" rx="1" />
+    {/* Mattress/Blanket */}
+    <rect x="4" y="10" width="20" height="18" fill="#0d9488" /> {/* Teal blanket */}
+    <rect x="4" y="4" width="20" height="6" fill="#f8fafc" /> {/* Pillow sheet */}
+    {/* Pillow */}
+    <rect x="6" y="5" width="16" height="4" fill="#cbd5e1" rx="0.5" />
   </svg>
 );
 
-const WaterCoolerSVG = () => (
-  <svg viewBox="0 0 16 32" className="w-6 h-12" style={{ imageRendering: 'pixelated' }}>
-    <rect x="3" y="2" width="10" height="12" rx="2" fill="#38bdf8" /> {/* Jug */}
-    <rect x="5" y="4" width="2" height="8" fill="#e0f2fe" opacity="0.6" />
-    <rect x="2" y="14" width="12" height="16" fill="#cbd5e1" rx="1" /> {/* Dispenser */}
-    <rect x="2" y="14" width="12" height="2" fill="#94a3b8" />
-    <rect x="5" y="18" width="6" height="4" fill="#64748b" />
-    <rect x="7" y="19" width="2" height="2" fill="#ef4444" /> {/* Tap */}
+const HospitalBedSVG = () => (
+  <svg viewBox="0 0 28 32" className="w-10 h-11" style={{ imageRendering: 'pixelated' }}>
+    {/* Steel frame */}
+    <rect x="2" y="2" width="24" height="28" fill="#94a3b8" rx="1" />
+    <rect x="2" y="2" width="2" height="28" fill="#64748b" />
+    <rect x="24" y="2" width="2" height="28" fill="#64748b" />
+    {/* White sheets & Blue cross blanket */}
+    <rect x="4" y="4" width="20" height="24" fill="#f8fafc" />
+    <rect x="4" y="14" width="20" height="12" fill="#93c5fd" /> {/* light blue blanket */}
+    {/* Red cross on blanket */}
+    <rect x="12" y="18" width="4" height="4" fill="#ef4444" />
+    <rect x="13" y="17" width="2" height="6" fill="#ef4444" />
+    {/* Pillow */}
+    <rect x="6" y="6" width="16" height="4" fill="#cbd5e1" rx="0.5" />
   </svg>
 );
 
-const FridgeSVG = () => (
-  <svg viewBox="0 0 20 36" className="w-8 h-14" style={{ imageRendering: 'pixelated' }}>
-    <rect x="1" y="1" width="18" height="34" fill="#94a3b8" rx="1.5" />
-    <rect x="1" y="1" width="18" height="16" fill="#cbd5e1" />
-    {/* Handles */}
-    <rect x="2" y="12" width="1.5" height="4" fill="#334155" />
-    <rect x="2" y="18" width="1.5" height="5" fill="#334155" />
-    <rect x="1" y="17" width="18" height="1" fill="#475569" />
+const BeachUmbrellaSVG = () => (
+  <svg viewBox="0 0 32 36" className="w-12 h-14" style={{ imageRendering: 'pixelated' }}>
+    {/* Stand pole */}
+    <rect x="15" y="12" width="2" height="22" fill="#d97706" />
+    {/* Wavy Umbrella Canopy (Red/White stripes) */}
+    <path d="M4 14 C4 6, 28 6, 28 14 Z" fill="#ef4444" />
+    <path d="M8 14 C8 8, 24 8, 24 14 Z" fill="#ffffff" />
+    <path d="M12 14 C12 10, 20 10, 20 14 Z" fill="#ef4444" />
+  </svg>
+);
+
+const BeachChairSVG = () => (
+  <svg viewBox="0 0 24 24" className="w-8 h-8" style={{ imageRendering: 'pixelated' }}>
+    {/* Slanted lounger frame */}
+    <path d="M2 18 L20 18 L16 8 L12 8 Z" fill="#d97706" />
+    <line x1="2" y1="18" x2="16" y2="8" stroke="#3b82f6" strokeWidth="2" />
+    <line x1="6" y1="18" x2="10" y2="12" stroke="#ffffff" strokeWidth="2" />
+  </svg>
+);
+
+const IVStandSVG = () => (
+  <svg viewBox="0 0 10 32" className="w-4 h-12" style={{ imageRendering: 'pixelated' }}>
+    <rect x="4" y="2" width="2" height="28" fill="#cbd5e1" />
+    <rect x="2" y="30" width="6" height="1.5" fill="#475569" />
+    {/* IV fluid bag */}
+    <rect x="2" y="4" width="4" height="6" fill="#e2e8f0" rx="0.5" />
+    <rect x="3.5" y="10" width="1" height="8" fill="#38bdf8" opacity="0.7" /> {/* Tube */}
+  </svg>
+);
+
+const HeartMonitorSVG = () => (
+  <svg viewBox="0 0 20 20" className="w-7 h-7" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="1" width="18" height="18" fill="#1e293b" rx="1" />
+    <rect x="2" y="2" width="16" height="16" fill="#020617" />
+    {/* ECG green wave line */}
+    <path d="M3 10 h4 l2 -5 l2 10 l1.5 -7 l1.5 2 h3" stroke="#22c55e" strokeWidth="1" fill="none" />
   </svg>
 );
 
@@ -232,35 +260,6 @@ const DeskSVG = () => (
     <rect x="25" y="16" width="2" height="1.5" fill="#cbd5e1" />
     {/* Coffee Mug */}
     <rect x="6" y="15" width="3" height="3" fill="#eab308" />
-  </svg>
-);
-
-const LoungeTableSVG = () => (
-  <svg viewBox="0 0 32 24" className="w-12 h-9" style={{ imageRendering: 'pixelated' }}>
-    <rect x="1" y="10" width="30" height="8" fill="#d97706" rx="1" />
-    <rect x="2" y="18" width="2" height="6" fill="#78350f" />
-    <rect x="28" y="18" width="2" height="6" fill="#78350f" />
-    {/* Laptop */}
-    <rect x="10" y="4" width="12" height="7" fill="#cbd5e1" />
-    <rect x="11" y="5" width="10" height="5" fill="#38bdf8" />
-    <rect x="9" y="11" width="14" height="1" fill="#94a3b8" />
-  </svg>
-);
-
-const CouchSVG = ({ dir }: { dir: 'left' | 'right' }) => (
-  <svg viewBox="0 0 16 28" className="w-6 h-11" style={{ imageRendering: 'pixelated' }}>
-    <rect x="1" y="1" width="14" height="26" rx="2" fill="#ec4899" />
-    {dir === 'left' ? (
-      <>
-        <rect x="1" y="1" width="4" height="26" fill="#db2777" />
-        <rect x="12" y="1" width="3" height="26" fill="#be185d" />
-      </>
-    ) : (
-      <>
-        <rect x="1" y="1" width="3" height="26" fill="#be185d" />
-        <rect x="11" y="1" width="4" height="26" fill="#db2777" />
-      </>
-    )}
   </svg>
 );
 
@@ -492,11 +491,16 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     };
   });
 
+  const sickLeaveTechs: any[] = [];
+  const personalLeaveTechs: any[] = [];
+
   sourceTechs.forEach(t => {
     if (t.status === 'onsite') {
       onsiteTechs.push(t);
-    } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
-      leaveTechs.push(t);
+    } else if (t.status === 'sick_leave') {
+      sickLeaveTechs.push(t);
+    } else if (t.status === 'personal_leave') {
+      personalLeaveTechs.push(t);
     } else if (t.status === 'normal' || t.status === 'late') {
       workingTechs.push(t);
     } else {
@@ -508,11 +512,16 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     if (t.status === 'onsite') {
       const idx = onsiteTechs.findIndex(o => o.username === t.username);
       return { x: 12 + (idx >= 0 ? idx : 0) * 18, y: 91, dir: 'right' as const };
-    } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
-      const idx = leaveTechs.findIndex(l => l.username === t.username);
-      if (idx === 0) return { x: 61.3, y: 59, dir: 'right' as const };
-      if (idx === 1) return { x: 89.0, y: 59, dir: 'left' as const };
-      return { x: 75, y: 70, dir: 'front' as const };
+    } else if (t.status === 'sick_leave') {
+      const idx = sickLeaveTechs.findIndex(s => s.username === t.username);
+      if (idx === 0) return { x: 65, y: 69, dir: 'front' as const };
+      if (idx === 1) return { x: 88, y: 69, dir: 'front' as const };
+      return { x: 77, y: 73, dir: 'front' as const };
+    } else if (t.status === 'personal_leave') {
+      const idx = personalLeaveTechs.findIndex(p => p.username === t.username);
+      if (idx === 0) return { x: 65, y: 42, dir: 'front' as const };
+      if (idx === 1) return { x: 88, y: 42, dir: 'front' as const };
+      return { x: 77, y: 46, dir: 'front' as const };
     } else if (t.status === 'normal' || t.status === 'late') {
       const idx = workingTechs.findIndex(w => w.username === t.username);
       if (idx === 0) return { x: 8.8, y: 26, dir: 'back' as const };
@@ -522,10 +531,9 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       return { x: 25, y: 40, dir: 'front' as const };
     } else {
       const idx = offlineTechs.findIndex(of => of.username === t.username);
-      if (idx === 0) return { x: 68, y: 22, dir: 'front' as const };
-      if (idx === 1) return { x: 94.6, y: 22, dir: 'front' as const };
-      if (idx === 2) return { x: 73, y: 22, dir: 'front' as const };
-      return { x: 80, y: 25, dir: 'front' as const };
+      if (idx === 0) return { x: 65, y: 15, dir: 'front' as const };
+      if (idx === 1) return { x: 88, y: 15, dir: 'front' as const };
+      return { x: 77, y: 20, dir: 'front' as const };
     }
   };
 
@@ -704,54 +712,59 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           <div className="absolute left-[66%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
         </div>
 
-        {/* ROOM 2: KITCHEN BREAKROOM (Right Top 45% Width, 40% Height) */}
-        <div className="absolute right-0 top-0 w-[45%] h-[40%] pixel-kitchen-tiles">
-          {/* Vending machine */}
-          <div className="absolute left-[12%] top-[4%]"><VendingMachineSVG /></div>
-          {/* Water dispenser */}
-          <div className="absolute left-[40%] top-[4%]"><WaterCoolerSVG /></div>
-          {/* Sink Counter Cabinet */}
-          <div className="absolute right-[24%] top-[4%] flex items-end">
-            <div className="w-8 h-10 bg-slate-300 border-t-2 border-slate-400 border-x border-b border-slate-500 rounded-xs flex flex-col justify-between p-0.5">
-              <div className="w-4 h-2 bg-slate-500 rounded-full mx-auto" /> {/* Sink Basin */}
-              <div className="w-7 h-1 bg-slate-600 rounded-full" />
-            </div>
-          </div>
-          {/* Refrigerator */}
-          <div className="absolute right-[4%] top-[4%]"><FridgeSVG /></div>
-          {/* Wall Clock */}
-          <div className="absolute left-[62%] top-[6%] w-4 h-4 bg-white border border-slate-400 rounded-full flex items-center justify-center">
-            <div className="w-2.5 h-0.5 bg-slate-800 absolute transform rotate-45 origin-center" />
+        {/* ROOM 2: COZY BEDROOM (Right Top 45% Width, 27% Height) */}
+        <div className="absolute right-0 top-0 w-[45%] h-[27%] bg-slate-800/40 border-b-2 border-slate-950 flex items-center justify-around px-4 relative overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle, #334155 10%, transparent 11%)', backgroundSize: '12px 12px' }}>
+          {/* Beds */}
+          <div className="absolute left-[14%] top-[10%]"><CozyBedSVG /></div>
+          <div className="absolute right-[14%] top-[10%]"><CozyBedSVG /></div>
+          {/* Side drawer and lamp */}
+          <div className="absolute left-[46%] top-[22%] flex flex-col items-center">
+            <div className="w-1.5 h-1.5 bg-yellow-300 rounded-full animate-pulse shadow-sm" /> {/* Light */}
+            <div className="w-3.5 h-4 bg-amber-800 border border-amber-950 rounded-xs" />
           </div>
         </div>
 
-        {/* ROOM 3: LOUNGE AREA (Right Bottom 45% Width, 42% Height) */}
-        <div className="absolute right-0 top-[40%] w-[45%] h-[42%] pixel-lounge-carpet">
-          {/* Couple of couches facing each other */}
-          <div className="absolute left-[14%] top-[45%]"><CouchSVG dir="left" /></div>
-          <div className="absolute right-[14%] top-[45%]"><CouchSVG dir="right" /></div>
-          {/* Coffee table with open laptop */}
-          <div className="absolute left-[34%] top-[48%]"><LoungeTableSVG /></div>
-          {/* Shelves and Plant pots on the sides */}
-          <div className="absolute left-[4%] top-[10%]"><PlantSVG /></div>
-          <div className="absolute right-[4%] top-[10%]"><PlantSVG /></div>
-          {/* Painting on the wall */}
-          <div className="absolute left-[38%] top-[4%] w-14 h-8 bg-sky-200 border-2 border-amber-800 rounded-sm shadow-sm flex items-center justify-center overflow-hidden">
-            <div className="w-full h-3 bg-emerald-500 mt-5 transform rotate-6 scale-110" />
-            <div className="w-4 h-4 bg-yellow-100 rounded-full absolute top-1 right-2" />
+        {/* ROOM 3: SUNNY BEACH (Right Middle 45% Width, 27% Height) */}
+        <div className="absolute right-0 top-[27%] w-[45%] h-[27%] bg-[#fef08a] border-b-2 border-slate-950 overflow-hidden">
+          {/* Sea water at the top */}
+          <div className="w-full h-[35%] bg-cyan-300 border-b border-cyan-400 relative">
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-white/40 border-t border-dashed border-white/60 animate-pulse" /> {/* Waves */}
           </div>
+          {/* Beach Umbrellas */}
+          <div className="absolute left-[6%] top-[5%]"><BeachUmbrellaSVG /></div>
+          <div className="absolute right-[22%] top-[5%]"><BeachUmbrellaSVG /></div>
+          {/* Beach Chairs */}
+          <div className="absolute left-[20%] top-[45%]"><BeachChairSVG /></div>
+          <div className="absolute right-[6%] top-[45%]"><BeachChairSVG /></div>
+        </div>
+
+        {/* ROOM 4: MEDICAL CLINIC / HOSPITAL (Right Bottom 45% Width, 28% Height) */}
+        <div className="absolute right-0 top-[54%] w-[45%] h-[28%] bg-slate-100">
+          {/* Sterile tiled floor patterns */}
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(90deg, #94a3b8 1px, transparent 1px), linear-gradient(#94a3b8 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+          {/* Hospital Beds */}
+          <div className="absolute left-[14%] top-[12%]"><HospitalBedSVG /></div>
+          <div className="absolute right-[14%] top-[12%]"><HospitalBedSVG /></div>
+          {/* ECG monitors */}
+          <div className="absolute left-[5%] top-[8%]"><HeartMonitorSVG /></div>
+          {/* IV Drip stands */}
+          <div className="absolute left-[38%] top-[14%]"><IVStandSVG /></div>
+          <div className="absolute right-[6%] top-[14%]"><IVStandSVG /></div>
         </div>
 
         {/* Thick, 3D Pixel Art Wall Boundaries for clear room separation */}
-        {/* Vertical divider wall (Workspace vs Kitchen/Lounge) */}
+        {/* Vertical divider wall (Workspace vs Bedrooms/Beach/Hospital) */}
         <div className="absolute left-[54.2%] top-0 bottom-[18%] w-3 bg-[#1e293b] z-15 border-l-2 border-r-2 border-slate-950 shadow-lg flex flex-col justify-around">
           <div className="h-4 w-1 bg-slate-800 opacity-40 mx-auto rounded-full" />
           <div className="h-4 w-1 bg-slate-800 opacity-40 mx-auto rounded-full" />
           <div className="h-4 w-1 bg-slate-800 opacity-40 mx-auto rounded-full" />
         </div>
         
-        {/* Horizontal divider wall (Kitchen vs Lounge) */}
-        <div className="absolute left-[54.2%] top-[39%] right-0 h-3 bg-[#1e293b] z-15 border-t-2 border-b-2 border-slate-950 shadow-md" />
+        {/* Horizontal divider walls */}
+        {/* Divider 1: Bedroom vs Beach */}
+        <div className="absolute left-[54.2%] top-[26.5%] right-0 h-2 bg-[#1e293b] z-15 border-t border-b border-slate-950 shadow-sm" />
+        {/* Divider 2: Beach vs Hospital */}
+        <div className="absolute left-[54.2%] top-[53.5%] right-0 h-2 bg-[#1e293b] z-15 border-t border-b border-slate-950 shadow-sm" />
 
         {/* SIDEWALK & ON-SITE ROAD (Bottom 18% Width, for On-site live vehicle drive animation) */}
         <div className="absolute left-0 right-0 bottom-0 h-[18%] bg-[#475569] border-t-4 border-slate-950 flex items-center justify-center overflow-hidden">
@@ -767,6 +780,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           const pos = techPositions[tech.username] || { x: 74, y: 30, dir: 'front', isWalking: false };
           const isTyping = tech.status === 'normal' || tech.status === 'late';
           const preset = getTechColorPreset(tech.name || tech.username);
+          const isLyingDown = (tech.status === 'offline' || tech.status === 'sick_leave' || tech.status === 'personal_leave') && !pos.isWalking;
 
           return (
             <div
@@ -824,15 +838,17 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
                   </div>
                 </div>
               ) : (
-                // Human sprite walking/sitting
+                // Human sprite walking/sitting/sleeping
                 <div className="flex flex-col items-center">
-                  <CharacterSVG
-                    hairStyle={preset.hair}
-                    shirtColor={preset.shirt}
-                    isWalking={pos.isWalking}
-                    isTyping={isTyping && !pos.isWalking}
-                    dir={pos.dir}
-                  />
+                  <div style={{ transform: isLyingDown ? 'rotate(-90deg) translateY(-2px)' : '' }}>
+                    <CharacterSVG
+                      hairStyle={preset.hair}
+                      shirtColor={preset.shirt}
+                      isWalking={pos.isWalking}
+                      isTyping={isTyping && !pos.isWalking}
+                      dir={pos.dir}
+                    />
+                  </div>
                   {/* Name tag with dynamic status indicator */}
                   <div className="flex flex-col items-center bg-white/95 px-1.5 py-0.5 rounded border border-slate-200 shadow-xs mt-0.5 z-30 max-w-[70px]">
                     <span className="text-[8px] font-black text-slate-800 truncate Prompt text-center" title={tech.name}>
