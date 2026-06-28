@@ -471,25 +471,25 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
   const getTargetCoords = (t: any) => {
     if (t.status === 'onsite') {
       const idx = onsiteTechs.findIndex(o => o.username === t.username);
-      return { x: 10 + (idx >= 0 ? idx : 0) * 20, y: 91, dir: 'right' as const };
+      return { x: 12 + (idx >= 0 ? idx : 0) * 18, y: 91, dir: 'right' as const };
     } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
       const idx = leaveTechs.findIndex(l => l.username === t.username);
-      if (idx === 0) return { x: 72, y: 73, dir: 'right' as const };
-      if (idx === 1) return { x: 88, y: 73, dir: 'left' as const };
-      return { x: 80, y: 80, dir: 'front' as const };
+      if (idx === 0) return { x: 61.3, y: 59, dir: 'right' as const };
+      if (idx === 1) return { x: 89.0, y: 59, dir: 'left' as const };
+      return { x: 75, y: 70, dir: 'front' as const };
     } else if (t.status === 'normal' || t.status === 'late') {
       const idx = workingTechs.findIndex(w => w.username === t.username);
-      if (idx === 0) return { x: 16, y: 41, dir: 'back' as const };
-      if (idx === 1) return { x: 42, y: 41, dir: 'back' as const };
-      if (idx === 2) return { x: 16, y: 74, dir: 'back' as const };
-      if (idx === 3) return { x: 42, y: 74, dir: 'back' as const };
-      return { x: 30, y: 55, dir: 'front' as const };
+      if (idx === 0) return { x: 8.8, y: 26, dir: 'back' as const };
+      if (idx === 1) return { x: 36.3, y: 26, dir: 'back' as const };
+      if (idx === 2) return { x: 8.8, y: 55, dir: 'back' as const };
+      if (idx === 3) return { x: 36.3, y: 55, dir: 'back' as const };
+      return { x: 25, y: 40, dir: 'front' as const };
     } else {
       const idx = offlineTechs.findIndex(of => of.username === t.username);
-      if (idx === 0) return { x: 78, y: 23, dir: 'front' as const };
-      if (idx === 1) return { x: 90, y: 20, dir: 'front' as const };
-      if (idx === 2) return { x: 68, y: 20, dir: 'front' as const };
-      return { x: 74, y: 30, dir: 'front' as const };
+      if (idx === 0) return { x: 68, y: 22, dir: 'front' as const };
+      if (idx === 1) return { x: 94.6, y: 22, dir: 'front' as const };
+      if (idx === 2) return { x: 73, y: 22, dir: 'front' as const };
+      return { x: 80, y: 25, dir: 'front' as const };
     }
   };
 
@@ -638,14 +638,14 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
         </div>
       </div>
 
-      {/* 2D Orthogonal Pixel Office Map Viewer Container */}
-      <div className="w-full h-[330px] border-4 border-slate-700 bg-slate-900 rounded-2xl relative overflow-hidden select-none">
+      {/* 2D Orthogonal Pixel Office Map Viewer Container - Expanded height to 420px */}
+      <div className="w-full h-[420px] border-4 border-slate-700 bg-slate-900 rounded-2xl relative overflow-hidden select-none">
         
         {/* ROOM 1: MAIN WORKSPACE (Left Side 55% Width) */}
-        <div className="absolute left-0 top-0 w-[55%] h-[82%] pixel-wood-floor border-r border-[#181824] border-dashed">
-          {/* Wall Shelves at the top */}
+        <div className="absolute left-0 top-0 w-[55%] h-[82%] pixel-wood-floor">
+          {/* Wall Shelves spread out at the top */}
           <div className="absolute left-[8%] top-[2%]"><BookcaseSVG /></div>
-          <div className="absolute left-[36%] top-[2%]"><BookcaseSVG /></div>
+          <div className="absolute left-[64%] top-[2%]"><BookcaseSVG /></div>
           {/* Plant Pots & Cardboard boxes */}
           <div className="absolute left-[3%] top-[12%]"><PlantSVG /></div>
           <div className="absolute left-[24%] top-[2%] flex gap-1 bg-amber-800/10 p-1 rounded">
@@ -653,23 +653,23 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
             <div className="w-3.5 h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
           </div>
 
-          {/* DESKS (4 Stations layout matching the mockup) */}
+          {/* DESKS spaced out properly across the main workspace */}
           {/* Desk 1 (top-left) */}
-          <div className="absolute left-[10%] top-[22%]"><DeskSVG /></div>
-          <div className="absolute left-[16%] top-[34%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[10%] top-[20%]"><DeskSVG /></div>
+          <div className="absolute left-[16%] top-[32%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           {/* Desk 2 (top-right) */}
-          <div className="absolute left-[38%] top-[22%]"><DeskSVG /></div>
-          <div className="absolute left-[44%] top-[34%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[60%] top-[20%]"><DeskSVG /></div>
+          <div className="absolute left-[66%] top-[32%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           {/* Desk 3 (bottom-left) */}
           <div className="absolute left-[10%] top-[55%]"><DeskSVG /></div>
           <div className="absolute left-[16%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           {/* Desk 4 (bottom-right) */}
-          <div className="absolute left-[38%] top-[55%]"><DeskSVG /></div>
-          <div className="absolute left-[44%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[60%] top-[55%]"><DeskSVG /></div>
+          <div className="absolute left-[66%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
         </div>
 
         {/* ROOM 2: KITCHEN BREAKROOM (Right Top 45% Width, 40% Height) */}
-        <div className="absolute right-0 top-0 w-[45%] h-[40%] pixel-kitchen-tiles border-b border-[#181824]">
+        <div className="absolute right-0 top-0 w-[45%] h-[40%] pixel-kitchen-tiles">
           {/* Vending machine */}
           <div className="absolute left-[12%] top-[4%]"><VendingMachineSVG /></div>
           {/* Water dispenser */}
@@ -706,20 +706,24 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           </div>
         </div>
 
-        {/* Separating Walls overlay */}
-        <div className="absolute left-[54.5%] top-0 bottom-[18%] w-2.5 bg-[#181824] z-10 border-l border-r border-[#2d2d3d]" />
-        <div className="absolute left-[54.5%] top-[39.5%] right-0 h-2 bg-[#181824] z-10 border-t border-b border-[#2d2d3d]" />
+        {/* Thick, 3D Pixel Art Wall Boundaries for clear room separation */}
+        {/* Vertical divider wall (Workspace vs Kitchen/Lounge) */}
+        <div className="absolute left-[54.2%] top-0 bottom-[18%] w-3 bg-[#1e293b] z-15 border-l-2 border-r-2 border-slate-950 shadow-lg flex flex-col justify-around">
+          <div className="h-4 w-1 bg-slate-800 opacity-40 mx-auto rounded-full" />
+          <div className="h-4 w-1 bg-slate-800 opacity-40 mx-auto rounded-full" />
+          <div className="h-4 w-1 bg-slate-800 opacity-40 mx-auto rounded-full" />
+        </div>
         
-        {/* Door openings / Gaps to make map walkable (Visual overlay) */}
-        {/* We can just let characters walk beneath the wall overlaps */}
+        {/* Horizontal divider wall (Kitchen vs Lounge) */}
+        <div className="absolute left-[54.2%] top-[39%] right-0 h-3 bg-[#1e293b] z-15 border-t-2 border-b-2 border-slate-950 shadow-md" />
 
         {/* SIDEWALK & ON-SITE ROAD (Bottom 18% Width, for On-site live vehicle drive animation) */}
-        <div className="absolute left-0 right-0 bottom-0 h-[18%] bg-[#475569] border-t-4 border-[#1e293b] flex items-center justify-center overflow-hidden">
+        <div className="absolute left-0 right-0 bottom-0 h-[18%] bg-[#475569] border-t-4 border-slate-950 flex items-center justify-center overflow-hidden">
           {/* Road center line */}
           <div className="w-full h-0.5 border-t border-dashed border-white/60" />
           
           {/* Sidewalk border curb */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-[#cbd5e1] border-b border-[#94a3b8]" />
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#cbd5e1] border-b-2 border-[#94a3b8]" />
         </div>
 
         {/* ── RENDERING THE ANIMATED LIVE CHARACTERS ───────────────────────── */}
