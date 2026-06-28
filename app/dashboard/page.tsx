@@ -391,7 +391,8 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     const interval = setInterval(() => {
       setDemoTechs(prev => {
         return prev.map(t => {
-          if (Math.random() > 0.7) {
+          // 15% chance to update status per tick so characters move occasionally and with purpose
+          if (Math.random() > 0.85) {
             const nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
             const newPending = Math.floor(Math.random() * 4);
             const subChance = Math.random() > 0.6;
@@ -415,7 +416,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           return t;
         });
       });
-    }, 6000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [demoMode, users]);
@@ -797,10 +798,21 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
                     isTyping={isTyping && !pos.isWalking}
                     dir={pos.dir}
                   />
-                  {/* Name tag */}
-                  <span className="text-[8px] font-black text-slate-800 bg-white/95 px-1 py-0.25 rounded border border-slate-200 shadow-xs mt-0.5 max-w-[60px] truncate Prompt text-center z-30">
-                    {tech.displayName}
-                  </span>
+                  {/* Name tag with dynamic status indicator */}
+                  <div className="flex flex-col items-center bg-white/95 px-1.5 py-0.5 rounded border border-slate-200 shadow-xs mt-0.5 z-30 max-w-[70px]">
+                    <span className="text-[8px] font-black text-slate-800 truncate Prompt text-center" title={tech.name}>
+                      {tech.displayName}
+                    </span>
+                    <span className={`text-[7px] font-bold Prompt whitespace-nowrap leading-none mt-0.5 ${
+                      tech.status === 'normal' || tech.status === 'late' ? 'text-emerald-600' :
+                      tech.status === 'sick_leave' ? 'text-rose-500' :
+                      tech.status === 'personal_leave' ? 'text-amber-500' : 'text-slate-400'
+                    }`}>
+                      {tech.status === 'normal' || tech.status === 'late' ? 'เข้างาน' :
+                       tech.status === 'sick_leave' ? 'ลาป่วย' :
+                       tech.status === 'personal_leave' ? 'ลากิจ' : 'ออฟไลน์'}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>
