@@ -729,7 +729,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
         </div>
 
         {/* ROOM 2: COZY BEDROOM (Right Top 45% Width, 27% Height) */}
-        <div className="absolute right-0 top-0 w-[45%] h-[27%] bg-[#ffedd5] border-b-2 border-slate-950 flex items-center justify-around px-4 relative overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle, #fed7aa 8%, transparent 9%)', backgroundSize: '16px 16px' }}>
+        <div className="absolute right-0 top-0 w-[45%] h-[27%] bg-[#ffedd5] border-b-2 border-slate-950 flex items-center justify-around px-4 overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle, #fed7aa 8%, transparent 9%)', backgroundSize: '16px 16px' }}>
           {/* Beds */}
           <div className="absolute left-[14%] top-[10%]"><CozyBedSVG /></div>
           <div className="absolute right-[14%] top-[10%]"><CozyBedSVG /></div>
