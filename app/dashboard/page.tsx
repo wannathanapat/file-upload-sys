@@ -150,13 +150,91 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
   // Get all technicians (role === 'staff')
   const technicians = users.filter(u => u.role === 'staff');
   
+  const [demoMode, setDemoMode] = useState(false);
+  const [demoTechs, setDemoTechs] = useState<any[]>([]);
+
+  // Initialize and run the simulation when demoMode is true
+  useEffect(() => {
+    if (!demoMode) {
+      setDemoTechs([]);
+      return;
+    }
+
+    // List of potential statuses
+    const statuses = ['working', 'onsite', 'leave', 'offline'];
+    const provinces = ['กรุงเทพฯ', 'นนทบุรี', 'ปทุมธานี', 'สมุทรปราการ', 'ชลบุรี'];
+    const leaveTypes = ['sick_leave', 'personal_leave'];
+
+    // Initial setup
+    const initialDemo = technicians.map((u, idx) => {
+      const name = u.name || '';
+      const username = u.username || '';
+      
+      // Distribute statuses somewhat evenly for the demo start
+      const randomStatus = statuses[idx % statuses.length];
+      const pendingCount = Math.floor(Math.random() * 4); // 0 to 3
+      const hasRecentSub = Math.random() > 0.7; // 30% chance
+
+      // random check-in time
+      const randHour = 7 + Math.floor(Math.random() * 3);
+      const randMin = Math.floor(Math.random() * 60);
+      const checkInTime = `${randHour.toString().padStart(2, '0')}:${randMin.toString().padStart(2, '0')}`;
+
+      return {
+        username,
+        name,
+        displayName: name.split('-').pop()?.trim() || name,
+        pendingCount,
+        hasRecentSub,
+        checkInTime,
+        status: randomStatus === 'working' ? 'normal' : randomStatus === 'leave' ? leaveTypes[idx % 2] : randomStatus,
+        province: provinces[idx % provinces.length],
+      };
+    });
+
+    setDemoTechs(initialDemo);
+
+    // Periodically update the simulator to show live movement!
+    const interval = setInterval(() => {
+      setDemoTechs(prev => {
+        return prev.map(t => {
+          // 30% chance to update each technician's status
+          if (Math.random() > 0.7) {
+            const nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
+            const newPending = Math.floor(Math.random() * 4);
+            const subChance = Math.random() > 0.6; // 40% chance of submission bubble
+            
+            let statusVal = 'offline';
+            if (nextStatus === 'working') {
+              statusVal = 'normal';
+            } else if (nextStatus === 'leave') {
+              statusVal = Math.random() > 0.5 ? 'sick_leave' : 'personal_leave';
+            } else if (nextStatus === 'onsite') {
+              statusVal = 'onsite';
+            }
+
+            return {
+              ...t,
+              status: statusVal,
+              pendingCount: newPending,
+              hasRecentSub: subChance,
+            };
+          }
+          return t;
+        });
+      });
+    }, 6000); // Shift every 6 seconds for dynamic demonstration
+
+    return () => clearInterval(interval);
+  }, [demoMode, users]);
+
   // Categorize technicians into states
   const workingTechs: any[] = [];
   const onsiteTechs: any[] = [];
   const leaveTechs: any[] = [];
   const offlineTechs: any[] = [];
 
-  technicians.forEach(u => {
+  const sourceTechs = demoMode ? demoTechs : technicians.map(u => {
     const username = u.username || '';
     const name = u.name || '';
     const attRecord = todayAttendance[username] || todayAttendance[name];
@@ -175,7 +253,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       return (Date.now() - subTime) < 2 * 60 * 60 * 1000; // 2 hours
     });
 
-    const techObj = {
+    return {
       username,
       name,
       displayName: name.split('-').pop()?.trim() || name,
@@ -186,19 +264,17 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       province: attRecord?.province || '',
       district: attRecord?.district || ''
     };
+  });
 
-    if (attRecord) {
-      if (attRecord.status === 'onsite') {
-        onsiteTechs.push(techObj);
-      } else if (attRecord.status === 'sick_leave' || attRecord.status === 'personal_leave') {
-        leaveTechs.push(techObj);
-      } else if (attRecord.status === 'normal' || attRecord.status === 'late') {
-        workingTechs.push(techObj);
-      } else {
-        offlineTechs.push(techObj);
-      }
+  sourceTechs.forEach(t => {
+    if (t.status === 'onsite') {
+      onsiteTechs.push(t);
+    } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
+      leaveTechs.push(t);
+    } else if (t.status === 'normal' || t.status === 'late') {
+      workingTechs.push(t);
     } else {
-      offlineTechs.push(techObj);
+      offlineTechs.push(t);
     }
   });
 
@@ -269,27 +345,52 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       `}} />
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
-          <span className="w-1.5 h-4 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-          🏢 Live Tech Pixel Office (สถานะปฏิบัติงานช่างเทคนิคเรียลไทม์)
-        </h3>
-        <div className="flex gap-3 text-[10px] font-bold Prompt text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-sm shadow-emerald-200" />
-            ในออฟฟิศ: {workingTechs.length}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shadow-sm shadow-indigo-200" />
-            ลงพื้นที่: {onsiteTechs.length}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-200" />
-            ลางาน: {leaveTechs.length}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />
-            ออฟไลน์: {offlineTechs.length}
-          </span>
+        <div className="flex items-center gap-3">
+          <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
+            <span className="w-1.5 h-4 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+            🏢 Live Tech Pixel Office (สถานะปฏิบัติงานช่างเทคนิคเรียลไทม์)
+          </h3>
+          {demoMode && (
+            <span className="bg-rose-500 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-full shadow-sm animate-pulse Prompt tracking-wider">
+              🎮 DEMO ACTIVE
+            </span>
+          )}
+        </div>
+        
+        {/* Toggle Demo Switch & Count details */}
+        <div className="flex items-center gap-4 flex-wrap">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-[10px] font-bold text-slate-500 Prompt">🎮 จำลองข้อมูล (Demo)</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={demoMode}
+                onChange={(e) => setDemoMode(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-8 h-4 bg-slate-200 rounded-full transition-colors duration-200 ${demoMode ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+              <div className={`absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full shadow-md transition-transform duration-200 ${demoMode ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+          </label>
+
+          <div className="flex gap-3 text-[10px] font-bold Prompt text-slate-500 border-l border-slate-200 pl-4">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-sm shadow-emerald-200" />
+              ในออฟฟิศ: {workingTechs.length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shadow-sm shadow-indigo-200" />
+              ลงพื้นที่: {onsiteTechs.length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-200" />
+              ลางาน: {leaveTechs.length}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />
+              ออฟไลน์: {offlineTechs.length}
+            </span>
+          </div>
         </div>
       </div>
 
