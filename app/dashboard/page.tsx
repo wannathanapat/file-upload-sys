@@ -148,7 +148,7 @@ interface TechnicianPixelOfficeProps {
 
 // ── Retro Pixel Art Furniture Assets ──
 const BookcaseSVG = () => (
-  <svg viewBox="0 0 32 36" className="w-12 h-14" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 32 36" className="w-7 h-8 sm:w-12 sm:h-14" style={{ imageRendering: 'pixelated' }}>
     <rect x="1" y="1" width="30" height="34" fill="#854d0e" rx="1" />
     <rect x="3" y="10" width="26" height="2" fill="#451a03" />
     <rect x="3" y="20" width="26" height="2" fill="#451a03" />
@@ -166,7 +166,7 @@ const BookcaseSVG = () => (
 );
 
 const PlantSVG = () => (
-  <svg viewBox="0 0 16 20" className="w-6 h-8" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 16 20" className="w-4 h-5.5 sm:w-6 sm:h-8" style={{ imageRendering: 'pixelated' }}>
     <rect x="4" y="13" width="8" height="7" fill="#c2410c" rx="1" /> {/* Pot */}
     {/* Green Leafs */}
     <circle cx="8" cy="7" r="5" fill="#15803d" />
@@ -176,7 +176,7 @@ const PlantSVG = () => (
 );
 
 const CozyBedSVG = () => (
-  <svg viewBox="0 0 28 32" className="w-10 h-11" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 28 32" className="w-6 h-7 sm:w-10 sm:h-11" style={{ imageRendering: 'pixelated' }}>
     {/* Wood frame */}
     <rect x="2" y="2" width="24" height="28" fill="#5c3f15" rx="1" />
     {/* Mattress/Blanket */}
@@ -188,7 +188,7 @@ const CozyBedSVG = () => (
 );
 
 const HospitalBedSVG = () => (
-  <svg viewBox="0 0 28 32" className="w-10 h-11" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 28 32" className="w-6 h-7 sm:w-10 sm:h-11" style={{ imageRendering: 'pixelated' }}>
     {/* Steel frame */}
     <rect x="2" y="2" width="24" height="28" fill="#94a3b8" rx="1" />
     <rect x="2" y="2" width="2" height="28" fill="#64748b" />
@@ -205,7 +205,7 @@ const HospitalBedSVG = () => (
 );
 
 const BeachUmbrellaSVG = () => (
-  <svg viewBox="0 0 32 36" className="w-12 h-14" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 32 36" className="w-7 h-8 sm:w-12 sm:h-14" style={{ imageRendering: 'pixelated' }}>
     {/* Stand pole */}
     <rect x="15" y="12" width="2" height="22" fill="#d97706" />
     {/* Wavy Umbrella Canopy (Red/White stripes) */}
@@ -216,7 +216,7 @@ const BeachUmbrellaSVG = () => (
 );
 
 const BeachChairSVG = () => (
-  <svg viewBox="0 0 24 24" className="w-8 h-8" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 24 24" className="w-5 h-5 sm:w-8 sm:h-8" style={{ imageRendering: 'pixelated' }}>
     {/* Slanted lounger frame */}
     <path d="M2 18 L20 18 L16 8 L12 8 Z" fill="#d97706" />
     <line x1="2" y1="18" x2="16" y2="8" stroke="#3b82f6" strokeWidth="2" />
@@ -225,7 +225,7 @@ const BeachChairSVG = () => (
 );
 
 const IVStandSVG = () => (
-  <svg viewBox="0 0 10 32" className="w-4 h-12" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 10 32" className="w-2.5 h-8 sm:w-4 sm:h-12" style={{ imageRendering: 'pixelated' }}>
     <rect x="4" y="2" width="2" height="28" fill="#cbd5e1" />
     <rect x="2" y="30" width="6" height="1.5" fill="#475569" />
     {/* IV fluid bag */}
@@ -235,7 +235,7 @@ const IVStandSVG = () => (
 );
 
 const HeartMonitorSVG = () => (
-  <svg viewBox="0 0 20 20" className="w-7 h-7" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 20 20" className="w-4.5 h-4.5 sm:w-7 sm:h-7" style={{ imageRendering: 'pixelated' }}>
     <rect x="1" y="1" width="18" height="18" fill="#1e293b" rx="1" />
     <rect x="2" y="2" width="16" height="16" fill="#020617" />
     {/* ECG green wave line */}
@@ -244,7 +244,7 @@ const HeartMonitorSVG = () => (
 );
 
 const DeskSVG = () => (
-  <svg viewBox="0 0 36 28" className="w-14 h-11" style={{ imageRendering: 'pixelated' }}>
+  <svg viewBox="0 0 36 28" className="w-8 h-6 sm:w-14 sm:h-11" style={{ imageRendering: 'pixelated' }}>
     <rect x="1" y="14" width="34" height="10" fill="#854d0e" rx="1" /> {/* Wood Table */}
     <rect x="1" y="12" width="34" height="2" fill="#a16207" />
     {/* Legs */}
@@ -277,7 +277,7 @@ const CharacterSVG = ({ hairStyle, shirtColor, isWalking, isTyping, dir }: Chara
   const hairColor = hairColors[hairStyle % hairColors.length];
 
   return (
-    <svg viewBox="0 0 16 24" className="w-8 h-12" style={{ imageRendering: 'pixelated' }}>
+    <svg viewBox="0 0 16 24" className="w-5 h-[30px] sm:w-8 sm:h-12" style={{ imageRendering: 'pixelated' }}>
       {/* Legs Animation */}
       {isWalking ? (
         <>
@@ -649,7 +649,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
         <div className="flex items-center gap-3">
           <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
             <span className="w-1.5 h-4 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-            🎮 Live Tech Pixel Office (สถานะปฏิบัติงานช่างเทคนิคเรียลไทม์)
+            🎮 Live Tech Pixel Office
           </h3>
           {demoMode && (
             <span className="bg-rose-500 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-full shadow-sm animate-pulse Prompt tracking-wider">
@@ -673,7 +673,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
               <div className={`absolute left-0.5 top-0.5 w-3 h-3 bg-white rounded-full shadow-md transition-transform duration-200 ${demoMode ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </label>
-
+ 
           <div className="flex gap-3 text-[10px] font-bold Prompt text-slate-500 border-l border-slate-200 pl-4">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
@@ -686,9 +686,9 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           </div>
         </div>
       </div>
-
-      {/* 2D Orthogonal Pixel Office Map Viewer Container - Expanded height to 420px */}
-      <div className="w-full h-[420px] border-4 border-slate-700 bg-slate-900 rounded-2xl relative overflow-hidden select-none">
+ 
+      {/* 2D Orthogonal Pixel Office Map Viewer Container */}
+      <div className="w-full h-[220px] sm:h-[420px] border-4 border-slate-700 bg-slate-900 rounded-2xl relative overflow-hidden select-none">
         
         {/* ROOM 1: MAIN WORKSPACE (Left Side 55% Width) */}
         <div className="absolute left-0 top-0 w-[55%] h-[82%] pixel-wood-floor">
@@ -698,36 +698,36 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           {/* Plant Pots & Cardboard boxes */}
           <div className="absolute left-[3%] top-[12%]"><PlantSVG /></div>
           <div className="absolute left-[24%] top-[2%] flex gap-1 bg-amber-800/10 p-1 rounded">
-            <div className="w-3.5 h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
-            <div className="w-3.5 h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
+            <div className="w-2 h-2 sm:w-3.5 sm:h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
+            <div className="w-2 h-2 sm:w-3.5 sm:h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
           </div>
-
+ 
           {/* DESKS (8 Stations call-center layout) */}
           {/* Row 1 */}
           <div className="absolute left-[8%] top-[10%]"><DeskSVG /></div>
-          <div className="absolute left-[14%] top-[21%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[14%] top-[21%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           <div className="absolute left-[58%] top-[10%]"><DeskSVG /></div>
-          <div className="absolute left-[64%] top-[21%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[64%] top-[21%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           
           {/* Row 2 */}
           <div className="absolute left-[8%] top-[28%]"><DeskSVG /></div>
-          <div className="absolute left-[14%] top-[39%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[14%] top-[39%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           <div className="absolute left-[58%] top-[28%]"><DeskSVG /></div>
-          <div className="absolute left-[64%] top-[39%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[64%] top-[39%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           
           {/* Row 3 */}
           <div className="absolute left-[8%] top-[46%]"><DeskSVG /></div>
-          <div className="absolute left-[14%] top-[57%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[14%] top-[57%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           <div className="absolute left-[58%] top-[46%]"><DeskSVG /></div>
-          <div className="absolute left-[64%] top-[57%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[64%] top-[57%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           
           {/* Row 4 */}
           <div className="absolute left-[8%] top-[64%]"><DeskSVG /></div>
-          <div className="absolute left-[14%] top-[75%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[14%] top-[75%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
           <div className="absolute left-[58%] top-[64%]"><DeskSVG /></div>
-          <div className="absolute left-[64%] top-[75%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[64%] top-[75%] w-2 h-2 sm:w-3 sm:h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
         </div>
-
+ 
         {/* ROOM 2: COZY BEDROOM (Right Top 45% Width, 27% Height) */}
         <div className="absolute right-0 top-0 w-[45%] h-[27%] bg-[#ffedd5] border-b-2 border-slate-950 flex items-center justify-around px-4 overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle, #fed7aa 8%, transparent 9%)', backgroundSize: '16px 16px' }}>
           {/* Beds */}
@@ -735,8 +735,8 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           <div className="absolute right-[14%] top-[10%]"><CozyBedSVG /></div>
           {/* Side drawer and lamp */}
           <div className="absolute left-[46%] top-[22%] flex flex-col items-center">
-            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm" /> {/* Light */}
-            <div className="w-3.5 h-4 bg-amber-800 border border-amber-950 rounded-xs" />
+            <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm" /> {/* Light */}
+            <div className="w-2.5 h-3 sm:w-3.5 sm:h-4 bg-amber-800 border border-amber-950 rounded-xs" />
           </div>
         </div>
 
@@ -834,7 +834,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
               {tech.status === 'onsite' ? (
                 // Little driving truck!
                 <div className="flex items-center gap-1 drop-shadow-md">
-                  <svg className="w-12 h-6" viewBox="0 0 48 24" fill="none">
+                  <svg className="w-8 h-4 sm:w-12 sm:h-6" viewBox="0 0 48 24" fill="none">
                     <rect x="2" y="8" width="28" height="10" rx="1" fill="#3b82f6" />
                     <rect x="28" y="10" width="12" height="8" rx="1" fill="#3b82f6" />
                     <path d="M40 18 L44 18 L42 12 L38 12 Z" fill="#3b82f6" />
@@ -849,7 +849,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
                     <circle cx="32" cy="18" r="4" fill="#1e293b" />
                     <circle cx="32" cy="18" r="2" fill="#ffffff" className="animate-wheel" />
                   </svg>
-                  <div className="bg-white/95 px-1.5 py-0.5 rounded border border-indigo-200 text-[8px] font-black text-indigo-700 Prompt whitespace-nowrap shadow-sm">
+                  <div className="bg-white/95 px-1 sm:px-1.5 py-0.5 rounded border border-indigo-200 text-[6px] sm:text-[8px] font-black text-indigo-700 Prompt whitespace-nowrap shadow-sm">
                     ช่าง {tech.displayName} ({tech.province || 'เดินทาง'})
                   </div>
                 </div>
@@ -866,11 +866,11 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
                     />
                   </div>
                   {/* Name tag with dynamic status indicator */}
-                  <div className="flex flex-col items-center bg-white/95 px-1.5 py-0.5 rounded border border-slate-200 shadow-xs mt-0.5 z-30 max-w-[70px]">
-                    <span className="text-[8px] font-black text-slate-800 truncate Prompt text-center" title={tech.name}>
+                  <div className="flex flex-col items-center bg-white/95 px-1 sm:px-1.5 py-0.5 rounded border border-slate-200 shadow-xs mt-0.5 z-30 max-w-[55px] sm:max-w-[70px]">
+                    <span className="text-[6px] sm:text-[8px] font-black text-slate-800 truncate Prompt text-center" title={tech.name}>
                       {tech.displayName}
                     </span>
-                    <span className={`text-[7px] font-bold Prompt whitespace-nowrap leading-none mt-0.5 ${
+                    <span className={`text-[5px] sm:text-[7px] font-bold Prompt whitespace-nowrap leading-none mt-0.5 ${
                       tech.status === 'normal' || tech.status === 'late' ? 'text-emerald-600' :
                       tech.status === 'sick_leave' ? 'text-rose-500' :
                       tech.status === 'personal_leave' ? 'text-amber-500' : 'text-slate-400'
