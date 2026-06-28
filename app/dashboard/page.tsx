@@ -524,11 +524,16 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       return { x: 77, y: 46, dir: 'front' as const };
     } else if (t.status === 'normal' || t.status === 'late') {
       const idx = workingTechs.findIndex(w => w.username === t.username);
-      if (idx === 0) return { x: 8.8, y: 26, dir: 'back' as const };
-      if (idx === 1) return { x: 36.3, y: 26, dir: 'back' as const };
-      if (idx === 2) return { x: 8.8, y: 55, dir: 'back' as const };
-      if (idx === 3) return { x: 36.3, y: 55, dir: 'back' as const };
-      return { x: 25, y: 40, dir: 'front' as const };
+      const deskIdx = idx >= 0 ? idx : 0;
+      if (deskIdx === 0) return { x: 7.7, y: 17.2, dir: 'back' as const };
+      if (deskIdx === 1) return { x: 35.2, y: 17.2, dir: 'back' as const };
+      if (deskIdx === 2) return { x: 7.7, y: 32.0, dir: 'back' as const };
+      if (deskIdx === 3) return { x: 35.2, y: 32.0, dir: 'back' as const };
+      if (deskIdx === 4) return { x: 7.7, y: 46.7, dir: 'back' as const };
+      if (deskIdx === 5) return { x: 35.2, y: 46.7, dir: 'back' as const };
+      if (deskIdx === 6) return { x: 7.7, y: 61.5, dir: 'back' as const };
+      if (deskIdx === 7) return { x: 35.2, y: 61.5, dir: 'back' as const };
+      return { x: 21.5, y: 45, dir: 'front' as const };
     } else {
       const idx = offlineTechs.findIndex(of => of.username === t.username);
       if (idx === 0) return { x: 65, y: 15, dir: 'front' as const };
@@ -697,29 +702,40 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
             <div className="w-3.5 h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
           </div>
 
-          {/* DESKS spaced out properly across the main workspace */}
-          {/* Desk 1 (top-left) */}
-          <div className="absolute left-[10%] top-[20%]"><DeskSVG /></div>
-          <div className="absolute left-[16%] top-[32%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
-          {/* Desk 2 (top-right) */}
-          <div className="absolute left-[60%] top-[20%]"><DeskSVG /></div>
-          <div className="absolute left-[66%] top-[32%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
-          {/* Desk 3 (bottom-left) */}
-          <div className="absolute left-[10%] top-[55%]"><DeskSVG /></div>
-          <div className="absolute left-[16%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
-          {/* Desk 4 (bottom-right) */}
-          <div className="absolute left-[60%] top-[55%]"><DeskSVG /></div>
-          <div className="absolute left-[66%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          {/* DESKS (8 Stations call-center layout) */}
+          {/* Row 1 */}
+          <div className="absolute left-[8%] top-[10%]"><DeskSVG /></div>
+          <div className="absolute left-[14%] top-[21%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[58%] top-[10%]"><DeskSVG /></div>
+          <div className="absolute left-[64%] top-[21%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          
+          {/* Row 2 */}
+          <div className="absolute left-[8%] top-[28%]"><DeskSVG /></div>
+          <div className="absolute left-[14%] top-[39%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[58%] top-[28%]"><DeskSVG /></div>
+          <div className="absolute left-[64%] top-[39%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          
+          {/* Row 3 */}
+          <div className="absolute left-[8%] top-[46%]"><DeskSVG /></div>
+          <div className="absolute left-[14%] top-[57%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[58%] top-[46%]"><DeskSVG /></div>
+          <div className="absolute left-[64%] top-[57%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          
+          {/* Row 4 */}
+          <div className="absolute left-[8%] top-[64%]"><DeskSVG /></div>
+          <div className="absolute left-[14%] top-[75%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          <div className="absolute left-[58%] top-[64%]"><DeskSVG /></div>
+          <div className="absolute left-[64%] top-[75%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
         </div>
 
         {/* ROOM 2: COZY BEDROOM (Right Top 45% Width, 27% Height) */}
-        <div className="absolute right-0 top-0 w-[45%] h-[27%] bg-slate-800/40 border-b-2 border-slate-950 flex items-center justify-around px-4 relative overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle, #334155 10%, transparent 11%)', backgroundSize: '12px 12px' }}>
+        <div className="absolute right-0 top-0 w-[45%] h-[27%] bg-[#ffedd5] border-b-2 border-slate-950 flex items-center justify-around px-4 relative overflow-hidden" style={{ backgroundImage: 'radial-gradient(circle, #fed7aa 8%, transparent 9%)', backgroundSize: '16px 16px' }}>
           {/* Beds */}
           <div className="absolute left-[14%] top-[10%]"><CozyBedSVG /></div>
           <div className="absolute right-[14%] top-[10%]"><CozyBedSVG /></div>
           {/* Side drawer and lamp */}
           <div className="absolute left-[46%] top-[22%] flex flex-col items-center">
-            <div className="w-1.5 h-1.5 bg-yellow-300 rounded-full animate-pulse shadow-sm" /> {/* Light */}
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse shadow-sm" /> {/* Light */}
             <div className="w-3.5 h-4 bg-amber-800 border border-amber-950 rounded-xs" />
           </div>
         </div>
