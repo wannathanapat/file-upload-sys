@@ -1138,7 +1138,7 @@ function DashboardContent() {
 
         {/* ── Table Section: Tabs + Filters + Tables ───────────────────────── */}
         {viewMode !== 'overview' && (
-          <div className="glass-card overflow-hidden">
+          <div className="glass-card">
 
           {/* Tab + Filter Header */}
           <div className="p-5 border-b border-slate-100">
