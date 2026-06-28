@@ -436,15 +436,39 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     const username = u.username || '';
     const name = u.name || '';
     const attRecord = todayAttendance[username] || todayAttendance[name];
-    const status = attRecord?.status || 'offline';
-    const isWorkingOrOnsiteLive = status === 'normal' || status === 'late' || status === 'onsite';
     
+    // Check if submitted any job today
+    const submittedToday = submissions.some(s => {
+      if (s.name?.trim().toLowerCase() !== name.trim().toLowerCase()) return false;
+      const subDate = s.submission_date?.split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
+      return subDate === today;
+    });
+
     const pendingJobs = assignedJobs.filter(j => 
       j.status !== 'submitted' && 
       (j.technician?.trim().toLowerCase() === name.trim().toLowerCase() ||
        j.technician?.trim().toLowerCase() === username.trim().toLowerCase())
     );
+    const pendingCount = pendingJobs.length;
 
+    // Option B lifecycle: Determine status automatically
+    let status = 'offline';
+    if (attRecord) {
+      // Check if user is on leave
+      if (attRecord.status === 'sick_leave' || attRecord.status === 'personal_leave') {
+        status = attRecord.status;
+      } else if (pendingCount > 0) {
+        status = 'onsite'; // Has active queue -> driving/on-site!
+      } else if (submittedToday) {
+        status = 'offline'; // Completed all assigned jobs today -> offline/home!
+      } else {
+        status = 'normal'; // Checked in but 0 jobs assigned -> waiting at desk!
+      }
+    }
+
+    const isWorkingOrOnsiteLive = status === 'normal' || status === 'late' || status === 'onsite';
+    
     // ONLY check recent submissions if they are active/onsite
     const hasRecentSub = isWorkingOrOnsiteLive && submissions.some(s => {
       if (s.name?.trim().toLowerCase() !== name.trim().toLowerCase()) return false;
@@ -452,15 +476,18 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       return (Date.now() - subTime) < 2 * 60 * 60 * 1000;
     });
 
+    const activeJob = pendingJobs[0];
+    const provinceVal = activeJob?.province || attRecord?.province || 'เดินทาง';
+
     return {
       username,
       name,
       displayName: name.split('-').pop()?.trim() || name,
-      pendingCount: pendingJobs.length,
+      pendingCount,
       hasRecentSub,
       checkInTime: attRecord?.check_in_time ? new Date(attRecord.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '',
       status,
-      province: attRecord?.province || '',
+      province: provinceVal,
       district: attRecord?.district || ''
     };
   });
