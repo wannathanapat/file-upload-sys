@@ -332,28 +332,23 @@ function SubmitPageInner() {
       const techToQuery = targetTechName || '';
 
       // 1. Fetch pending assigned jobs for this tech
-      // Run parallel queries: exact name AND suffix-only name to handle legacy imported jobs
-      // that may have been stored with only the short name (without Thai prefix)
-      const techSuffix = techToQuery.includes('-')
-        ? (techToQuery.split('-').pop()?.trim() || techToQuery)
-        : null;
-      const pendingJobsQuery = (nameVal: string) =>
-        query(collection(db, 'assigned_jobs'), where('assigned_to', '==', nameVal), where('status', '==', 'pending'));
-
-      const queryPromises = [getDocs(pendingJobsQuery(techToQuery))];
-      if (techSuffix && techSuffix !== techToQuery) {
-        queryPromises.push(getDocs(pendingJobsQuery(techSuffix)));
-      }
-      const jobsSnaps = await Promise.all(queryPromises);
+      // Fetch all pending jobs and filter on client side using English suffix comparison
+      // to handle name format variations (e.g., prefix differences) consistently.
+      const pendingJobsQuery = query(collection(db, 'assigned_jobs'), where('status', '==', 'pending'));
+      const jobsSnap = await getDocs(pendingJobsQuery);
       const jobsList: JobRow[] = [];
-      const seenDocIds = new Set<string>();
-      jobsSnaps.forEach(snap => {
-        snap.forEach(docSnap => {
-          if (!seenDocIds.has(docSnap.id)) {
-            seenDocIds.add(docSnap.id);
-            jobsList.push(docSnap.data() as JobRow);
-          }
-        });
+      const targetSuffix = getEnglishNameSuffix(techToQuery);
+      
+      jobsSnap.forEach(docSnap => {
+        const job = docSnap.data() as JobRow;
+        const jobTech = job.assigned_to || '';
+        const match = 
+          jobTech === techToQuery || 
+          (targetSuffix && getEnglishNameSuffix(jobTech) === targetSuffix);
+        
+        if (match) {
+          jobsList.push(job);
+        }
       });
       setAssignedJobs(jobsList);
 

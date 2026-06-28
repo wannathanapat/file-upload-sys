@@ -15,7 +15,8 @@ import {
   updateDoc, 
   deleteDoc, 
   getDoc,
-  writeBatch
+  writeBatch,
+  onSnapshot
 } from 'firebase/firestore';
 import type { SubmissionData, JobRow, UserData } from '@/lib/utils';
 import { formatThaiDate, getFileIdFromUrl, getEnglishNameSuffix } from '@/lib/utils';
@@ -192,70 +193,98 @@ function DashboardContent() {
     rejected: 0
   });
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const db = getDb();
-      
-      // 1. Fetch Submissions
-      const subSnap = await getDocs(query(collection(db, 'submissions')));
-      const subList: SubmissionData[] = [];
-      subSnap.forEach(docSnap => {
-        subList.push(docSnap.data() as SubmissionData);
-      });
-      // Sort desc by submission_date
-      subList.sort((a, b) => new Date(b.submission_date).getTime() - new Date(a.submission_date).getTime());
-      setSubmissions(subList);
+  // A ref to keep track of active subscriptions to avoid duplicating listeners
+  const unsubscribersRef = useRef<{ unsubSubmissions?: () => void, unsubJobs?: () => void, unsubUsers?: () => void }>({});
 
-      // Cache locally
-      localStorage.setItem('cachedHistoryData', JSON.stringify(subList));
+  const startRealtimeListeners = React.useCallback(() => {
+    const db = getDb();
+    
+    // Unsubscribe existing if any
+    if (unsubscribersRef.current.unsubSubmissions) unsubscribersRef.current.unsubSubmissions();
+    if (unsubscribersRef.current.unsubJobs) unsubscribersRef.current.unsubJobs();
+    if (unsubscribersRef.current.unsubUsers) unsubscribersRef.current.unsubUsers();
 
-      // Calculate Stats
-      const total = subList.length;
-      const approved = subList.filter(s => s.status === 'ตรวจแล้ว').length;
-      const pending = subList.filter(s => s.status === 'รอตรวจ' || !s.status).length;
-      const rejected = subList.filter(s => s.status === 'แก้ไข').length;
-      setStats({ total, approved, pending, rejected });
+    // 1. Listen to Submissions
+    unsubscribersRef.current.unsubSubmissions = onSnapshot(
+      query(collection(db, 'submissions')),
+      (subSnap) => {
+        const subList: SubmissionData[] = [];
+        subSnap.forEach(docSnap => {
+          subList.push(docSnap.data() as SubmissionData);
+        });
+        subList.sort((a, b) => new Date(b.submission_date).getTime() - new Date(a.submission_date).getTime());
+        setSubmissions(subList);
+        localStorage.setItem('cachedHistoryData', JSON.stringify(subList));
 
-      // 2. Fetch Assigned Jobs (Queues)
-      const jobsSnap = await getDocs(query(collection(db, 'assigned_jobs'), orderBy('timestamp', 'desc')));
-      const jobsList: JobRow[] = [];
-      jobsSnap.forEach(docSnap => {
-        jobsList.push(docSnap.data() as JobRow);
-      });
-      setAssignedJobs(jobsList);
-
-      // 3. Fetch Users
-      const usersSnap = await getDocs(query(collection(db, 'users')));
-      const usersList: UserData[] = [];
-      usersSnap.forEach(docSnap => {
-        usersList.push(docSnap.data() as UserData);
-      });
-      setUsers(usersList);
-
-    } catch (err: any) {
-      console.error(err);
-      showToast("ดึงข้อมูลขัดข้อง กำลังแสดงข้อมูลเก่าจากแคชอุปกรณ์ ⚠️", "error");
-      
-      // Load cache
-      const cached = localStorage.getItem('cachedHistoryData');
-      if (cached) {
-        const cachedList = JSON.parse(cached) as SubmissionData[];
-        setSubmissions(cachedList);
-        const total = cachedList.length;
-        const approved = cachedList.filter(s => s.status === 'ตรวจแล้ว').length;
-        const pending = cachedList.filter(s => s.status === 'รอตรวจ' || !s.status).length;
-        const rejected = cachedList.filter(s => s.status === 'แก้ไข').length;
+        // Calculate Stats
+        const total = subList.length;
+        const approved = subList.filter(s => s.status === 'ตรวจแล้ว').length;
+        const pending = subList.filter(s => s.status === 'รอตรวจ' || !s.status).length;
+        const rejected = subList.filter(s => s.status === 'แก้ไข').length;
         setStats({ total, approved, pending, rejected });
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Submissions listener failed:", err);
+        showToast("ดึงข้อมูลประวัติขัดข้อง ⚠️", "error");
+        // Load cache fallback if needed
+        const cached = localStorage.getItem('cachedHistoryData');
+        if (cached) {
+          const cachedList = JSON.parse(cached) as SubmissionData[];
+          setSubmissions(cachedList);
+          const total = cachedList.length;
+          const approved = cachedList.filter(s => s.status === 'ตรวจแล้ว').length;
+          const pending = cachedList.filter(s => s.status === 'รอตรวจ' || !s.status).length;
+          const rejected = cachedList.filter(s => s.status === 'แก้ไข').length;
+          setStats({ total, approved, pending, rejected });
+        }
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
+    );
+
+    // 2. Listen to Assigned Jobs
+    unsubscribersRef.current.unsubJobs = onSnapshot(
+      query(collection(db, 'assigned_jobs'), orderBy('timestamp', 'desc')),
+      (jobsSnap) => {
+        const jobsList: JobRow[] = [];
+        jobsSnap.forEach(docSnap => {
+          jobsList.push(docSnap.data() as JobRow);
+        });
+        setAssignedJobs(jobsList);
+      },
+      (err) => {
+        console.error("Jobs listener failed:", err);
+      }
+    );
+
+    // 3. Listen to Users
+    unsubscribersRef.current.unsubUsers = onSnapshot(
+      query(collection(db, 'users')),
+      (usersSnap) => {
+        const usersList: UserData[] = [];
+        usersSnap.forEach(docSnap => {
+          usersList.push(docSnap.data() as UserData);
+        });
+        setUsers(usersList);
+      },
+      (err) => {
+        console.error("Users listener failed:", err);
+      }
+    );
+  }, []);
+
+  const fetchData = async () => {
+    // Legacy support, doesn't need to do anything since listeners are running
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    startRealtimeListeners();
+    return () => {
+      if (unsubscribersRef.current.unsubSubmissions) unsubscribersRef.current.unsubSubmissions();
+      if (unsubscribersRef.current.unsubJobs) unsubscribersRef.current.unsubJobs();
+      if (unsubscribersRef.current.unsubUsers) unsubscribersRef.current.unsubUsers();
+    };
+  }, [startRealtimeListeners]);
 
   useEffect(() => {
     const tech = searchParams.get('tech') || '';
@@ -767,7 +796,12 @@ function DashboardContent() {
     const techSubs = submissions.filter(s => s.name === name);
     const approved = techSubs.filter(s => s.status === 'ตรวจแล้ว').length;
     const rate = techSubs.length > 0 ? Math.round((approved / techSubs.length) * 100) : 0;
-    const pendingJobs = assignedJobs.filter(j => j.assigned_to === name && j.status === 'pending').length;
+    const pendingJobs = assignedJobs.filter(j => 
+      j.status === 'pending' && (
+        j.assigned_to === name ||
+        (getEnglishNameSuffix(j.assigned_to) && getEnglishNameSuffix(j.assigned_to) === getEnglishNameSuffix(name))
+      )
+    ).length;
     return { name, total: techSubs.length, approved, rate, pendingJobs };
   });
 

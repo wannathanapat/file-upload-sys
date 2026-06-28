@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/firebase';
+import { getEnglishNameSuffix } from '@/lib/utils';
 import {
   collection, getDocs, doc, getDoc, query, where,
   addDoc, updateDoc, deleteDoc, Timestamp,
@@ -137,7 +138,10 @@ export async function GET(req: NextRequest) {
           let skippedNoToken = 0;
 
           for (const [techName, jobs] of byTech) {
-            const user = allUsers.find(u => u.name === techName);
+            const user = allUsers.find(u => 
+              u.name === techName || 
+              (getEnglishNameSuffix(u.name) && getEnglishNameSuffix(u.name) === getEnglishNameSuffix(techName))
+            );
             const matchKeys = new Set<string>(
               [techName, user?.username].filter(Boolean) as string[]
             );
