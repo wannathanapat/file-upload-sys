@@ -57,37 +57,196 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
-      const fcmTokens = tokensSnap.docs
-        .map(d => d.data())
-        .filter(d => {
-          if (data.target === 'all') return true;
-          if (data.target === 'admin_auditor') return d.role === 'admin' || d.role === 'auditor';
-          return d.role === 'staff';
-        })
-        .map(d => d.token as string)
-        .filter(Boolean);
+      if (data.has_placeholders) {
+        // Fetch jobs, users, and tokens
+        const jobsSnap = await getDocs(
+          query(collection(db, 'assigned_jobs'), where('status', '==', 'pending'))
+        );
+        const jobsByTech = new Map<string, any[]>();
+        jobsSnap.forEach(jsnap => {
+          const job = jsnap.data();
+          const techName = (job.assigned_to as string)?.trim() || '';
+          if (!techName) return;
+          if (!jobsByTech.has(techName)) jobsByTech.set(techName, []);
+          jobsByTech.get(techName)!.push(job);
+        });
 
-      if (fcmTokens.length === 0) {
-        await updateDoc(snap.ref, { sent: true, sent_count: 0 });
-        results.push(`Scheduled broadcast "${data.title}": no tokens`);
-        continue;
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const allUsers = usersSnap.docs.map((d: any) => d.data());
+
+        const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
+        const fcmTokensWithInfo = tokensSnap.docs
+          .map((d: any) => d.data())
+          .filter((d: any) => {
+            if (data.target === 'all') return true;
+            if (data.target === 'admin_auditor') return d.role === 'admin' || d.role === 'auditor';
+            if (data.target === 'staff') {
+              if (Array.isArray(data.selected_staff) && data.selected_staff.length > 0) {
+                return d.role === 'staff' && data.selected_staff.includes(d.username);
+              }
+              return d.role === 'staff';
+            }
+            return true;
+          })
+          .map((d: any) => ({
+            token: d.token as string,
+            username: d.username as string,
+            name: d.name as string || d.username as string || 'unknown'
+          }))
+          .filter((t: any) => t.token);
+
+        // Group by username
+        const tokensByUser = new Map<string, typeof fcmTokensWithInfo>();
+        fcmTokensWithInfo.forEach((t: any) => {
+          if (!tokensByUser.has(t.username)) {
+            tokensByUser.set(t.username, []);
+          }
+          tokensByUser.get(t.username)!.push(t);
+        });
+
+        let totalSuccessCount = 0;
+        const sentToNames: string[] = [];
+
+        for (const [username, userTokens] of tokensByUser.entries()) {
+          if (userTokens.length === 0) continue;
+
+          const user = allUsers.find(u => u.username === username);
+          const techName = user?.name || userTokens[0].name || username;
+
+          // Resolve pending jobs for this technician
+          const userSuffix = getEnglishNameSuffix(techName);
+          const jobs: any[] = [];
+          jobsByTech.forEach((jobList, techKey) => {
+            if (techKey === techName || techKey === username) {
+              jobs.push(...jobList);
+              return;
+            }
+            const techSuffix = getEnglishNameSuffix(techKey);
+            if (userSuffix && techSuffix && userSuffix === techSuffix) {
+              jobs.push(...jobList);
+            }
+          });
+
+          const totalJobs = jobs.length;
+
+          // Skip sending if the message has task placeholders and this tech has 0 tasks
+          const hasTaskPlaceholders =
+            data.title.includes('{งานค้าง}') || data.title.includes('{tasks}') ||
+            data.title.includes('{งานติดตั้ง}') || data.title.includes('{ins_tasks}') ||
+            data.title.includes('{งานบริการ}') || data.title.includes('{as_tasks}') ||
+            data.body.includes('{งานค้าง}') || data.body.includes('{tasks}') ||
+            data.body.includes('{งานติดตั้ง}') || data.body.includes('{ins_tasks}') ||
+            data.body.includes('{งานบริการ}') || data.body.includes('{as_tasks}');
+
+          if (hasTaskPlaceholders && totalJobs === 0) {
+            continue;
+          }
+
+          const insJobs = jobs.filter(j => j.job_type?.includes('INS') || j.job_type === 'งานติดตั้ง (INS)').length;
+          const asJobs = jobs.filter(j => !(j.job_type?.includes('INS') || j.job_type === 'งานติดตั้ง (INS)')).length;
+
+          const resolvedTitle = data.title
+            .replaceAll('{ช่าง}', techName)
+            .replaceAll('{name}', techName)
+            .replaceAll('{งานค้าง}', String(totalJobs))
+            .replaceAll('{tasks}', String(totalJobs))
+            .replaceAll('{งานติดตั้ง}', String(insJobs))
+            .replaceAll('{ins_tasks}', String(insJobs))
+            .replaceAll('{งานบริการ}', String(asJobs))
+            .replaceAll('{as_tasks}', String(asJobs));
+
+          const resolvedBody = data.body
+            .replaceAll('{ช่าง}', techName)
+            .replaceAll('{name}', techName)
+            .replaceAll('{งานค้าง}', String(totalJobs))
+            .replaceAll('{tasks}', String(totalJobs))
+            .replaceAll('{งานติดตั้ง}', String(insJobs))
+            .replaceAll('{ins_tasks}', String(insJobs))
+            .replaceAll('{งานบริการ}', String(asJobs))
+            .replaceAll('{as_tasks}', String(asJobs));
+
+          // Save individual personal notification doc in Firestore
+          const personalNotifRef = await addDoc(collection(db, 'notifications'), {
+            title: resolvedTitle,
+            body: resolvedBody,
+            type: 'broadcast',
+            category: data.category,
+            category_label: data.category_label,
+            target: data.target,
+            user_id: username,
+            created_by: data.created_by || 'admin',
+            created_at: Timestamp.now(),
+            sent: false,
+            sent_count: 0,
+          });
+
+          const pushRes = await fetch(`${baseUrl}/api/push-notify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: resolvedTitle,
+              body: resolvedBody,
+              url: '/notifications',
+              serviceAccountJson: pushServiceAccount,
+              tokens: userTokens,
+              notifId: personalNotifRef.id,
+            }),
+          });
+          const pushData = await pushRes.json();
+          totalSuccessCount += pushData.successCount ?? 0;
+          if (pushData.successCount > 0) {
+            sentToNames.push(techName);
+          }
+        }
+
+        // Update master record to mark sent
+        await updateDoc(snap.ref, {
+          sent: true,
+          sent_count: totalSuccessCount,
+          sent_to: sentToNames,
+        });
+
+        results.push(`Scheduled personalized broadcast "${data.title}": sent to ${totalSuccessCount} devices`);
+
+      } else {
+        const tokensSnap = await getDocs(collection(db, 'notification_tokens'));
+        const fcmTokens = tokensSnap.docs
+          .map(d => d.data())
+          .filter(d => {
+            if (data.target === 'all') return true;
+            if (data.target === 'admin_auditor') return d.role === 'admin' || d.role === 'auditor';
+            if (data.target === 'staff') {
+              if (Array.isArray(data.selected_staff) && data.selected_staff.length > 0) {
+                return d.role === 'staff' && data.selected_staff.includes(d.username);
+              }
+              return d.role === 'staff';
+            }
+            return true;
+          })
+          .map(d => d.token as string)
+          .filter(Boolean);
+
+        if (fcmTokens.length === 0) {
+          await updateDoc(snap.ref, { sent: true, sent_count: 0 });
+          results.push(`Scheduled broadcast "${data.title}": no tokens`);
+          continue;
+        }
+
+        const pushRes = await fetch(`${baseUrl}/api/push-notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: data.title,
+            body: data.body,
+            url: '/notifications',
+            serviceAccountJson: pushServiceAccount,
+            tokens: fcmTokens,
+            notifId: snap.id,
+          }),
+        });
+        const pushData = await pushRes.json();
+        results.push(`Scheduled broadcast "${data.title}": sent to ${pushData.successCount ?? 0} devices`);
       }
-
-      const pushRes = await fetch(`${baseUrl}/api/push-notify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: data.title,
-          body: data.body,
-          url: '/notifications',
-          serviceAccountJson: pushServiceAccount,
-          tokens: fcmTokens,
-          notifId: snap.id,
-        }),
-      });
-      const pushData = await pushRes.json();
-      results.push(`Scheduled broadcast "${data.title}": sent to ${pushData.successCount ?? 0} devices`);
     }
   } catch (e: any) {
     results.push(`Scheduled broadcast error: ${e.message}`);

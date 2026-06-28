@@ -12,11 +12,47 @@ import { useApp } from '@/app/providers';
 import { getDb } from '@/lib/firebase';
 import {
   collection, query, orderBy, limit, getDocs,
-  addDoc, doc, getDoc, setDoc, deleteDoc, serverTimestamp, writeBatch, Timestamp,
+  addDoc, doc, getDoc, setDoc, deleteDoc, serverTimestamp, writeBatch, Timestamp, where,
 } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import { getEnglishNameSuffix } from '@/lib/utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+const TEMPLATES = [
+  {
+    name: '📋 แจ้งงานค้างส่งช่างรายบุคคล',
+    title: 'แจ้งเตือนงานค้างส่งในระบบ',
+    body: 'สวัสดีช่าง {ช่าง} ขณะนี้คุณมีงานค้างส่งในระบบทั้งหมด {งานค้าง} รายการ (ติดตั้ง {งานติดตั้ง} รายการ, บริการ {งานบริการ} รายการ) รบกวนเร่งดำเนินการและอัปโหลดไฟล์ใบงานด้วยครับ',
+    category: 'announce',
+    target: 'staff',
+    description: 'ดึงข้อมูลค้างส่งปัจจุบันและคำนวณแยกตามรายช่างรายบุคคลให้อัตโนมัติ',
+  },
+  {
+    name: '📢 ประกาศแจ้งเตือนทั่วไป',
+    title: 'ประกาศขอความร่วมมือจากส่วนกลาง',
+    body: 'เรียนช่างทุกท่าน รบกวนช่วยตรวจสอบข้อมูลและอัปโหลดเอกสารต่างๆ ให้เสร็จสิ้นเรียบร้อยเพื่อความสะดวกในการดำเนินงานและการตรวจสอบของทีมงาน ขอบคุณในความร่วมมือครับ',
+    category: 'announce',
+    target: 'staff',
+    description: 'ประกาศเตือนทั่วไปเกี่ยวกับข้อตกลงหรือชี้แจงการทำงานทั่วไป',
+  },
+  {
+    name: '⚠️ แจ้งปรับปรุงระบบชั่วคราว',
+    title: 'แจ้งปิดปรับปรุงระบบชั่วคราว',
+    body: 'ระบบจะทำการปิดปรับปรุงชั่วคราวในวัน [ระบุวัน] เวลา [ระบุเวลา] น. เพื่อปรับปรุงและเพิ่มประสิทธิภาพการใช้งานระบบ ขออภัยในความไม่สะดวกชั่วคราวครับ',
+    category: 'warning',
+    target: 'all',
+    description: 'ประกาศชี้แจ้งกำหนดเวลาปรับปรุงเซิร์ฟเวอร์หรืออัปเดตระบบ',
+  },
+  {
+    name: '🎉 ชื่นชมผลงาน/ขอบคุณช่าง',
+    title: 'ยินดีกับยอดการทำงานอันยอดเยี่ยม!',
+    body: 'ขอขอบคุณและแสดงความยินดีกับช่างทุกท่านที่ช่วยกันปิดงานและสแกนส่งใบงานได้อย่างยอดเยี่ยมในสัปดาห์นี้ รักษาระดับความเร็วและผลงานนี้ไว้ลุยกันต่อครับ! 🚀',
+    category: 'celebrate',
+    target: 'all',
+    description: 'ส่งข้อความเพื่อเป็นกำลังใจและขอบคุณความทุ่มเทของช่างทุกคน',
+  },
+];
+
 const CATEGORIES = [
   { emoji: '📢', label: 'ประกาศทั่วไป', value: 'announce', color: 'from-blue-500 to-indigo-600', ring: 'ring-blue-400' },
   { emoji: '⚠️', label: 'แจ้งเตือนสำคัญ', value: 'warning',  color: 'from-amber-500 to-orange-500', ring: 'ring-amber-400' },
@@ -45,6 +81,7 @@ interface BroadcastDoc {
   sent_count: number;
   sent_to?: string[];
   type: 'broadcast';
+  user_id?: string;
 }
 
 function formatDate(ts: any): string {
@@ -68,6 +105,19 @@ export default function BroadcastPage() {
       <BroadcastInner />
     </Suspense>
   );
+}
+
+function simulatePlaceholders(text: string): string {
+  if (!text) return '';
+  return text
+    .replaceAll('{ช่าง}', 'สมศักดิ์-chonburi (ตัวอย่าง)')
+    .replaceAll('{name}', 'สมศักดิ์-chonburi (ตัวอย่าง)')
+    .replaceAll('{งานค้าง}', '5')
+    .replaceAll('{tasks}', '5')
+    .replaceAll('{งานติดตั้ง}', '2')
+    .replaceAll('{ins_tasks}', '2')
+    .replaceAll('{งานบริการ}', '3')
+    .replaceAll('{as_tasks}', '3');
 }
 
 function BroadcastInner() {
@@ -105,6 +155,10 @@ function BroadcastInner() {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [selectedHist, setSelectedHist] = useState<BroadcastDoc | null>(null);
 
+  // Staff listing and selection state
+  const [staffList, setStaffList] = useState<any[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+
   const cat = getCategoryInfo(category);
 
   const fetchHistory = useCallback(async () => {
@@ -114,11 +168,11 @@ function BroadcastInner() {
       const snap = await getDocs(query(
         collection(db, 'notifications'),
         orderBy('created_at', 'desc'),
-        limit(30)
+        limit(50)
       ));
       const docs = snap.docs
         .map(d => ({ id: d.id, ...d.data() } as BroadcastDoc))
-        .filter(d => d.type === 'broadcast');
+        .filter(d => d.type === 'broadcast' && !d.user_id);
       setHistory(docs);
     } catch (e) {
       console.error('Failed to load broadcast history', e);
@@ -128,6 +182,24 @@ function BroadcastInner() {
   }, []);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
+
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        const db = getDb();
+        const snap = await getDocs(query(collection(db, 'users'), where('role', '==', 'staff')));
+        const list = snap.docs.map(d => ({
+          username: d.data().username || '',
+          name: d.data().name || d.data().username || ''
+        }));
+        setStaffList(list);
+        setSelectedStaff(list.map(s => s.username));
+      } catch (e) {
+        console.error('Failed to load staff list', e);
+      }
+    };
+    fetchStaff();
+  }, []);
 
   useEffect(() => {
     const loadDailyConfig = async () => {
@@ -186,6 +258,10 @@ function BroadcastInner() {
       alert('กรุณาเลือกวันและเวลาที่ต้องการส่งครับ');
       return;
     }
+    if (target === 'staff' && selectedStaff.length === 0) {
+      alert('กรุณาเลือกช่างเทคนิคอย่างน้อย 1 คนครับ');
+      return;
+    }
 
     setSending(true);
     setPreview(false);
@@ -193,11 +269,22 @@ function BroadcastInner() {
       const db = getDb();
       const catInfo = getCategoryInfo(category);
       const broadcastTitle = `${catInfo.emoji} ${title.trim()}`;
+      const msgBody = body.trim();
+
+      const hasPlaceholders =
+        title.includes('{ช่าง}') || title.includes('{name}') ||
+        title.includes('{งานค้าง}') || title.includes('{tasks}') ||
+        title.includes('{งานติดตั้ง}') || title.includes('{ins_tasks}') ||
+        title.includes('{งานบริการ}') || title.includes('{as_tasks}') ||
+        msgBody.includes('{ช่าง}') || msgBody.includes('{name}') ||
+        msgBody.includes('{งานค้าง}') || msgBody.includes('{tasks}') ||
+        msgBody.includes('{งานติดตั้ง}') || msgBody.includes('{ins_tasks}') ||
+        msgBody.includes('{งานบริการ}') || msgBody.includes('{as_tasks}');
 
       // 1. Save to Firestore (with optional scheduled_at)
       const payload: Record<string, any> = {
         title: broadcastTitle,
-        body: body.trim(),
+        body: msgBody,
         type: 'broadcast',
         category,
         category_label: catInfo.label,
@@ -207,6 +294,12 @@ function BroadcastInner() {
         sent: false,
         sent_count: 0,
       };
+      if (target === 'staff' && selectedStaff.length > 0) {
+        payload.selected_staff = selectedStaff;
+      }
+      if (hasPlaceholders) {
+        payload.has_placeholders = true;
+      }
       if (isScheduled && scheduledAt) {
         payload.scheduled_at = Timestamp.fromDate(new Date(scheduledAt));
       }
@@ -234,7 +327,12 @@ function BroadcastInner() {
         .filter(d => {
           if (target === 'all') return true;
           if (target === 'admin_auditor') return d.role === 'admin' || d.role === 'auditor';
-          if (target === 'staff') return d.role === 'staff';
+          if (target === 'staff') {
+            if (selectedStaff.length > 0) {
+              return d.role === 'staff' && selectedStaff.includes(d.username);
+            }
+            return d.role === 'staff';
+          }
           return true;
         })
         .map(d => ({
@@ -245,18 +343,166 @@ function BroadcastInner() {
         .filter(t => t.token);
 
       if (fcmTokens.length > 0) {
-        await fetch('/api/push-notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: broadcastTitle,
-            body: body.trim(),
-            url: '/notifications',
-            serviceAccountJson: systemSettings.push_service_account,
-            tokens: fcmTokens,
-            notifId: notifRef.id,
-          }),
-        });
+        let totalSuccessCount = 0;
+        const sentToNames: string[] = [];
+
+        if (hasPlaceholders) {
+          // A. Fetch pending jobs
+          const jobsSnap = await getDocs(
+            query(collection(db, 'assigned_jobs'), where('status', '==', 'pending'))
+          );
+          const jobsByTech = new Map<string, any[]>();
+          jobsSnap.forEach(snap => {
+            const job = snap.data();
+            const techName = (job.assigned_to as string)?.trim() || '';
+            if (!techName) return;
+            if (!jobsByTech.has(techName)) jobsByTech.set(techName, []);
+            jobsByTech.get(techName)!.push(job);
+          });
+
+          // B. Fetch users to map user tokens
+          const usersSnap = await getDocs(collection(db, 'users'));
+          const allUsers = usersSnap.docs.map(d => d.data());
+
+          // Group tokens by username
+          const tokensByUser = new Map<string, typeof fcmTokens>();
+          fcmTokens.forEach(t => {
+            if (!tokensByUser.has(t.username)) {
+              tokensByUser.set(t.username, []);
+            }
+            tokensByUser.get(t.username)!.push(t);
+          });
+
+          const sendPromises = Array.from(tokensByUser.entries()).map(async ([username, userTokens]) => {
+            if (userTokens.length === 0) return;
+
+            const user = allUsers.find(u => u.username === username);
+            const techName = user?.name || userTokens[0].name || username;
+
+            // Resolve pending jobs for this technician
+            const userSuffix = getEnglishNameSuffix(techName);
+            const jobs: any[] = [];
+            jobsByTech.forEach((jobList, techKey) => {
+              if (techKey === techName || techKey === username) {
+                jobs.push(...jobList);
+                return;
+              }
+              const techSuffix = getEnglishNameSuffix(techKey);
+              if (userSuffix && techSuffix && userSuffix === techSuffix) {
+                jobs.push(...jobList);
+              }
+            });
+
+            const totalJobs = jobs.length;
+
+            // Skip sending if the message has task placeholders and this tech has 0 tasks
+            const hasTaskPlaceholders =
+              title.includes('{งานค้าง}') || title.includes('{tasks}') ||
+              title.includes('{งานติดตั้ง}') || title.includes('{ins_tasks}') ||
+              title.includes('{งานบริการ}') || title.includes('{as_tasks}') ||
+              msgBody.includes('{งานค้าง}') || msgBody.includes('{tasks}') ||
+              msgBody.includes('{งานติดตั้ง}') || msgBody.includes('{ins_tasks}') ||
+              msgBody.includes('{งานบริการ}') || msgBody.includes('{as_tasks}');
+
+            if (hasTaskPlaceholders && totalJobs === 0) {
+              return;
+            }
+
+            const insJobs = jobs.filter(j => j.job_type?.includes('INS') || j.job_type === 'งานติดตั้ง (INS)').length;
+            const asJobs = jobs.filter(j => !(j.job_type?.includes('INS') || j.job_type === 'งานติดตั้ง (INS)')).length;
+
+            const resolvedTitle = broadcastTitle
+              .replaceAll('{ช่าง}', techName)
+              .replaceAll('{name}', techName)
+              .replaceAll('{งานค้าง}', String(totalJobs))
+              .replaceAll('{tasks}', String(totalJobs))
+              .replaceAll('{งานติดตั้ง}', String(insJobs))
+              .replaceAll('{ins_tasks}', String(insJobs))
+              .replaceAll('{งานบริการ}', String(asJobs))
+              .replaceAll('{as_tasks}', String(asJobs));
+
+            const resolvedBody = msgBody
+              .replaceAll('{ช่าง}', techName)
+              .replaceAll('{name}', techName)
+              .replaceAll('{งานค้าง}', String(totalJobs))
+              .replaceAll('{tasks}', String(totalJobs))
+              .replaceAll('{งานติดตั้ง}', String(insJobs))
+              .replaceAll('{ins_tasks}', String(insJobs))
+              .replaceAll('{งานบริการ}', String(asJobs))
+              .replaceAll('{as_tasks}', String(asJobs));
+
+            // Save individual personal notification doc in Firestore
+            const personalNotifRef = await addDoc(collection(db, 'notifications'), {
+              title: resolvedTitle,
+              body: resolvedBody,
+              type: 'broadcast',
+              category,
+              category_label: catInfo.label,
+              target,
+              user_id: username,
+              created_by: currentUser?.username || currentUser?.name || 'admin',
+              created_at: serverTimestamp(),
+              sent: false,
+              sent_count: 0,
+            });
+
+            // Call push-notify
+            const pushRes = await fetch('/api/push-notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: resolvedTitle,
+                body: resolvedBody,
+                url: '/notifications',
+                serviceAccountJson: systemSettings.push_service_account,
+                tokens: userTokens,
+                notifId: personalNotifRef.id,
+              }),
+            });
+
+            if (pushRes.ok) {
+              const pushData = await pushRes.json();
+              totalSuccessCount += pushData.successCount || 0;
+              if (pushData.successCount > 0) {
+                sentToNames.push(techName);
+              }
+            }
+          });
+
+          await Promise.all(sendPromises);
+
+          // Update the master broadcast document
+          await setDoc(doc(db, 'notifications', notifRef.id), {
+            sent: true,
+            sent_count: totalSuccessCount,
+            sent_to: sentToNames,
+          }, { merge: true });
+
+        } else {
+          // Standard multicast
+          const pushRes = await fetch('/api/push-notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: broadcastTitle,
+              body: msgBody,
+              url: '/notifications',
+              serviceAccountJson: systemSettings.push_service_account,
+              tokens: fcmTokens,
+              notifId: notifRef.id,
+            }),
+          });
+          if (pushRes.ok) {
+            const pushData = await pushRes.json();
+            totalSuccessCount = pushData.successCount || 0;
+          }
+
+          // Update the master broadcast document
+          await setDoc(doc(db, 'notifications', notifRef.id), {
+            sent: true,
+            sent_count: totalSuccessCount,
+          }, { merge: true });
+        }
       }
 
       setSent(true);
@@ -331,6 +577,29 @@ function BroadcastInner() {
               )}
             </AnimatePresence>
 
+            {/* Template selector */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">📋 เลือกจากเทมเพลตด่วน</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {TEMPLATES.map((t, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setTitle(t.title);
+                      setBody(t.body);
+                      setCategory(t.category);
+                      setTarget(t.target);
+                    }}
+                    className="flex flex-col text-left p-3.5 rounded-2xl border-2 border-slate-100 hover:border-rose-400 hover:bg-rose-50/10 transition-all group"
+                  >
+                    <span className="text-xs font-bold text-slate-700 group-hover:text-rose-600 transition-colors">{t.name}</span>
+                    <span className="text-[10px] text-slate-400 mt-1 line-clamp-2">{t.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Category selector */}
             <div className="bg-white rounded-3xl border border-slate-200 p-5 shadow-sm">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">หมวดหมู่ประกาศ</p>
@@ -379,7 +648,18 @@ function BroadcastInner() {
                 placeholder="พิมพ์ข้อความประกาศ ข่าวสาร หรือข้อมูลที่ต้องการแจ้งให้ทราบ..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition resize-none"
               />
-              <p className="text-right text-[10px] text-slate-400 mt-1">{body.length}/400</p>
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-start mt-2.5 gap-2">
+                <div className="flex-1 text-[10px] text-rose-500 bg-rose-50/50 rounded-xl p-2.5 border border-rose-100">
+                  <p className="font-bold mb-1">💡 ตัวแปรระบบช่างและงานค้าง (ระบบจะตรวจจับและแทนที่ตามจริงของช่างแต่ละคน):</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-0.5 font-medium text-slate-600">
+                    <div>• <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{ช่าง}`}</code> หรือ <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{name}`}</code> : ชื่อช่าง</div>
+                    <div>• <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{งานค้าง}`}</code> หรือ <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{tasks}`}</code> : งานค้างทั้งหมด</div>
+                    <div>• <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{งานติดตั้ง}`}</code> หรือ <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{ins_tasks}`}</code> : งานติดตั้งค้าง (INS)</div>
+                    <div>• <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{งานบริการ}`}</code> หรือ <code className="bg-white px-1 py-0.5 rounded text-rose-600 font-bold font-mono">{`{as_tasks}`}</code> : งานบริการค้าง (AS)</div>
+                  </div>
+                </div>
+                <p className="text-right text-[10px] text-slate-400 self-end whitespace-nowrap">{body.length}/400</p>
+              </div>
             </div>
 
             {/* Target */}
@@ -400,7 +680,14 @@ function BroadcastInner() {
                         name="target"
                         value={t.value}
                         checked={target === t.value}
-                        onChange={() => setTarget(t.value)}
+                        onChange={() => {
+                          setTarget(t.value);
+                          if (t.value !== 'staff') {
+                            setSelectedStaff([]);
+                          } else {
+                            setSelectedStaff(staffList.map(s => s.username));
+                          }
+                        }}
                         className="sr-only"
                       />
                       <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
@@ -423,6 +710,61 @@ function BroadcastInner() {
                   );
                 })}
               </div>
+
+              {target === 'staff' && staffList.length > 0 && (
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">เลือกช่างที่จะส่งถึง ({selectedStaff.length} คน)</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStaff(staffList.map(s => s.username))}
+                        className="text-[10px] text-indigo-500 hover:underline font-bold"
+                      >
+                        เลือกทั้งหมด
+                      </button>
+                      <span className="text-[10px] text-slate-300">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStaff([])}
+                        className="text-[10px] text-rose-500 hover:underline font-bold"
+                      >
+                        ล้างทั้งหมด
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {staffList.map(s => {
+                      const isChecked = selectedStaff.includes(s.username);
+                      return (
+                        <button
+                          key={s.username}
+                          type="button"
+                          onClick={() => {
+                            if (isChecked) {
+                              setSelectedStaff(prev => prev.filter(u => u !== s.username));
+                            } else {
+                              setSelectedStaff(prev => [...prev, s.username]);
+                            }
+                          }}
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-semibold text-left transition-all ${
+                            isChecked
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-sm'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
+                            isChecked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isChecked && <CheckCheck size={10} />}
+                          </div>
+                          <span className="truncate">{s.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Schedule send */}
@@ -692,8 +1034,8 @@ function BroadcastInner() {
                     <span className="text-white text-xs font-bold">{systemSettings.app_name || 'ระบบส่งงาน'}</span>
                     <span className="text-white/60 text-xs ml-auto">ตอนนี้</span>
                   </div>
-                  <p className="text-white font-bold text-sm">{cat.emoji} {title || 'หัวข้อประกาศ'}</p>
-                  <p className="text-white/80 text-xs mt-1 line-clamp-3">{body || 'ข้อความประกาศ...'}</p>
+                  <p className="text-white font-bold text-sm">{cat.emoji} {simulatePlaceholders(title) || 'หัวข้อประกาศ'}</p>
+                  <p className="text-white/80 text-xs mt-1 line-clamp-6 whitespace-pre-wrap">{simulatePlaceholders(body) || 'ข้อความประกาศ...'}</p>
                 </div>
               </div>
 

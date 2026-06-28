@@ -38,6 +38,7 @@ interface NotifDoc {
   category_label?: string;
   target?: string;
   created_by?: string;
+  has_placeholders?: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -121,8 +122,8 @@ function NotificationsInner() {
       const isStaff = currentUser?.role === 'staff';
       const myUsername = currentUser?.username || currentUser?.name || '';
       const docs = isStaff
-        ? allDocs.filter(n => n.type === 'broadcast' || n.user_id === myUsername)
-        : allDocs;
+        ? allDocs.filter(n => (n.type === 'broadcast' && !n.has_placeholders && (!n.user_id || n.user_id === myUsername)) || n.user_id === myUsername)
+        : allDocs.filter(n => !(n.type === 'broadcast' && (n.has_placeholders || (n.user_id && n.user_id !== myUsername))));
       const filtered = filter === 'all' ? docs : docs.filter(n => n.type === filter);
       setNotifications(prev => reset ? filtered : [...prev, ...filtered]);
       setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
