@@ -7,7 +7,7 @@ import { useApp } from '../providers';
 import { getDb } from '@/lib/firebase';
 import { collection, query, where, getDocs, doc, setDoc, updateDoc } from 'firebase/firestore';
 import type { JobRow, SubmissionData } from '@/lib/utils';
-import { formatThaiDate, isNativeVideo, getDirectStreamUrl, getPreviewUrl, getFileIdFromUrl } from '@/lib/utils';
+import { formatThaiDate, isNativeVideo, getDirectStreamUrl, getPreviewUrl, getFileIdFromUrl, getEnglishNameSuffix } from '@/lib/utils';
 import { 
   FileText, 
   Upload, 
@@ -330,18 +330,30 @@ function SubmitPageInner() {
     try {
       const db = getDb();
       const techToQuery = targetTechName || '';
-      
+
       // 1. Fetch pending assigned jobs for this tech
-      const jobsSnap = await getDocs(
-        query(
-          collection(db, 'assigned_jobs'), 
-          where('assigned_to', '==', techToQuery),
-          where('status', '==', 'pending')
-        )
-      );
+      // Run parallel queries: exact name AND suffix-only name to handle legacy imported jobs
+      // that may have been stored with only the short name (without Thai prefix)
+      const techSuffix = techToQuery.includes('-')
+        ? (techToQuery.split('-').pop()?.trim() || techToQuery)
+        : null;
+      const pendingJobsQuery = (nameVal: string) =>
+        query(collection(db, 'assigned_jobs'), where('assigned_to', '==', nameVal), where('status', '==', 'pending'));
+
+      const queryPromises = [getDocs(pendingJobsQuery(techToQuery))];
+      if (techSuffix && techSuffix !== techToQuery) {
+        queryPromises.push(getDocs(pendingJobsQuery(techSuffix)));
+      }
+      const jobsSnaps = await Promise.all(queryPromises);
       const jobsList: JobRow[] = [];
-      jobsSnap.forEach(docSnap => {
-        jobsList.push(docSnap.data() as JobRow);
+      const seenDocIds = new Set<string>();
+      jobsSnaps.forEach(snap => {
+        snap.forEach(docSnap => {
+          if (!seenDocIds.has(docSnap.id)) {
+            seenDocIds.add(docSnap.id);
+            jobsList.push(docSnap.data() as JobRow);
+          }
+        });
       });
       setAssignedJobs(jobsList);
 

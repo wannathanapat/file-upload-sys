@@ -18,7 +18,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import type { SubmissionData, JobRow, UserData } from '@/lib/utils';
-import { formatThaiDate, getFileIdFromUrl } from '@/lib/utils';
+import { formatThaiDate, getFileIdFromUrl, getEnglishNameSuffix } from '@/lib/utils';
 import CustomPdfViewer from '@/components/CustomPdfViewer';
 import { 
   Search, 
@@ -431,7 +431,9 @@ function DashboardContent() {
       (job.assigned_to && job.assigned_to.toLowerCase().includes(q)) ||
       (job.order_no && job.order_no.toLowerCase().includes(q));
 
-    const matchTech = !queueTechFilter || job.assigned_to === queueTechFilter;
+    const matchTech = !queueTechFilter ||
+      job.assigned_to === queueTechFilter ||
+      getEnglishNameSuffix(job.assigned_to) === getEnglishNameSuffix(queueTechFilter);
     return matchSearch && matchTech;
   });
 
