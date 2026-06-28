@@ -146,6 +146,26 @@ interface TechnicianPixelOfficeProps {
   submissions: any[];
 }
 
+interface TechPos {
+  username: string;
+  name: string;
+  displayName: string;
+  x: number;
+  y: number;
+  tx: number;
+  ty: number;
+  isWalking: boolean;
+  angle: number;
+  status: string;
+  pendingCount: number;
+  hasRecentSub: boolean;
+  checkInTime: string;
+  province: string;
+  chatBubble: string;
+  chatTimer: number;
+  idleTimer: number;
+}
+
 function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissions }: TechnicianPixelOfficeProps) {
   // Get all technicians (role === 'staff')
   const technicians = users.filter(u => u.role === 'staff');
@@ -170,7 +190,6 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       const name = u.name || '';
       const username = u.username || '';
       
-      // Distribute statuses somewhat evenly for the demo start
       const randomStatus = statuses[idx % statuses.length];
       const pendingCount = Math.floor(Math.random() * 4); // 0 to 3
       const hasRecentSub = Math.random() > 0.7; // 30% chance
@@ -198,11 +217,11 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     const interval = setInterval(() => {
       setDemoTechs(prev => {
         return prev.map(t => {
-          // 30% chance to update each technician's status
-          if (Math.random() > 0.7) {
+          // 25% chance to update each technician's status
+          if (Math.random() > 0.75) {
             const nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
             const newPending = Math.floor(Math.random() * 4);
-            const subChance = Math.random() > 0.6; // 40% chance of submission bubble
+            const subChance = Math.random() > 0.7;
             
             let statusVal = 'offline';
             if (nextStatus === 'working') {
@@ -223,34 +242,27 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           return t;
         });
       });
-    }, 6000); // Shift every 6 seconds for dynamic demonstration
+    }, 10000); // Check for status changes every 10 seconds
 
     return () => clearInterval(interval);
   }, [demoMode, users]);
 
-  // Categorize technicians into states
-  const workingTechs: any[] = [];
-  const onsiteTechs: any[] = [];
-  const leaveTechs: any[] = [];
-  const offlineTechs: any[] = [];
-
+  // Map incoming tech data
   const sourceTechs = demoMode ? demoTechs : technicians.map(u => {
     const username = u.username || '';
     const name = u.name || '';
     const attRecord = todayAttendance[username] || todayAttendance[name];
     
-    // Calculate pending count in queue
     const pendingJobs = assignedJobs.filter(j => 
       j.status !== 'submitted' && 
       (j.technician?.trim().toLowerCase() === name.trim().toLowerCase() ||
        j.technician?.trim().toLowerCase() === username.trim().toLowerCase())
     );
 
-    // Check if submitted anything in the last 2 hours
     const hasRecentSub = submissions.some(s => {
       if (s.name?.trim().toLowerCase() !== name.trim().toLowerCase()) return false;
       const subTime = new Date(s.submission_date).getTime();
-      return (Date.now() - subTime) < 2 * 60 * 60 * 1000; // 2 hours
+      return (Date.now() - subTime) < 2 * 60 * 60 * 1000;
     });
 
     return {
@@ -266,66 +278,232 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     };
   });
 
-  sourceTechs.forEach(t => {
-    if (t.status === 'onsite') {
-      onsiteTechs.push(t);
-    } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
-      leaveTechs.push(t);
-    } else if (t.status === 'normal' || t.status === 'late') {
-      workingTechs.push(t);
-    } else {
-      offlineTechs.push(t);
-    }
-  });
+  // Keep tracking local simulation state of positions
+  const [techPositions, setTechPositions] = useState<TechPos[]>([]);
 
-  // Predefined isometric coordinates to align with the generated image
-  const workingSlots = [
-    { top: '56%', left: '32%' },
-    { top: '48%', left: '46%' },
-    { top: '38%', left: '26%' },
-    { top: '45%', left: '16%' },
-    { top: '52%', left: '60%' },
-    { top: '64%', left: '44%' }
+  // Spawn Door Point
+  const DOOR_X = 18;
+  const DOOR_Y = 75;
+
+  // Desk spots, relaxation spots, lounge spots coordinates on the uploaded picture
+  const DESK_SPOTS = [
+    { x: 49, y: 61 }, // Sitting on desk chair
+    { x: 35, y: 55 }, // Window view / Left bench
+    { x: 58, y: 58 }, // Right desk near cupboard
+    { x: 43, y: 44 }  // Back whiteboard desk
   ];
 
-  const onsiteSlots = [
-    { top: '78%', left: '25%' },
-    { top: '82%', left: '50%' },
-    { top: '75%', left: '72%' },
-    { top: '85%', left: '15%' },
-    { top: '80%', left: '85%' }
+  const LOUNGE_SPOTS = [
+    { x: 74, y: 70 },
+    { x: 82, y: 78 },
+    { x: 68, y: 74 }
   ];
 
-  const leaveSlots = [
-    { top: '30%', left: '75%' },
-    { top: '22%', left: '80%' },
-    { top: '38%', left: '85%' },
-    { top: '15%', left: '70%' }
-  ];
+  useEffect(() => {
+    setTechPositions(prev => {
+      const updated = [...prev];
+      
+      sourceTechs.forEach((st, idx) => {
+        const existing = updated.find(t => t.username === st.username);
+        
+        // Target coordinates based on status
+        let tx = DOOR_X;
+        let ty = DOOR_Y;
+        
+        if (st.status === 'normal' || st.status === 'late') {
+          const spot = DESK_SPOTS[idx % DESK_SPOTS.length];
+          tx = spot.x;
+          ty = spot.y;
+        } else if (st.status === 'sick_leave' || st.status === 'personal_leave') {
+          const spot = LOUNGE_SPOTS[idx % LOUNGE_SPOTS.length];
+          tx = spot.x;
+          ty = spot.y;
+        } else {
+          // Onsite or Offline walk to the door
+          tx = DOOR_X;
+          ty = DOOR_Y;
+        }
 
-  const offlineSlots = [
-    { top: '25%', left: '8%' },
-    { top: '18%', left: '18%' },
-    { top: '32%', left: '12%' },
-    { top: '15%', left: '5%' }
-  ];
+        if (existing) {
+          // Update properties but preserve walking position
+          existing.status = st.status;
+          existing.pendingCount = st.pendingCount;
+          existing.hasRecentSub = st.hasRecentSub;
+          existing.checkInTime = st.checkInTime;
+          existing.province = st.province;
+          existing.tx = tx;
+          existing.ty = ty;
+        } else {
+          // Spawn at the door if they are active/not offline
+          if (st.status !== 'offline' && st.status !== 'onsite') {
+            updated.push({
+              username: st.username,
+              name: st.name,
+              displayName: st.displayName,
+              x: DOOR_X,
+              y: DOOR_Y,
+              tx,
+              ty,
+              isWalking: true,
+              angle: 0,
+              status: st.status,
+              pendingCount: st.pendingCount,
+              hasRecentSub: st.hasRecentSub,
+              checkInTime: st.checkInTime,
+              province: st.province,
+              chatBubble: 'เข้าออฟฟิศแล้วครับ! 👋',
+              chatTimer: 35,
+              idleTimer: Math.floor(Math.random() * 100) + 100
+            });
+          }
+        }
+      });
 
-  // Helper to get coordinates based on index
-  const getCoordinates = (status: string, idx: number) => {
-    if (status === 'onsite') {
-      return onsiteSlots[idx % onsiteSlots.length];
-    } else if (status === 'sick_leave' || status === 'personal_leave') {
-      return leaveSlots[idx % leaveSlots.length];
-    } else if (status === 'normal' || status === 'late') {
-      return workingSlots[idx % workingSlots.length];
-    } else {
-      return offlineSlots[idx % offlineSlots.length];
-    }
-  };
+      // Handle technicians who went offline or onsite
+      sourceTechs.forEach(st => {
+        if (st.status === 'offline' || st.status === 'onsite') {
+          const existing = updated.find(t => t.username === st.username);
+          if (existing) {
+            existing.status = st.status;
+            existing.tx = DOOR_X;
+            existing.ty = DOOR_Y;
+          }
+        }
+      });
+
+      return updated;
+    });
+  }, [sourceTechs]);
+
+  // Core Animation Loop (Tick every 60ms)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTechPositions(prev => {
+        const speed = 1.5; // percentage distance per tick
+        
+        return prev.map(t => {
+          const dx = t.tx - t.x;
+          const dy = t.ty - t.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          let nx = t.x;
+          let ny = t.y;
+          let isWalk = t.isWalking;
+          let nAngle = t.angle;
+          let bubble = t.chatBubble;
+          let bubbleTime = t.chatTimer;
+          let idleTime = t.idleTimer;
+          let targetX = t.tx;
+          let targetY = t.ty;
+
+          // Handle Movement
+          if (dist > speed) {
+            nx += (dx / dist) * speed;
+            ny += (dy / dist) * speed;
+            isWalk = true;
+            nAngle = (t.angle + 0.3) % (Math.PI * 2);
+          } else {
+            nx = t.tx;
+            ny = t.ty;
+            isWalk = false;
+            nAngle = 0;
+          }
+
+          // Handle chat bubble expiration
+          if (bubbleTime > 0) {
+            bubbleTime -= 1;
+            if (bubbleTime === 0) {
+              bubble = '';
+            }
+          }
+
+          // Handle Idle Behavior (Random walks and messages)
+          if (!isWalk && (t.status === 'normal' || t.status === 'late')) {
+            if (idleTime > 0) {
+              idleTime -= 1;
+            } else {
+              // Time to decide next move
+              if (Math.random() > 0.8) {
+                // Decide to walk somewhere random in office
+                const walkChoice = Math.random();
+                if (walkChoice < 0.3) {
+                  // Walk to file cabinet
+                  targetX = 63;
+                  targetY = 50;
+                } else if (walkChoice < 0.6) {
+                  // Walk to window
+                  targetX = 35;
+                  targetY = 55;
+                } else {
+                  // Back to their main desk chair
+                  const idx = sourceTechs.findIndex(st => st.username === t.username);
+                  const spot = DESK_SPOTS[idx >= 0 ? idx % DESK_SPOTS.length : 0];
+                  targetX = spot.x;
+                  targetY = spot.y;
+                }
+              }
+              
+              // Reset idle timer
+              idleTime = Math.floor(Math.random() * 150) + 150;
+            }
+
+            // Small chance of idle chat bubble
+            if (Math.random() > 0.992 && !bubble) {
+              const quotes = [
+                "วันนี้เคสติดตั้งเยอะเลยครับ 💻",
+                "ขอสแตนด์บายรอรับออเดอร์ใหม่ครับ 🙋‍♂️",
+                "ลูกค้าบ้านนี้น่ารักมากครับ ให้ทิปด้วย 😊",
+                "เน็ตหน้างานหมุนติ้วๆ อัปโหลดช้าจัง 📶",
+                "กำลังเคลียร์เอกสารเข้าระบบครับ 🚗",
+                "แอดมินช่วยตรวจงานเลขออเดอร์นี้หน่อยครับ 🙏",
+                "แมวบนตู้เอกสารนอนทั้งวันเลย 🐱",
+                "กาแฟที่ออฟฟิศหมดแล้วเหรอครับ ☕",
+                "งานซ่อมเสร็จแล้ว รูปครบชัดเจนครับ 📸",
+                "วันนี้แดดแรงมาก ร้อนสุดๆ ☀️",
+                "ใบงานของลูกค้ารายนี้เรียบร้อยครับ 📄",
+                "เย้! วันนี้เคลียร์คิวงานหมดแล้ว 🎉"
+              ];
+              bubble = quotes[Math.floor(Math.random() * quotes.length)];
+              bubbleTime = 45; // show for ~2.7s
+            }
+          }
+
+          return {
+            ...t,
+            x: nx,
+            y: ny,
+            tx: targetX,
+            ty: targetY,
+            isWalking: isWalk,
+            angle: nAngle,
+            chatBubble: bubble,
+            chatTimer: bubbleTime,
+            idleTimer: idleTime
+          };
+        }).filter(t => {
+          // Keep character if they haven't reached the door to exit yet
+          const arrivedAtDoor = Math.abs(t.x - DOOR_X) < 1.0 && Math.abs(t.y - DOOR_Y) < 1.0;
+          const isLeaving = t.status === 'offline' || t.status === 'onsite';
+          
+          if (isLeaving && arrivedAtDoor && !t.isWalking) {
+            return false;
+          }
+          return true;
+        });
+      });
+    }, 60);
+
+    return () => clearInterval(timer);
+  }, [sourceTechs]);
+
+  // Derived arrays to count states for header indicators
+  const workingCount = sourceTechs.filter(t => t.status === 'normal' || t.status === 'late').length;
+  const onsiteCount = sourceTechs.filter(t => t.status === 'onsite').length;
+  const leaveCount = sourceTechs.filter(t => t.status === 'sick_leave' || t.status === 'personal_leave').length;
+  const offlineCount = sourceTechs.filter(t => t.status === 'offline').length;
 
   return (
     <div className="glass-card p-5 mb-6 overflow-hidden relative">
-      {/* Dynamic CSS styles for pixel art animations */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes pixel-bounce {
           0%, 100% { transform: translateY(0); }
@@ -396,19 +574,19 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           <div className="flex gap-3 text-[10px] font-bold Prompt text-slate-500 border-l border-slate-200 pl-4">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-sm shadow-emerald-200" />
-              ในออฟฟิศ: {workingTechs.length}
+              ในออฟฟิศ: {workingCount}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shadow-sm shadow-indigo-200" />
-              ลงพื้นที่: {onsiteTechs.length}
+              ลงพื้นที่: {onsiteCount}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-200" />
-              ลางาน: {leaveTechs.length}
+              ลางาน: {leaveCount}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />
-              ออฟไลน์: {offlineTechs.length}
+              <span className="w-2 h-2 rounded-full bg-slate-350 inline-block" />
+              ออฟไลน์: {offlineCount}
             </span>
           </div>
         </div>
@@ -425,30 +603,36 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
         <div className="absolute inset-0 bg-slate-900/5 pointer-events-none" />
 
         {/* Dynamic coordinate placement of technicians */}
-        {sourceTechs.map((tech, idx) => {
-          // Determine status category index for slot allocation
-          let catIdx = 0;
-          if (tech.status === 'onsite') {
-            catIdx = onsiteTechs.findIndex(t => t.username === tech.username);
-          } else if (tech.status === 'sick_leave' || tech.status === 'personal_leave') {
-            catIdx = leaveTechs.findIndex(t => t.username === tech.username);
-          } else if (tech.status === 'normal' || tech.status === 'late') {
-            catIdx = workingTechs.findIndex(t => t.username === tech.username);
-          } else {
-            catIdx = offlineTechs.findIndex(t => t.username === tech.username);
-          }
-          if (catIdx < 0) catIdx = idx;
+        {techPositions.map((tech) => {
+          // Dynamic scaling based on Y coordinate to simulate 3D Depth
+          const depthScale = 0.8 + (tech.y / 100) * 0.45;
+          const isWalkingNow = tech.isWalking;
+          const walkingAngle = tech.angle;
+          const faceRight = tech.tx > tech.x;
 
-          const coord = getCoordinates(tech.status, catIdx);
-          
           return (
             <div 
-              key={tech.username || idx} 
-              className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10 transition-all duration-1000 ease-in-out cursor-pointer group"
-              style={{ top: coord.top, left: coord.left }}
+              key={tech.username} 
+              className="absolute -translate-x-1/2 -translate-y-[85%] flex flex-col items-center z-10 transition-all duration-100 ease-linear cursor-pointer group"
+              style={{ 
+                top: `${tech.y}%`, 
+                left: `${tech.x}%`,
+                zIndex: Math.floor(tech.y * 10)
+              }}
             >
-              {/* Tooltip on hover */}
-              <div className="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col items-center transition-all duration-200 z-30">
+              {/* Interactive Speech Bubbles (RPG/Habbo Style) */}
+              {tech.chatBubble && (
+                <div className="absolute bottom-[110%] mb-1 flex flex-col items-center transition-all duration-300 animate-bounce z-40">
+                  <div className="bg-white text-slate-800 text-[9px] font-extrabold px-3 py-1.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.15)] border border-slate-100 max-w-[130px] text-center Prompt leading-relaxed break-words">
+                    {tech.chatBubble}
+                  </div>
+                  {/* Speech bubble pointer */}
+                  <div className="w-2.5 h-2.5 bg-white border-r border-b border-slate-100 rotate-45 -mt-1.5" />
+                </div>
+              )}
+
+              {/* Status / Task Info Badge on Hover */}
+              <div className="absolute bottom-[105%] hidden group-hover:flex flex-col items-center z-30 transition-all duration-200">
                 <div className="bg-slate-900/95 text-white text-[9px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap Prompt leading-snug">
                   <p>{tech.name}</p>
                   <p className="text-slate-300 font-semibold text-[8px] mt-0.5">
@@ -456,7 +640,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
                       tech.status === 'onsite' ? `🚗 ลงพื้นที่ (${tech.province || 'ตจว.'})` :
                       tech.status === 'sick_leave' ? '🤒 ลาป่วย' :
                       tech.status === 'personal_leave' ? '🚗 ลากิจ' :
-                      tech.status === 'normal' || tech.status === 'late' ? `💻 ทำงาน (เข้า ${tech.checkInTime || '—'})` :
+                      tech.status === 'normal' || tech.status === 'late' ? `💻 ในออฟฟิศ (เข้า ${tech.checkInTime || '—'})` :
                       '🏠 ออฟไลน์'
                     }
                   </p>
@@ -464,95 +648,103 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
                 <div className="w-1.5 h-1.5 bg-slate-900/95 rotate-45 -mt-1" />
               </div>
 
-              {/* Status Indicator Avatar */}
-              {(tech.status === 'normal' || tech.status === 'late') && (
-                <div className="relative animate-typing-pixel">
-                  {/* Status/Task indicators */}
-                  {tech.hasRecentSub && (
-                    <span className="absolute -top-3.5 -right-2.5 bg-pink-500 text-white font-extrabold text-[7px] px-1.5 py-0.5 rounded-full shadow-md z-20">
-                      🎉 ส่งงาน
-                    </span>
-                  )}
-                  {tech.pendingCount > 0 && !tech.hasRecentSub && (
-                    <span className="absolute -top-3.5 -right-2.5 bg-indigo-600 text-white font-extrabold text-[7px] w-4 h-4 rounded-full flex items-center justify-center shadow-md z-20">
-                      {tech.pendingCount}
-                    </span>
-                  )}
-                  
-                  {/* Mini Typing Laptop & Chair drawing in SVG */}
-                  <svg className="w-11 h-11 drop-shadow-md" viewBox="0 0 40 40" fill="none">
-                    {/* Retro Office Chair */}
-                    <rect x="12" y="24" width="16" height="4" rx="1" fill="#7c3aed" />
-                    <rect x="18" y="28" width="4" height="6" fill="#4b5563" />
-                    <circle cx="20" cy="35" r="1.5" fill="#1f2937" />
+              {/* Character sprite visual wrapper with depth scaling and walking sway */}
+              <div 
+                className="relative transition-transform duration-100"
+                style={{ 
+                  transform: `
+                    scale(${depthScale}) 
+                    rotate(${isWalkingNow ? Math.sin(walkingAngle) * 8 : 0}deg) 
+                    translateY(${isWalkingNow ? Math.abs(Math.sin(walkingAngle)) * -3 : 0}px)
+                    scaleX(${faceRight ? 1 : -1})
+                  ` 
+                }}
+              >
+                {/* 1. Working Office State sprite */}
+                {(tech.status === 'normal' || tech.status === 'late') && (
+                  <div className="relative">
+                    {/* Active work/task badge */}
+                    {tech.hasRecentSub && (
+                      <span className="absolute -top-3.5 -right-2 bg-pink-500 text-white font-extrabold text-[7px] px-1 py-0.25 rounded-md shadow-md animate-bounce z-20">
+                        🎉 ส่งงาน
+                      </span>
+                    )}
+                    {tech.pendingCount > 0 && !tech.hasRecentSub && (
+                      <span className="absolute -top-3.5 -right-2 bg-indigo-600 text-white font-extrabold text-[7px] w-4 h-4 rounded-full flex items-center justify-center shadow-md z-20">
+                        {tech.pendingCount}
+                      </span>
+                    )}
+                    
+                    {/* Retro 2D Character sprite sitting/typing */}
+                    <svg className="w-11 h-11 drop-shadow-md" viewBox="0 0 40 40" fill="none">
+                      {/* Character body */}
+                      <path d="M12 22 C12 18, 28 18, 28 22 L28 32 L12 32 Z" fill="#6366f1" />
+                      {/* Head */}
+                      <circle cx="20" cy="14" r="5" fill="#fed7aa" />
+                      {/* Hair */}
+                      <path d="M15 14 C15 10, 25 10, 25 14 C25 12, 15 12, 15 14" fill="#78350f" stroke="#78350f" strokeWidth="2" />
+                      {/* Eyes */}
+                      <circle cx="18" cy="14" r="0.8" fill="#1e293b" />
+                      <circle cx="22" cy="14" r="0.8" fill="#1e293b" />
+                      {/* Typing hands (animates if standing/sitting idle) */}
+                      {!isWalkingNow && (
+                        <>
+                          <circle cx="16" cy="24" r="1.2" fill="#fed7aa" className="animate-ping" />
+                          <circle cx="24" cy="24" r="1.2" fill="#fed7aa" className="animate-ping" />
+                        </>
+                      )}
+                    </svg>
+                  </div>
+                )}
 
-                    {/* Character body */}
-                    <path d="M12 20 C12 17, 28 17, 28 20 L28 27 L12 27 Z" fill="#3b82f6" />
-                    {/* Head */}
-                    <circle cx="20" cy="13" r="5" fill="#fed7aa" />
-                    {/* Hair */}
-                    <path d="M15 13 C15 9, 25 9, 25 13 C25 11, 15 11, 15 13" fill="#78350f" stroke="#78350f" strokeWidth="2" />
-                    {/* Screen */}
-                    <rect x="23" y="11" width="11" height="9" rx="1" fill="#1e293b" />
-                    <rect x="24.5" y="12.5" width="8" height="6" fill="#22d3ee" />
-                  </svg>
-                </div>
-              )}
+                {/* 2. Onsite sprite (Shows a tiny walking courier or tools carrier) */}
+                {tech.status === 'onsite' && (
+                  <div className="relative animate-bounce-pixel">
+                    <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 40 40" fill="none">
+                      {/* Red coat / onsite uniform */}
+                      <path d="M12 22 C12 18, 28 18, 28 22 L28 32 L12 32 Z" fill="#ef4444" />
+                      {/* Head */}
+                      <circle cx="20" cy="14" r="5" fill="#fed7aa" />
+                      {/* Cap/Hat */}
+                      <path d="M14 11 L26 11 L28 13 L12 13 Z" fill="#b91c1c" />
+                      <rect x="14" y="9" width="12" height="3" rx="0.5" fill="#b91c1c" />
+                      {/* Toolbox carried */}
+                      <rect x="22" y="24" width="8" height="6" fill="#475569" />
+                      <rect x="24" y="22" width="4" height="2" fill="#94a3b8" />
+                    </svg>
+                  </div>
+                )}
 
-              {tech.status === 'onsite' && (
-                <div className="relative animate-bounce-pixel">
-                  {/* Mini Service Truck SVG */}
-                  <svg className="w-12 h-8 drop-shadow-md" viewBox="0 0 48 32" fill="none">
-                    <rect x="2" y="10" width="28" height="12" rx="2" fill="#ef4444" />
-                    <rect x="28" y="12" width="12" height="10" rx="1.5" fill="#ef4444" />
-                    <path d="M40 22 L44 22 L42 14 L38 14 Z" fill="#ef4444" />
-                    {/* Window */}
-                    <path d="M36 13.5 L40 13.5 L38.5 15.5 L36 15.5 Z" fill="#e2e8f0" />
-                    {/* Service Ladder */}
-                    <line x1="4" y1="6" x2="24" y2="6" stroke="#94a3b8" strokeWidth="2.5" />
-                    <line x1="8" y1="6" x2="8" y2="10" stroke="#94a3b8" strokeWidth="1" />
-                    <line x1="16" y1="6" x2="16" y2="10" stroke="#94a3b8" strokeWidth="1" />
-                    {/* Wheels */}
-                    <circle cx="11" cy="22" r="5" fill="#1e293b" />
-                    <circle cx="11" cy="22" r="2.2" fill="#ffffff" className="animate-wheel" />
-                    <circle cx="31" cy="22" r="5" fill="#1e293b" />
-                    <circle cx="31" cy="22" r="2.2" fill="#ffffff" className="animate-wheel" />
-                  </svg>
-                </div>
-              )}
+                {/* 3. Leave Sprite (Beach Lounger relaxation) */}
+                {(tech.status === 'sick_leave' || tech.status === 'personal_leave') && (
+                  <div className="relative">
+                    <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
+                      {/* Beach chair */}
+                      <line x1="8" y1="30" x2="26" y2="16" stroke="#fbbf24" strokeWidth="2.5" />
+                      {/* Resting Body */}
+                      <circle cx="21" cy="17" r="4.5" fill="#fed7aa" />
+                      <path d="M12 26 C12 24, 22 24, 22 26" stroke="#10b981" strokeWidth="3" />
+                    </svg>
+                  </div>
+                )}
 
-              {(tech.status === 'sick_leave' || tech.status === 'personal_leave') && (
-                <div className="relative animate-bounce-pixel">
-                  {/* Lounge Beach chair SVG */}
-                  <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
-                    <path d="M8 30 L32 30 L26 16 L20 16 Z" fill="#475569" />
-                    <line x1="8" y1="30" x2="26" y2="16" stroke="#fbbf24" strokeWidth="2.5" />
-                    {/* Character Lounging */}
-                    <circle cx="21" cy="18" r="4.5" fill="#fed7aa" />
-                    <path d="M12 26 C12 24, 22 24, 22 26" stroke="#3b82f6" strokeWidth="3" />
-                  </svg>
-                </div>
-              )}
+                {/* 4. Offline (Walks to exit and sleeps if needed) */}
+                {tech.status === 'offline' && (
+                  <div className="relative">
+                    <span className="absolute -top-3.5 left-1 text-[8px] font-black text-slate-400/80 animate-zzz-1">Z</span>
+                    <span className="absolute -top-2.5 left-3 text-[10px] font-black text-slate-400/80 animate-zzz-2">Z</span>
+                    
+                    <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
+                      <circle cx="20" cy="15" r="5" fill="#fed7aa" />
+                      <path d="M15 15 C15 11, 25 11, 25 15" fill="#475569" stroke="#475569" strokeWidth="1.5" />
+                      <path d="M12 23 C12 19, 28 19, 28 23 L28 32 L12 32 Z" fill="#94a3b8" />
+                    </svg>
+                  </div>
+                )}
+              </div>
 
-              {tech.status === 'offline' && (
-                <div className="relative">
-                  {/* Floating Zzz */}
-                  <span className="absolute -top-3.5 left-1 text-[8px] font-black text-slate-400/80 animate-zzz-1">Z</span>
-                  <span className="absolute -top-2.5 left-3 text-[10px] font-black text-slate-400/80 animate-zzz-2">Z</span>
-                  <span className="absolute -top-4.5 left-5 text-[12px] font-black text-slate-400/80 animate-zzz-3">Z</span>
-                  
-                  {/* Cozy bed/sleeping bag SVG */}
-                  <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
-                    <rect x="8" y="24" width="24" height="9" rx="2" fill="#cbd5e1" />
-                    <rect x="8" y="20" width="8" height="6" rx="1.5" fill="#ffffff" />
-                    <circle cx="12" cy="17" r="4.5" fill="#fed7aa" />
-                    <rect x="14" y="22" width="18" height="11" rx="1.5" fill="#f87171" />
-                  </svg>
-                </div>
-              )}
-
-              {/* Technician Label Badge under the character */}
-              <span className="text-[8px] font-black text-slate-700 bg-white/95 px-1.5 py-0.5 rounded-md shadow-md border border-slate-200/50 mt-1.5 max-w-[70px] truncate Prompt text-center z-10" title={tech.name}>
+              {/* Badge text showing technician displayName */}
+              <span className="text-[7.5px] font-black text-slate-700 bg-white/95 px-1.5 py-0.5 rounded-md shadow-md border border-slate-200/50 mt-1 max-w-[65px] truncate Prompt text-center z-10 scale-[0.9]">
                 {tech.displayName}
               </span>
             </div>
