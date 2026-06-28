@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, CheckCircle2, AlertCircle, Clock, CalendarDays,
@@ -414,8 +415,6 @@ export default function AdminView() {
     finally { setClearingData(false); }
   };
 
-  /* ────── Export CSV ────── */
-
   const exportCSV = () => {
     if (reportRecords.length === 0) { showToast('ไม่มีข้อมูลสำหรับ Export', 'info'); return; }
     const headers = ['วันที่', 'ชื่อ', 'เวลาเข้า', 'สถานะ', 'จังหวัด', 'อำเภอ', 'หมายเหตุ'];
@@ -436,17 +435,52 @@ export default function AdminView() {
       };
     });
     const holidaysList = getHolidaysInRange(reportDateFrom, reportDateTo, systemSettings.attendance_exclude_sundays, systemSettings.attendance_holidays ?? []);
-    const holidayRows = holidaysList.map(h => ({ sortKey: h.date, cols: [fmtDate(h.date), '\u2014', '\u2014', `\u0E27\u0E31\u0E19\u0E2B\u0E22\u0E38\u0E14: ${h.name}`, '-', '-', '-'] }));
-    const allRows = [...recRows, ...holidayRows].sort((a, b) => b.sortKey.localeCompare(a.sortKey)).map(r => r.cols);
-    const csv = '\uFEFF' + [headers, ...allRows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance_${reportDateFrom}_to_${reportDateTo}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('Export CSV สำเร็จ', 'success');
+    const holidayRows = holidaysList.map(h => ({ 
+      sortKey: h.date, 
+      cols: [fmtDate(h.date), '—', '—', `วันหยุด: ${h.name}`, '-', '-', '-'] 
+    }));
+    const allRows = [...recRows, ...holidayRows]
+      .sort((a, b) => b.sortKey.localeCompare(a.sortKey))
+      .map(r => r.cols);
+
+    // Convert rows to objects with headers as keys
+    const dataToExport = allRows.map(row => {
+      const obj: any = {};
+      headers.forEach((h, idx) => {
+        obj[h] = row[idx] || '-';
+      });
+      return obj;
+    });
+
+    try {
+      // 1. Generate standard worksheet
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+      // 2. Set column widths automatically (Auto-fit)
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
+      const cols: { wch: number }[] = [];
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        let maxLen = 12; // default min width
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          const cell = ws[cellAddress];
+          if (cell && cell.v) {
+            maxLen = Math.max(maxLen, cell.v.toString().length);
+          }
+        }
+        cols.push({ wch: Math.min(maxLen + 3, 40) });
+      }
+      ws['!cols'] = cols;
+
+      // 3. Save as workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
+      XLSX.writeFile(wb, `attendance_${reportDateFrom}_to_${reportDateTo}.xlsx`);
+      showToast('Export Excel สำเร็จ', 'success');
+    } catch (err: any) {
+      console.error(err);
+      showToast(`ไม่สามารถ Export Excel ได้: ${err.message}`, 'error');
+    }
   };
 
   /* ────── Export PDF (print) ────── */
@@ -1190,7 +1224,7 @@ export default function AdminView() {
                 <div className="flex gap-3">
                   <button onClick={exportCSV} className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 Prompt shadow-lg shadow-emerald-500/30">
                     <Download className="w-4 h-4" />
-                    Export Excel (CSV)
+                    Export Excel (.xlsx)
                   </button>
                   <button onClick={exportPDF} className="flex-1 flex items-center justify-center gap-2 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-2xl transition active:scale-95 Prompt shadow-lg shadow-rose-500/30">
                     <FileText className="w-4 h-4" />
