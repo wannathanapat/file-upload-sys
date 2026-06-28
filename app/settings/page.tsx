@@ -27,7 +27,6 @@ import {
   Save, 
   Trash2, 
   Edit2, 
-  Database,
   ChevronDown,
   Bell,
   CalendarDays,
@@ -62,7 +61,7 @@ export default function SettingsPage() {
   } = useApp();
 
   // Active Settings Tab state matching requested design layout
-  const [activeSettingTab, setActiveSettingTab] = useState<'theme' | 'gdrive' | 'apis' | 'filesize' | 'users' | 'normalizer'>('theme');
+  const [activeSettingTab, setActiveSettingTab] = useState<'theme' | 'gdrive' | 'apis' | 'filesize' | 'users'>('theme');
 
   // Settings State Form
   const [telegramStatus, setTelegramStatus] = useState<'enabled' | 'disabled'>('disabled');
@@ -616,101 +615,7 @@ export default function SettingsPage() {
     setFormBirthDate('');
   };
 
-  // Run Technician Name Standardizing Migration tool
-  const triggerTechNameMigration = async () => {
-    const confirm = await showConfirm(
-      "ยืนยันปรับแก้ชื่อช่างในระบบประวัติคิวงาน",
-      "ระบบจะทำการแสกนข้อมูลประวัติการส่งงานเก่าทั้งหมด และเชื่อมโยงงานเก่าเข้ากับชื่อรูปแบบทางการของช่างชิ้นใหม่ (CTxxxxxxx) โดยอัตโนมัติ ต้องการดำเนินการใช่หรือไม่?",
-      { icon: "🔄" }
-    );
-    if (!confirm) return;
 
-    setLoading(true);
-    setLoadingText("กำลังปรับแต่งและย้ายประวัติข้อมูลช่างในระบบ...");
-
-    const nameMap: Record<string, string> = {
-      'CT-CHAYAPHON W.': 'CT8711017 - [DSC] CT-CHR-CHAYAPHON W.',
-      'CT-SATHAPHON T.': 'CT8710995 - [DSC] CT-CHR-SATHAPHON T.',
-      'CT-NATTHAWAT S.': 'CT8711048 - [DSC] CT-CHR-NATTHAWAT S.',
-      'CT-SIRIKORN P.': 'CT8711067 - [DSC] CT-CHR-SIRIKORN P.',
-      'CT-NATTHAWAT W.': 'CT8711038 - [DSC] CT-CHR-NATTHAWAT W.',
-      'CT-NARUEPON K.': 'CT8700288 - [DSC] CT-CHR-NARUEPON K.',
-      'ACI-PHOLSAK T.': 'CT8711046 - [DSC] ACI-CHR-PHOLSAK T.',
-      'CT-CHIANGRAI': 'CT8700872 - [DSC] CT-CHR-CHIANGRAI'
-    };
-
-    try {
-      const db = getDb();
-      
-      // 1. Fetch and migrate submissions (history)
-      const subSnapshot = await getDocs(collection(db, 'submissions'));
-      let subCount = 0;
-      let batch = writeBatch(db);
-      let opCount = 0;
-
-      subSnapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const oldName = data.name ? String(data.name).trim() : "";
-        const oldAssignedTo = data.assigned_to ? String(data.assigned_to).trim() : "";
-        
-        let needsUpdate = false;
-        const updatePayload: Record<string, any> = {};
-        
-        if (nameMap[oldName]) {
-          updatePayload.name = nameMap[oldName];
-          needsUpdate = true;
-        }
-        if (nameMap[oldAssignedTo]) {
-          updatePayload.assigned_to = nameMap[oldAssignedTo];
-          needsUpdate = true;
-        }
-        
-        if (needsUpdate) {
-          batch.update(docSnap.ref, updatePayload);
-          subCount++;
-          opCount++;
-          
-          if (opCount === 400) {
-            batch.commit();
-            batch = writeBatch(db);
-            opCount = 0;
-          }
-        }
-      });
-
-      // 2. Fetch and migrate assigned_jobs (queue)
-      const jobsSnapshot = await getDocs(collection(db, 'assigned_jobs'));
-      let jobsCount = 0;
-
-      jobsSnapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const oldAssignedTo = data.assigned_to ? String(data.assigned_to).trim() : "";
-        
-        if (nameMap[oldAssignedTo]) {
-          batch.update(docSnap.ref, { assigned_to: nameMap[oldAssignedTo] });
-          jobsCount++;
-          opCount++;
-          
-          if (opCount === 400) {
-            batch.commit();
-            batch = writeBatch(db);
-            opCount = 0;
-          }
-        }
-      });
-
-      if (opCount > 0) {
-        await batch.commit();
-      }
-      
-      showToast(`🎉 อัปเดตประวัติสำเร็จ ${subCount} รายการ และคิวงาน ${jobsCount} รายการเรียบร้อยครับ!`, "success");
-    } catch (err: any) {
-      console.error("Migration failed:", err);
-      showToast("ไม่สามารถย้ายข้อมูลได้: " + err.message, "error");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     const file = e.target.files?.[0];
@@ -751,7 +656,6 @@ export default function SettingsPage() {
                   { id: 'apis', label: 'การแจ้งเตือน Telegram', icon: Send },
                   { id: 'filesize', label: 'ขนาดไฟล์สูงสุด', icon: Sliders },
                   { id: 'users', label: 'จัดการบัญชีผู้ใช้งาน', icon: Users },
-                  { id: 'normalizer', label: 'เครื่องมือชื่อช่าง (Normalizer)', icon: Database },
                 ].map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeSettingTab === tab.id;
@@ -1713,38 +1617,7 @@ export default function SettingsPage() {
                 </motion.div>
               )}
 
-              {activeSettingTab === 'normalizer' && (
-                <motion.section
-                  key="normalizer"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="glass-card p-6 space-y-6"
-                >
-                  <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                    <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-lg font-bold">
-                      🔄
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-bold text-slate-800 Prompt">เครื่องมือปรับแต่งชื่อช่าง (CT Name Normalizer)</h2>
-                      <p className="text-xs text-slate-400 Sarabun">เรียกปรับข้อมูลประวัติ และตารางคิวงานเดิมเชื่อมโยงเข้ากับรหัสช่างรูปแบบใหม่ CTxxxxxxx อัตโนมัติ</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                    <p className="text-xs text-slate-500 leading-relaxed Sarabun flex-grow">
-                      เครื่องมือจะใช้ฐานข้อมูล map ชื่อเก่าช่างเทคนิคที่ตรวจเจอใน Excel เข้ากับโครงสร้าง CT ใหม่ และเขียนทับข้อมูลประวัติใบงานทั้งหมดโดยไม่มีการลบข้อมูลสำรอง เพื่อป้องกันปัญหาช่างไม่เห็นคิวงานจ่ายของตัวเองเมื่อนำข้อมูลเข้าจาก Excel
-                    </p>
-                    <button
-                      onClick={triggerTechNameMigration}
-                      className="px-6 py-3 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-100 transition Prompt cursor-pointer shrink-0"
-                    >
-                      เริ่มปรับระบบชื่อช่าง
-                    </button>
-                  </div>
-                </motion.section>
-              )}
+
 
             </AnimatePresence>
           </div>
