@@ -17,7 +17,8 @@ import {
   deleteDoc, 
   getDoc,
   writeBatch,
-  onSnapshot
+  onSnapshot,
+  where
 } from 'firebase/firestore';
 import type { SubmissionData, JobRow, UserData } from '@/lib/utils';
 import { formatThaiDate, getFileIdFromUrl, getEnglishNameSuffix } from '@/lib/utils';
@@ -138,6 +139,392 @@ const formatSpeed = (hours: number | null): string => {
   return `${days.toFixed(1)} วัน`;
 };
 
+interface TechnicianPixelOfficeProps {
+  users: any[];
+  todayAttendance: Record<string, any>;
+  assignedJobs: any[];
+  submissions: any[];
+}
+
+function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissions }: TechnicianPixelOfficeProps) {
+  // Get all technicians (role === 'staff')
+  const technicians = users.filter(u => u.role === 'staff');
+  
+  // Categorize technicians into states
+  const workingTechs: any[] = [];
+  const onsiteTechs: any[] = [];
+  const leaveTechs: any[] = [];
+  const offlineTechs: any[] = [];
+
+  technicians.forEach(u => {
+    const username = u.username || '';
+    const name = u.name || '';
+    const attRecord = todayAttendance[username] || todayAttendance[name];
+    
+    // Calculate pending count in queue
+    const pendingJobs = assignedJobs.filter(j => 
+      j.status !== 'submitted' && 
+      (j.technician?.trim().toLowerCase() === name.trim().toLowerCase() ||
+       j.technician?.trim().toLowerCase() === username.trim().toLowerCase())
+    );
+
+    // Check if submitted anything in the last 2 hours
+    const hasRecentSub = submissions.some(s => {
+      if (s.name?.trim().toLowerCase() !== name.trim().toLowerCase()) return false;
+      const subTime = new Date(s.submission_date).getTime();
+      return (Date.now() - subTime) < 2 * 60 * 60 * 1000; // 2 hours
+    });
+
+    const techObj = {
+      username,
+      name,
+      displayName: name.split('-').pop()?.trim() || name,
+      pendingCount: pendingJobs.length,
+      hasRecentSub,
+      checkInTime: attRecord?.check_in_time ? new Date(attRecord.check_in_time).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) : '',
+      status: attRecord?.status || 'offline',
+      province: attRecord?.province || '',
+      district: attRecord?.district || ''
+    };
+
+    if (attRecord) {
+      if (attRecord.status === 'onsite') {
+        onsiteTechs.push(techObj);
+      } else if (attRecord.status === 'sick_leave' || attRecord.status === 'personal_leave') {
+        leaveTechs.push(techObj);
+      } else if (attRecord.status === 'normal' || attRecord.status === 'late') {
+        workingTechs.push(techObj);
+      } else {
+        offlineTechs.push(techObj);
+      }
+    } else {
+      offlineTechs.push(techObj);
+    }
+  });
+
+  return (
+    <div className="glass-card p-5 mb-6 overflow-hidden relative">
+      {/* Dynamic CSS styles for pixel art animations */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        .pixel-floor {
+          background-color: #f8fafc;
+          background-image: 
+            linear-gradient(45deg, #f1f5f9 25%, transparent 25%), 
+            linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), 
+            linear-gradient(45deg, transparent 75%, #f1f5f9 75%), 
+            linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
+          background-size: 16px 16px;
+          background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+        }
+        @keyframes pixel-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @keyframes pixel-typing {
+          0%, 100% { transform: translateY(0) scaleY(1); }
+          50% { transform: translateY(-2px) scaleY(0.95); }
+        }
+        @keyframes wheel-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes truck-drive {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(120%); }
+        }
+        @keyframes zzz-float {
+          0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
+          30% { opacity: 1; }
+          100% { opacity: 0; transform: translate(6px, -20px) scale(1.1); }
+        }
+        @keyframes celebrate-jump {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          25% { transform: translateY(-8px) rotate(-5deg); }
+          75% { transform: translateY(-8px) rotate(5deg); }
+        }
+        .animate-bounce-pixel {
+          animation: pixel-bounce 1.5s infinite ease-in-out;
+        }
+        .animate-typing-pixel {
+          animation: pixel-typing 0.4s infinite linear;
+        }
+        .animate-wheel {
+          animation: wheel-spin 1s infinite linear;
+        }
+        .animate-drive-pixel {
+          animation: truck-drive 12s infinite linear;
+        }
+        .animate-zzz-1 {
+          animation: zzz-float 2.5s infinite ease-out;
+        }
+        .animate-zzz-2 {
+          animation: zzz-float 2.5s infinite ease-out 0.8s;
+        }
+        .animate-zzz-3 {
+          animation: zzz-float 2.5s infinite ease-out 1.6s;
+        }
+        .animate-celebrate {
+          animation: celebrate-jump 1s infinite ease-in-out;
+        }
+      `}} />
+
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
+          <span className="w-1.5 h-4 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
+          🏢 Live Tech Pixel Office (สถานะปฏิบัติงานช่างเทคนิคเรียลไทม์)
+        </h3>
+        <div className="flex gap-3 text-[10px] font-bold Prompt text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-sm shadow-emerald-200" />
+            ในออฟฟิศ: {workingTechs.length}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shadow-sm shadow-indigo-200" />
+            ลงพื้นที่: {onsiteTechs.length}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-200" />
+            ลางาน: {leaveTechs.length}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-slate-300 inline-block" />
+            ออฟไลน์: {offlineTechs.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Main Pixel Board Grid Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border border-slate-100 rounded-2xl overflow-hidden shadow-inner bg-slate-50">
+        
+        {/* โซนที่ 1: ห้องทำงานช่าง (Working In Office) - กว้าง 2 คอลัมน์บนจอใหญ่ */}
+        <div className="md:col-span-2 p-4 relative min-h-[220px] pixel-floor flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200/50">
+          <div className="flex justify-between items-center mb-2 z-10">
+            <span className="text-[9px] font-extrabold uppercase tracking-widest text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/50 Prompt">
+              🏢 ห้องปฏิบัติงานหลัก (Active Office)
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-y-6 gap-x-4 flex-1 items-center justify-items-center py-2 z-10">
+            {workingTechs.length === 0 ? (
+              <div className="col-span-3 text-center py-6 text-slate-400 text-[10px] font-bold Prompt">
+                ไม่มีช่างอยู่ในออฟฟิศขณะนี้ 💻
+              </div>
+            ) : (
+              workingTechs.map((tech, idx) => (
+                <div key={tech.username || idx} className="flex flex-col items-center group relative cursor-pointer">
+                  {/* SVG Avatar for working tech with typing animation */}
+                  <div className="relative w-12 h-12 flex items-center justify-center animate-typing-pixel">
+                    {/* Active work bubble or task count bubble */}
+                    {tech.hasRecentSub && (
+                      <span className="absolute -top-1.5 -right-1 bg-pink-500 text-white font-extrabold text-[8px] px-1.5 py-0.5 rounded-full shadow-md animate-bounce z-20">
+                        🎉 ส่งงานแล้ว
+                      </span>
+                    )}
+                    {tech.pendingCount > 0 && !tech.hasRecentSub && (
+                      <span className="absolute -top-1.5 -right-1 bg-indigo-600 text-white font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md z-20" title={`มีงานค้าง: ${tech.pendingCount} งาน`}>
+                        {tech.pendingCount}
+                      </span>
+                    )}
+
+                    <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 40 40" fill="none">
+                      {/* Retro Computer Monitor */}
+                      <rect x="22" y="16" width="12" height="10" rx="1.5" fill="#475569" />
+                      <rect x="23.5" y="17.5" width="9" height="7" rx="0.5" fill="#38bdf8" />
+                      <rect x="27" y="26" width="2" height="3" fill="#334155" />
+                      <rect x="25" y="29" width="6" height="1" fill="#334155" />
+                      
+                      {/* Character Body (Shirt) */}
+                      <path d="M10 28 C10 24, 20 24, 20 28 L20 36 L10 36 Z" fill="#6366f1" />
+                      
+                      {/* Head (Skin) */}
+                      <circle cx="15" cy="18" r="5" fill="#fed7aa" />
+                      
+                      {/* Hair (Brown) */}
+                      <path d="M10 17 C10 13, 20 13, 20 17 C20 15, 10 15, 10 17" fill="#78350f" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round" />
+                      
+                      {/* Eyes */}
+                      <circle cx="13.5" cy="18" r="0.8" fill="#1e293b" />
+                      <circle cx="16.5" cy="18" r="0.8" fill="#1e293b" />
+                      
+                      {/* Typing hands */}
+                      <circle cx="21" cy="28" r="1.2" fill="#fed7aa" className="animate-pulse" />
+                      <circle cx="24" cy="27" r="1.2" fill="#fed7aa" className="animate-pulse" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-700 bg-white/95 px-1.5 py-0.5 rounded-md shadow-xs border border-slate-100/60 mt-1 max-w-[80px] truncate Prompt text-center" title={tech.name}>
+                    {tech.displayName}
+                  </span>
+                  <span className="text-[8px] text-slate-400 font-bold tracking-tight">
+                    {tech.checkInTime} น.
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* โซนที่ 2: โซนพักผ่อน/ลางาน (Leave Lounge) */}
+        <div className="p-4 relative min-h-[220px] bg-yellow-50/50 flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-200/50">
+          <div className="flex justify-between items-center mb-2 z-10">
+            <span className="text-[9px] font-extrabold uppercase tracking-widest text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/50 Prompt">
+              🏖️ ลางาน/พักผ่อน (Rest Lounge)
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-y-4 gap-x-2 flex-1 items-center justify-items-center py-2 z-10">
+            {leaveTechs.length === 0 ? (
+              <div className="col-span-2 text-center py-6 text-slate-400 text-[10px] font-bold Prompt">
+                วันนี้ไม่มีช่างขอลากิจ/ป่วย 🌴
+              </div>
+            ) : (
+              leaveTechs.map((tech, idx) => (
+                <div key={tech.username || idx} className="flex flex-col items-center group relative cursor-pointer">
+                  {/* SVG Avatar for lounging tech */}
+                  <div className="relative w-12 h-12 flex items-center justify-center animate-bounce-pixel">
+                    {/* Status label: ลาป่วย / ลากิจ */}
+                    <span className="absolute -top-1 bg-amber-500 text-white font-extrabold text-[7px] px-1 py-0.25 rounded-md shadow-xs z-20">
+                      {tech.status === 'sick_leave' ? '🤒 ป่วย' : '🚗 ลากิจ'}
+                    </span>
+
+                    <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 40 40" fill="none">
+                      {/* Beach Chair (Lounger) */}
+                      <path d="M8 32 L32 32 L28 20 L24 20 Z" fill="#94a3b8" />
+                      <line x1="8" y1="32" x2="28" y2="20" stroke="#f43f5e" strokeWidth="2.5" />
+                      <line x1="12" y1="32" x2="16" y2="24" stroke="#f43f5e" strokeWidth="2.5" />
+                      
+                      {/* Character resting on lounger */}
+                      {/* Body */}
+                      <path d="M12 28 C12 26, 24 26, 24 28" stroke="#10b981" strokeWidth="4" strokeLinecap="round" />
+                      {/* Head */}
+                      <circle cx="24" cy="22" r="4.5" fill="#fed7aa" />
+                      {/* Sunglasses */}
+                      <rect x="22" y="21" width="5" height="2.2" rx="0.5" fill="#1e293b" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-700 bg-white/95 px-1.5 py-0.5 rounded-md shadow-xs border border-slate-100/60 mt-1 max-w-[70px] truncate Prompt text-center" title={tech.name}>
+                    {tech.displayName}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* โซนที่ 3: โซนบ้านพักช่าง / ออฟไลน์ (Offline/Away) */}
+        <div className="p-4 relative min-h-[220px] bg-slate-100/40 flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-2 z-10">
+            <span className="text-[9px] font-extrabold uppercase tracking-widest text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60 Prompt">
+              🏠 บ้านพักช่าง (Offline)
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-y-4 gap-x-2 flex-1 items-center justify-items-center py-2 z-10">
+            {offlineTechs.length === 0 ? (
+              <div className="col-span-2 text-center py-6 text-slate-400 text-[10px] font-bold Prompt">
+                ช่างทุกคนสแตนด์บาย! ⚡
+              </div>
+            ) : (
+              offlineTechs.map((tech, idx) => (
+                <div key={tech.username || idx} className="flex flex-col items-center group relative cursor-pointer">
+                  {/* SVG Avatar for sleeping tech with Zzz floating bubbles */}
+                  <div className="relative w-12 h-12 flex items-center justify-center">
+                    {/* Floating Zzz */}
+                    <span className="absolute top-1 left-2 text-[8px] font-black text-indigo-500/80 animate-zzz-1">Z</span>
+                    <span className="absolute top-2 left-4 text-[10px] font-black text-indigo-500/80 animate-zzz-2">Z</span>
+                    <span className="absolute top-0 left-6 text-[12px] font-black text-indigo-500/80 animate-zzz-3">Z</span>
+
+                    <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
+                      {/* Bed/Pillow */}
+                      <rect x="8" y="24" width="24" height="8" rx="2" fill="#cbd5e1" />
+                      <rect x="8" y="20" width="8" height="6" rx="1" fill="#ffffff" />
+                      <rect x="6" y="28" width="2" height="6" fill="#64748b" />
+                      <rect x="32" y="28" width="2" height="6" fill="#64748b" />
+                      
+                      {/* Sleeping character under blanket */}
+                      <circle cx="12" cy="18" r="4.5" fill="#fed7aa" />
+                      {/* Hair */}
+                      <path d="M8 18 C8 15, 16 15, 16 18" fill="#475569" stroke="#475569" strokeWidth="1.5" />
+                      {/* Closed eye */}
+                      <path d="M11.5 19 L13 19" stroke="#94a3b8" strokeWidth="1" />
+                      {/* Blanket */}
+                      <rect x="14" y="22" width="18" height="10" rx="1.5" fill="#a7f3d0" />
+                    </svg>
+                  </div>
+                  <span className="text-[9px] font-bold text-slate-700 bg-white/95 px-1.5 py-0.5 rounded-md shadow-xs border border-slate-100/60 mt-1 max-w-[70px] truncate Prompt text-center" title={tech.name}>
+                    {tech.displayName}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* โซนที่ 4: ถนนวิ่งงานช่างหน้างาน (On-Site Road Animation) - แสดงยาวพาดขอบล่างของกล่อง */}
+      <div className="mt-4 border border-slate-200/60 rounded-xl overflow-hidden bg-slate-700 h-[64px] relative flex flex-col justify-center">
+        {/* Road markings */}
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t-2 border-dashed border-white/60 h-0 w-full" />
+        
+        {/* Road category text overlay */}
+        <div className="absolute top-1 right-3 text-[8px] font-extrabold uppercase tracking-widest text-indigo-200/70 z-10 Prompt">
+          🚗 เส้นทางวิ่งงานจริงหน้างาน (On-Site Live Track)
+        </div>
+
+        {/* Render animated trucks on the road */}
+        {onsiteTechs.length === 0 ? (
+          <div className="text-center text-slate-400 text-[10px] font-bold Prompt z-10">
+            ขณะนี้ไม่มีช่างอยู่ระหว่างเดินทางเข้าหน้างาน 🛣️
+          </div>
+        ) : (
+          onsiteTechs.map((tech, idx) => (
+            <div 
+              key={tech.username || idx} 
+              className="absolute flex items-center gap-2 animate-drive-pixel z-10"
+              style={{ 
+                // Stagger starting times if multiple trucks are driving
+                animationDelay: `${idx * 4}s`,
+                top: `${8 + (idx % 2) * 16}px` 
+              }}
+            >
+              {/* Little Truck SVG Icon */}
+              <div className="relative flex items-center">
+                <svg className="w-12 h-6 drop-shadow-md" viewBox="0 0 48 24" fill="none">
+                  {/* Truck Body */}
+                  <rect x="2" y="8" width="28" height="10" rx="1.5" fill="#3b82f6" />
+                  <rect x="28" y="10" width="12" height="8" rx="1" fill="#3b82f6" />
+                  <path d="M40 18 L44 18 L42 12 L38 12 Z" fill="#3b82f6" />
+                  
+                  {/* Windshield */}
+                  <path d="M36 11.5 L40 11.5 L38.5 13 L36 13 Z" fill="#e2e8f0" />
+                  
+                  {/* Ladder loaded in truck bed */}
+                  <line x1="4" y1="5" x2="26" y2="5" stroke="#94a3b8" strokeWidth="2" />
+                  <line x1="8" y1="5" x2="8" y2="8" stroke="#94a3b8" strokeWidth="1" />
+                  <line x1="14" y1="5" x2="14" y2="8" stroke="#94a3b8" strokeWidth="1" />
+                  <line x1="20" y1="5" x2="20" y2="8" stroke="#94a3b8" strokeWidth="1" />
+                  
+                  {/* Wheels */}
+                  <circle cx="10" cy="18" r="4.5" fill="#1e293b" />
+                  <circle cx="10" cy="18" r="2.2" fill="#ffffff" className="animate-wheel" />
+                  <circle cx="32" cy="18" r="4.5" fill="#1e293b" />
+                  <circle cx="32" cy="18" r="2.2" fill="#ffffff" className="animate-wheel" />
+                </svg>
+                
+                {/* Driver text badge */}
+                <div className="bg-white/95 px-1.5 py-0.5 rounded-md shadow-md border border-indigo-200 text-[8px] font-black text-indigo-700 Prompt shrink-0 ml-1">
+                  ช่าง {tech.displayName} ({tech.province || 'หน้างาน'})
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+    </div>
+  );
+}
+
 function DashboardContent() {
   const { currentUser, showToast, showConfirm, systemSettings, gdrivePrefs } = useApp();
   const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'auditor';
@@ -156,6 +543,7 @@ function DashboardContent() {
   const [submissions, setSubmissions] = useState<SubmissionData[]>([]);
   const [assignedJobs, setAssignedJobs] = useState<JobRow[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [todayAttendance, setTodayAttendance] = useState<Record<string, any>>({});
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
   
   // Loading states
@@ -310,7 +698,12 @@ function DashboardContent() {
   };
 
   // A ref to keep track of active subscriptions to avoid duplicating listeners
-  const unsubscribersRef = useRef<{ unsubSubmissions?: () => void, unsubJobs?: () => void, unsubUsers?: () => void }>({});
+  const unsubscribersRef = useRef<{ 
+    unsubSubmissions?: () => void; 
+    unsubJobs?: () => void; 
+    unsubUsers?: () => void;
+    unsubAttendance?: () => void;
+  }>({});
 
   const startRealtimeListeners = React.useCallback(() => {
     const db = getDb();
@@ -319,6 +712,7 @@ function DashboardContent() {
     if (unsubscribersRef.current.unsubSubmissions) unsubscribersRef.current.unsubSubmissions();
     if (unsubscribersRef.current.unsubJobs) unsubscribersRef.current.unsubJobs();
     if (unsubscribersRef.current.unsubUsers) unsubscribersRef.current.unsubUsers();
+    if (unsubscribersRef.current.unsubAttendance) unsubscribersRef.current.unsubAttendance();
 
     // 1. Listen to Submissions
     unsubscribersRef.current.unsubSubmissions = onSnapshot(
@@ -387,6 +781,24 @@ function DashboardContent() {
         console.error("Users listener failed:", err);
       }
     );
+
+    // 4. Listen to Attendance Records for Today
+    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const todayQ = query(collection(db, 'attendance_records'), where('date', '==', today));
+    unsubscribersRef.current.unsubAttendance = onSnapshot(
+      todayQ,
+      (snap) => {
+        const attMap: Record<string, any> = {};
+        snap.forEach(d => {
+          const data = d.data();
+          attMap[data.username || data.name] = data;
+        });
+        setTodayAttendance(attMap);
+      },
+      (err) => {
+        console.error("Attendance listener failed:", err);
+      }
+    );
   }, []);
 
   const fetchData = async () => {
@@ -399,6 +811,7 @@ function DashboardContent() {
       if (unsubscribersRef.current.unsubSubmissions) unsubscribersRef.current.unsubSubmissions();
       if (unsubscribersRef.current.unsubJobs) unsubscribersRef.current.unsubJobs();
       if (unsubscribersRef.current.unsubUsers) unsubscribersRef.current.unsubUsers();
+      if (unsubscribersRef.current.unsubAttendance) unsubscribersRef.current.unsubAttendance();
     };
   }, [startRealtimeListeners]);
 
@@ -1249,6 +1662,16 @@ function DashboardContent() {
             )}
           </div>
         </div>
+
+        {/* ── Live Technician Pixel Office ────────────────────────────────────── */}
+        {!loading && viewMode === 'overview' && (
+          <TechnicianPixelOffice 
+            users={users}
+            todayAttendance={todayAttendance}
+            assignedJobs={assignedJobs}
+            submissions={submissions}
+          />
+        )}
 
         {/* ── Leaderboard Strip (Submitted & Speed) ────────────────────────────────────────────── */}
         {!loading && techStatsSubmitted.length > 0 && (
