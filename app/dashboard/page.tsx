@@ -146,25 +146,203 @@ interface TechnicianPixelOfficeProps {
   submissions: any[];
 }
 
-interface TechPos {
-  username: string;
-  name: string;
-  displayName: string;
-  x: number;
-  y: number;
-  tx: number;
-  ty: number;
+// ── Retro Pixel Art Furniture Assets ──
+const BookcaseSVG = () => (
+  <svg viewBox="0 0 32 36" className="w-12 h-14" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="1" width="30" height="34" fill="#854d0e" rx="1" />
+    <rect x="3" y="10" width="26" height="2" fill="#451a03" />
+    <rect x="3" y="20" width="26" height="2" fill="#451a03" />
+    <rect x="3" y="30" width="26" height="2" fill="#451a03" />
+    {/* Books */}
+    <rect x="5" y="4" width="3" height="6" fill="#ef4444" />
+    <rect x="8" y="3" width="2" height="7" fill="#3b82f6" />
+    <rect x="11" y="5" width="3" height="5" fill="#22c55e" />
+    <rect x="18" y="13" width="3" height="7" fill="#eab308" />
+    <rect x="21" y="14" width="2" height="6" fill="#a855f7" />
+    <rect x="6" y="24" width="3" height="6" fill="#38bdf8" />
+    <rect x="10" y="24" width="3" height="6" fill="#ec4899" />
+    <rect x="22" y="23" width="2" height="7" fill="#ef4444" />
+  </svg>
+);
+
+const PlantSVG = () => (
+  <svg viewBox="0 0 16 20" className="w-6 h-8" style={{ imageRendering: 'pixelated' }}>
+    <rect x="4" y="13" width="8" height="7" fill="#c2410c" rx="1" /> {/* Pot */}
+    {/* Green Leafs */}
+    <circle cx="8" cy="7" r="5" fill="#15803d" />
+    <circle cx="5" cy="9" r="4.5" fill="#166534" />
+    <circle cx="11" cy="8" r="4" fill="#22c55e" />
+  </svg>
+);
+
+const VendingMachineSVG = () => (
+  <svg viewBox="0 0 20 36" className="w-8 h-14" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="1" width="18" height="34" fill="#ef4444" rx="1.5" />
+    <rect x="3" y="3" width="14" height="15" fill="#1e293b" /> {/* Glass */}
+    {/* Cans */}
+    <rect x="5" y="5" width="2" height="4" fill="#38bdf8" />
+    <rect x="9" y="5" width="2" height="4" fill="#22c55e" />
+    <rect x="13" y="5" width="2" height="4" fill="#eab308" />
+    <rect x="5" y="12" width="2" height="4" fill="#ea580c" />
+    <rect x="9" y="12" width="2" height="4" fill="#a855f7" />
+    <rect x="13" y="12" width="2" height="4" fill="#ec4899" />
+    {/* Coin panel */}
+    <rect x="4" y="22" width="4" height="4" fill="#cbd5e1" />
+    <rect x="5" y="23" width="1" height="2" fill="#1e293b" />
+    <rect x="4" y="28" width="12" height="5" fill="#334155" />
+  </svg>
+);
+
+const WaterCoolerSVG = () => (
+  <svg viewBox="0 0 16 32" className="w-6 h-12" style={{ imageRendering: 'pixelated' }}>
+    <rect x="3" y="2" width="10" height="12" rx="2" fill="#38bdf8" /> {/* Jug */}
+    <rect x="5" y="4" width="2" height="8" fill="#e0f2fe" opacity="0.6" />
+    <rect x="2" y="14" width="12" height="16" fill="#cbd5e1" rx="1" /> {/* Dispenser */}
+    <rect x="2" y="14" width="12" height="2" fill="#94a3b8" />
+    <rect x="5" y="18" width="6" height="4" fill="#64748b" />
+    <rect x="7" y="19" width="2" height="2" fill="#ef4444" /> {/* Tap */}
+  </svg>
+);
+
+const FridgeSVG = () => (
+  <svg viewBox="0 0 20 36" className="w-8 h-14" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="1" width="18" height="34" fill="#94a3b8" rx="1.5" />
+    <rect x="1" y="1" width="18" height="16" fill="#cbd5e1" />
+    {/* Handles */}
+    <rect x="2" y="12" width="1.5" height="4" fill="#334155" />
+    <rect x="2" y="18" width="1.5" height="5" fill="#334155" />
+    <rect x="1" y="17" width="18" height="1" fill="#475569" />
+  </svg>
+);
+
+const DeskSVG = () => (
+  <svg viewBox="0 0 36 28" className="w-14 h-11" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="14" width="34" height="10" fill="#854d0e" rx="1" /> {/* Wood Table */}
+    <rect x="1" y="12" width="34" height="2" fill="#a16207" />
+    {/* Legs */}
+    <rect x="2" y="24" width="3" height="4" fill="#451a03" />
+    <rect x="31" y="24" width="3" height="4" fill="#451a03" />
+    {/* Computer Monitor */}
+    <rect x="11" y="2" width="14" height="9" rx="1" fill="#475569" />
+    <rect x="12.5" y="3.5" width="11" height="6" fill="#1e293b" />
+    <rect x="16" y="11" width="4" height="3" fill="#64748b" />
+    <rect x="14" y="13" width="8" height="1" fill="#475569" />
+    {/* Keyboard & Mouse */}
+    <rect x="13" y="15" width="10" height="2" fill="#cbd5e1" />
+    <rect x="25" y="16" width="2" height="1.5" fill="#cbd5e1" />
+    {/* Coffee Mug */}
+    <rect x="6" y="15" width="3" height="3" fill="#eab308" />
+  </svg>
+);
+
+const LoungeTableSVG = () => (
+  <svg viewBox="0 0 32 24" className="w-12 h-9" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="10" width="30" height="8" fill="#d97706" rx="1" />
+    <rect x="2" y="18" width="2" height="6" fill="#78350f" />
+    <rect x="28" y="18" width="2" height="6" fill="#78350f" />
+    {/* Laptop */}
+    <rect x="10" y="4" width="12" height="7" fill="#cbd5e1" />
+    <rect x="11" y="5" width="10" height="5" fill="#38bdf8" />
+    <rect x="9" y="11" width="14" height="1" fill="#94a3b8" />
+  </svg>
+);
+
+const CouchSVG = ({ dir }: { dir: 'left' | 'right' }) => (
+  <svg viewBox="0 0 16 28" className="w-6 h-11" style={{ imageRendering: 'pixelated' }}>
+    <rect x="1" y="1" width="14" height="26" rx="2" fill="#ec4899" />
+    {dir === 'left' ? (
+      <>
+        <rect x="1" y="1" width="4" height="26" fill="#db2777" />
+        <rect x="12" y="1" width="3" height="26" fill="#be185d" />
+      </>
+    ) : (
+      <>
+        <rect x="1" y="1" width="3" height="26" fill="#be185d" />
+        <rect x="11" y="1" width="4" height="26" fill="#db2777" />
+      </>
+    )}
+  </svg>
+);
+
+// ── Pixel Art Character Sprite Component ──
+interface CharacterSVGProps {
+  hairStyle: number;
+  shirtColor: string;
   isWalking: boolean;
-  angle: number;
-  status: string;
-  pendingCount: number;
-  hasRecentSub: boolean;
-  checkInTime: string;
-  province: string;
-  chatBubble: string;
-  chatTimer: number;
-  idleTimer: number;
+  isTyping: boolean;
+  dir: 'left' | 'right' | 'front' | 'back';
 }
+
+const CharacterSVG = ({ hairStyle, shirtColor, isWalking, isTyping, dir }: CharacterSVGProps) => {
+  const hairColors = ['#78350f', '#eab308', '#475569', '#1e293b'];
+  const hairColor = hairColors[hairStyle % hairColors.length];
+
+  return (
+    <svg viewBox="0 0 16 24" className="w-8 h-12" style={{ imageRendering: 'pixelated' }}>
+      {/* Legs Animation */}
+      {isWalking ? (
+        <>
+          <rect x="4" y="18" width="3" height="6" fill="#1e293b" className="animate-bounce" />
+          <rect x="9" y="18" width="3" height="6" fill="#1e293b" />
+        </>
+      ) : (
+        <>
+          <rect x="4" y="19" width="3" height="5" fill="#1e293b" />
+          <rect x="9" y="19" width="3" height="5" fill="#1e293b" />
+        </>
+      )}
+
+      {/* Body / Shirt */}
+      <rect x="3" y="11" width="10" height="8" rx="1.5" fill={shirtColor} />
+
+      {/* Typing Hands */}
+      {isTyping && (
+        <>
+          <rect x="1" y="13" width="3" height="2" fill="#fed7aa" className="animate-bounce" />
+          <rect x="12" y="13" width="3" height="2" fill="#fed7aa" className="animate-bounce" />
+        </>
+      )}
+
+      {/* Head */}
+      <rect x="4" y="3" width="8" height="8" rx="1" fill="#fed7aa" />
+
+      {/* Face & Hair rendering based on orientation direction */}
+      {dir === 'front' && (
+        <>
+          <rect x="5" y="6" width="1.5" height="1.5" fill="#1e293b" />
+          <rect x="9.5" y="6" width="1.5" height="1.5" fill="#1e293b" />
+          <rect x="7" y="8" width="2" height="1" fill="#f43f5e" /> {/* mouth */}
+          {/* Hair */}
+          {hairStyle === 0 && <path d="M4 3 h8 v2 h-8 z M3 4 h1 v2 h-1 z M12 4 h1 v2 h-1 z" fill={hairColor} />}
+          {hairStyle === 1 && <path d="M4 2 h8 v3 h-8 z M2 3 h2 v3 h-2 z M12 3 h2 v3 h-2 z" fill={hairColor} />}
+          {hairStyle === 2 && <rect x="3" y="1" width="10" height="4" fill={hairColor} rx="1.5" />}
+          {hairStyle === 3 && <rect x="3" y="2" width="10" height="3" fill="#ef4444" />}
+        </>
+      )}
+
+      {dir === 'back' && (
+        <>
+          <rect x="4" y="3" width="8" height="7" fill={hairColor} />
+          {hairStyle === 1 && <rect x="3" y="8" width="10" height="4" fill={hairColor} />}
+        </>
+      )}
+
+      {dir === 'left' && (
+        <>
+          <rect x="5" y="6" width="1.5" height="1.5" fill="#1e293b" />
+          <rect x="4" y="3" width="7" height="7" fill={hairColor} />
+        </>
+      )}
+
+      {dir === 'right' && (
+        <>
+          <rect x="9.5" y="6" width="1.5" height="1.5" fill="#1e293b" />
+          <rect x="5" y="3" width="7" height="7" fill={hairColor} />
+        </>
+      )}
+    </svg>
+  );
+};
 
 function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissions }: TechnicianPixelOfficeProps) {
   // Get all technicians (role === 'staff')
@@ -180,21 +358,18 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
       return;
     }
 
-    // List of potential statuses
     const statuses = ['working', 'onsite', 'leave', 'offline'];
     const provinces = ['กรุงเทพฯ', 'นนทบุรี', 'ปทุมธานี', 'สมุทรปราการ', 'ชลบุรี'];
     const leaveTypes = ['sick_leave', 'personal_leave'];
 
-    // Initial setup
     const initialDemo = technicians.map((u, idx) => {
       const name = u.name || '';
       const username = u.username || '';
       
       const randomStatus = statuses[idx % statuses.length];
-      const pendingCount = Math.floor(Math.random() * 4); // 0 to 3
-      const hasRecentSub = Math.random() > 0.7; // 30% chance
+      const pendingCount = Math.floor(Math.random() * 4);
+      const hasRecentSub = Math.random() > 0.7;
 
-      // random check-in time
       const randHour = 7 + Math.floor(Math.random() * 3);
       const randMin = Math.floor(Math.random() * 60);
       const checkInTime = `${randHour.toString().padStart(2, '0')}:${randMin.toString().padStart(2, '0')}`;
@@ -213,15 +388,13 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
 
     setDemoTechs(initialDemo);
 
-    // Periodically update the simulator to show live movement!
     const interval = setInterval(() => {
       setDemoTechs(prev => {
         return prev.map(t => {
-          // 25% chance to update each technician's status
-          if (Math.random() > 0.75) {
+          if (Math.random() > 0.7) {
             const nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
             const newPending = Math.floor(Math.random() * 4);
-            const subChance = Math.random() > 0.7;
+            const subChance = Math.random() > 0.6;
             
             let statusVal = 'offline';
             if (nextStatus === 'working') {
@@ -242,12 +415,17 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           return t;
         });
       });
-    }, 10000); // Check for status changes every 10 seconds
+    }, 6000);
 
     return () => clearInterval(interval);
   }, [demoMode, users]);
 
-  // Map incoming tech data
+  // Categorize technicians into states
+  const workingTechs: any[] = [];
+  const onsiteTechs: any[] = [];
+  const leaveTechs: any[] = [];
+  const offlineTechs: any[] = [];
+
   const sourceTechs = demoMode ? demoTechs : technicians.map(u => {
     const username = u.username || '';
     const name = u.name || '';
@@ -278,240 +456,119 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
     };
   });
 
-  // Keep tracking local simulation state of positions
-  const [techPositions, setTechPositions] = useState<TechPos[]>([]);
+  sourceTechs.forEach(t => {
+    if (t.status === 'onsite') {
+      onsiteTechs.push(t);
+    } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
+      leaveTechs.push(t);
+    } else if (t.status === 'normal' || t.status === 'late') {
+      workingTechs.push(t);
+    } else {
+      offlineTechs.push(t);
+    }
+  });
 
-  // Spawn Door Point
-  const DOOR_X = 18;
-  const DOOR_Y = 75;
+  const getTargetCoords = (t: any) => {
+    if (t.status === 'onsite') {
+      const idx = onsiteTechs.findIndex(o => o.username === t.username);
+      return { x: 10 + (idx >= 0 ? idx : 0) * 20, y: 91, dir: 'right' as const };
+    } else if (t.status === 'sick_leave' || t.status === 'personal_leave') {
+      const idx = leaveTechs.findIndex(l => l.username === t.username);
+      if (idx === 0) return { x: 72, y: 73, dir: 'right' as const };
+      if (idx === 1) return { x: 88, y: 73, dir: 'left' as const };
+      return { x: 80, y: 80, dir: 'front' as const };
+    } else if (t.status === 'normal' || t.status === 'late') {
+      const idx = workingTechs.findIndex(w => w.username === t.username);
+      if (idx === 0) return { x: 16, y: 41, dir: 'back' as const };
+      if (idx === 1) return { x: 42, y: 41, dir: 'back' as const };
+      if (idx === 2) return { x: 16, y: 74, dir: 'back' as const };
+      if (idx === 3) return { x: 42, y: 74, dir: 'back' as const };
+      return { x: 30, y: 55, dir: 'front' as const };
+    } else {
+      const idx = offlineTechs.findIndex(of => of.username === t.username);
+      if (idx === 0) return { x: 78, y: 23, dir: 'front' as const };
+      if (idx === 1) return { x: 90, y: 20, dir: 'front' as const };
+      if (idx === 2) return { x: 68, y: 20, dir: 'front' as const };
+      return { x: 74, y: 30, dir: 'front' as const };
+    }
+  };
 
-  // Desk spots, relaxation spots, lounge spots coordinates on the uploaded picture
-  const DESK_SPOTS = [
-    { x: 49, y: 61 }, // Sitting on desk chair
-    { x: 35, y: 55 }, // Window view / Left bench
-    { x: 58, y: 58 }, // Right desk near cupboard
-    { x: 43, y: 44 }  // Back whiteboard desk
-  ];
+  const [techPositions, setTechPositions] = useState<Record<string, { x: number; y: number; dir: 'left' | 'right' | 'front' | 'back'; isWalking: boolean }>>({});
 
-  const LOUNGE_SPOTS = [
-    { x: 74, y: 70 },
-    { x: 82, y: 78 },
-    { x: 68, y: 74 }
-  ];
-
+  // Trigger smooth coordinates transition and set walking animation state
   useEffect(() => {
-    setTechPositions(prev => {
-      const updated = [...prev];
-      
-      sourceTechs.forEach((st, idx) => {
-        const existing = updated.find(t => t.username === st.username);
-        
-        // Target coordinates based on status
-        let tx = DOOR_X;
-        let ty = DOOR_Y;
-        
-        if (st.status === 'normal' || st.status === 'late') {
-          const spot = DESK_SPOTS[idx % DESK_SPOTS.length];
-          tx = spot.x;
-          ty = spot.y;
-        } else if (st.status === 'sick_leave' || st.status === 'personal_leave') {
-          const spot = LOUNGE_SPOTS[idx % LOUNGE_SPOTS.length];
-          tx = spot.x;
-          ty = spot.y;
-        } else {
-          // Onsite or Offline walk to the door
-          tx = DOOR_X;
-          ty = DOOR_Y;
-        }
+    const newPositions = { ...techPositions };
+    let changed = false;
 
-        if (existing) {
-          // Update properties but preserve walking position
-          existing.status = st.status;
-          existing.pendingCount = st.pendingCount;
-          existing.hasRecentSub = st.hasRecentSub;
-          existing.checkInTime = st.checkInTime;
-          existing.province = st.province;
-          existing.tx = tx;
-          existing.ty = ty;
-        } else {
-          // Spawn at the door if they are active/not offline
-          if (st.status !== 'offline' && st.status !== 'onsite') {
-            updated.push({
-              username: st.username,
-              name: st.name,
-              displayName: st.displayName,
-              x: DOOR_X,
-              y: DOOR_Y,
-              tx,
-              ty,
-              isWalking: true,
-              angle: 0,
-              status: st.status,
-              pendingCount: st.pendingCount,
-              hasRecentSub: st.hasRecentSub,
-              checkInTime: st.checkInTime,
-              province: st.province,
-              chatBubble: 'เข้าออฟฟิศแล้วครับ! 👋',
-              chatTimer: 35,
-              idleTimer: Math.floor(Math.random() * 100) + 100
-            });
-          }
-        }
-      });
+    sourceTechs.forEach(t => {
+      const target = getTargetCoords(t);
+      const prev = techPositions[t.username];
 
-      // Handle technicians who went offline or onsite
-      sourceTechs.forEach(st => {
-        if (st.status === 'offline' || st.status === 'onsite') {
-          const existing = updated.find(t => t.username === st.username);
-          if (existing) {
-            existing.status = st.status;
-            existing.tx = DOOR_X;
-            existing.ty = DOOR_Y;
-          }
-        }
-      });
+      if (!prev || prev.x !== target.x || prev.y !== target.y) {
+        newPositions[t.username] = {
+          x: target.x,
+          y: target.y,
+          dir: target.dir,
+          isWalking: prev ? true : false
+        };
+        changed = true;
 
-      return updated;
-    });
-  }, [sourceTechs]);
-
-  // Core Animation Loop (Tick every 60ms)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTechPositions(prev => {
-        const speed = 1.5; // percentage distance per tick
-        
-        return prev.map(t => {
-          const dx = t.tx - t.x;
-          const dy = t.ty - t.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          
-          let nx = t.x;
-          let ny = t.y;
-          let isWalk = t.isWalking;
-          let nAngle = t.angle;
-          let bubble = t.chatBubble;
-          let bubbleTime = t.chatTimer;
-          let idleTime = t.idleTimer;
-          let targetX = t.tx;
-          let targetY = t.ty;
-
-          // Handle Movement
-          if (dist > speed) {
-            nx += (dx / dist) * speed;
-            ny += (dy / dist) * speed;
-            isWalk = true;
-            nAngle = (t.angle + 0.3) % (Math.PI * 2);
-          } else {
-            nx = t.tx;
-            ny = t.ty;
-            isWalk = false;
-            nAngle = 0;
-          }
-
-          // Handle chat bubble expiration
-          if (bubbleTime > 0) {
-            bubbleTime -= 1;
-            if (bubbleTime === 0) {
-              bubble = '';
-            }
-          }
-
-          // Handle Idle Behavior (Random walks and messages)
-          if (!isWalk && (t.status === 'normal' || t.status === 'late')) {
-            if (idleTime > 0) {
-              idleTime -= 1;
-            } else {
-              // Time to decide next move
-              if (Math.random() > 0.8) {
-                // Decide to walk somewhere random in office
-                const walkChoice = Math.random();
-                if (walkChoice < 0.3) {
-                  // Walk to file cabinet
-                  targetX = 63;
-                  targetY = 50;
-                } else if (walkChoice < 0.6) {
-                  // Walk to window
-                  targetX = 35;
-                  targetY = 55;
-                } else {
-                  // Back to their main desk chair
-                  const idx = sourceTechs.findIndex(st => st.username === t.username);
-                  const spot = DESK_SPOTS[idx >= 0 ? idx % DESK_SPOTS.length : 0];
-                  targetX = spot.x;
-                  targetY = spot.y;
-                }
+        if (prev) {
+          setTimeout(() => {
+            setTechPositions(curr => {
+              if (curr[t.username]) {
+                return {
+                  ...curr,
+                  [t.username]: { ...curr[t.username], isWalking: false }
+                };
               }
-              
-              // Reset idle timer
-              idleTime = Math.floor(Math.random() * 150) + 150;
-            }
+              return curr;
+            });
+          }, 3000);
+        }
+      }
+    });
 
-            // Small chance of idle chat bubble
-            if (Math.random() > 0.992 && !bubble) {
-              const quotes = [
-                "วันนี้เคสติดตั้งเยอะเลยครับ 💻",
-                "ขอสแตนด์บายรอรับออเดอร์ใหม่ครับ 🙋‍♂️",
-                "ลูกค้าบ้านนี้น่ารักมากครับ ให้ทิปด้วย 😊",
-                "เน็ตหน้างานหมุนติ้วๆ อัปโหลดช้าจัง 📶",
-                "กำลังเคลียร์เอกสารเข้าระบบครับ 🚗",
-                "แอดมินช่วยตรวจงานเลขออเดอร์นี้หน่อยครับ 🙏",
-                "แมวบนตู้เอกสารนอนทั้งวันเลย 🐱",
-                "กาแฟที่ออฟฟิศหมดแล้วเหรอครับ ☕",
-                "งานซ่อมเสร็จแล้ว รูปครบชัดเจนครับ 📸",
-                "วันนี้แดดแรงมาก ร้อนสุดๆ ☀️",
-                "ใบงานของลูกค้ารายนี้เรียบร้อยครับ 📄",
-                "เย้! วันนี้เคลียร์คิวงานหมดแล้ว 🎉"
-              ];
-              bubble = quotes[Math.floor(Math.random() * quotes.length)];
-              bubbleTime = 45; // show for ~2.7s
-            }
-          }
-
-          return {
-            ...t,
-            x: nx,
-            y: ny,
-            tx: targetX,
-            ty: targetY,
-            isWalking: isWalk,
-            angle: nAngle,
-            chatBubble: bubble,
-            chatTimer: bubbleTime,
-            idleTimer: idleTime
-          };
-        }).filter(t => {
-          // Keep character if they haven't reached the door to exit yet
-          const arrivedAtDoor = Math.abs(t.x - DOOR_X) < 1.0 && Math.abs(t.y - DOOR_Y) < 1.0;
-          const isLeaving = t.status === 'offline' || t.status === 'onsite';
-          
-          if (isLeaving && arrivedAtDoor && !t.isWalking) {
-            return false;
-          }
-          return true;
-        });
-      });
-    }, 60);
-
-    return () => clearInterval(timer);
+    if (changed) {
+      setTechPositions(newPositions);
+    }
   }, [sourceTechs]);
 
-  // Derived arrays to count states for header indicators
-  const workingCount = sourceTechs.filter(t => t.status === 'normal' || t.status === 'late').length;
-  const onsiteCount = sourceTechs.filter(t => t.status === 'onsite').length;
-  const leaveCount = sourceTechs.filter(t => t.status === 'sick_leave' || t.status === 'personal_leave').length;
-  const offlineCount = sourceTechs.filter(t => t.status === 'offline').length;
+  // Generate color styles for hair and shirts based on technician name index to keep them consistent
+  const getTechColorPreset = (name: string) => {
+    const sum = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const presets = [
+      { shirt: '#3b82f6', hair: 0 }, // blue, short
+      { shirt: '#e11d48', hair: 1 }, // red, long/spiky
+      { shirt: '#10b981', hair: 2 }, // green, curly
+      { shirt: '#a855f7', hair: 3 }, // purple, cap
+      { shirt: '#f59e0b', hair: 0 }, // yellow, short
+      { shirt: '#6366f1', hair: 1 }, // indigo, long/spiky
+    ];
+    return presets[sum % presets.length];
+  };
 
   return (
     <div className="glass-card p-5 mb-6 overflow-hidden relative">
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes pixel-bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
+        .pixel-wood-floor {
+          background-color: #cb9b6d;
+          background-image: 
+            linear-gradient(90deg, #b08154 2px, transparent 2px),
+            linear-gradient(0deg, #b08154 2px, transparent 2px);
+          background-size: 24px 24px;
         }
-        @keyframes pixel-typing {
-          0%, 100% { transform: translateY(0) scaleY(1); }
-          50% { transform: translateY(-2px) scaleY(0.95); }
+        .pixel-kitchen-tiles {
+          background-color: #f1f5f9;
+          background-image: 
+            linear-gradient(90deg, #cbd5e1 1px, transparent 1px),
+            linear-gradient(0deg, #cbd5e1 1px, transparent 1px);
+          background-size: 16px 16px;
+        }
+        .pixel-lounge-carpet {
+          background-color: #1e293b;
+          background-image: radial-gradient(#334155 15%, transparent 16%);
+          background-size: 8px 8px;
         }
         @keyframes wheel-spin {
           from { transform: rotate(0deg); }
@@ -521,12 +578,6 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           0% { opacity: 0; transform: translate(0, 0) scale(0.6); }
           30% { opacity: 1; }
           100% { opacity: 0; transform: translate(6px, -20px) scale(1.1); }
-        }
-        .animate-bounce-pixel {
-          animation: pixel-bounce 1.5s infinite ease-in-out;
-        }
-        .animate-typing-pixel {
-          animation: pixel-typing 0.4s infinite linear;
         }
         .animate-wheel {
           animation: wheel-spin 1s infinite linear;
@@ -540,13 +591,16 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
         .animate-zzz-3 {
           animation: zzz-float 2.5s infinite ease-out 1.6s;
         }
+        .tech-character-transition {
+          transition: left 3s ease-in-out, top 3s ease-in-out;
+        }
       `}} />
 
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h3 className="text-xs font-bold text-slate-700 Prompt flex items-center gap-2">
             <span className="w-1.5 h-4 bg-emerald-500 rounded-full inline-block shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
-            🏢 Live Tech Pixel Office (สถานะปฏิบัติงานช่างเทคนิคเรียลไทม์)
+            🎮 Live Tech Pixel Office (สถานะปฏิบัติงานช่างเทคนิคเรียลไทม์)
           </h3>
           {demoMode && (
             <span className="bg-rose-500 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-full shadow-sm animate-pulse Prompt tracking-wider">
@@ -555,7 +609,7 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
           )}
         </div>
         
-        {/* Toggle Demo Switch & Count details */}
+        {/* Toggle Demo Switch */}
         <div className="flex items-center gap-4 flex-wrap">
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <span className="text-[10px] font-bold text-slate-500 Prompt">🎮 จำลองข้อมูล (Demo)</span>
@@ -573,183 +627,182 @@ function TechnicianPixelOffice({ users, todayAttendance, assignedJobs, submissio
 
           <div className="flex gap-3 text-[10px] font-bold Prompt text-slate-500 border-l border-slate-200 pl-4">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block shadow-sm shadow-emerald-200" />
-              ในออฟฟิศ: {workingCount}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block shadow-sm shadow-indigo-200" />
-              ลงพื้นที่: {onsiteCount}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-200" />
-              ลางาน: {leaveCount}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-slate-350 inline-block" />
-              ออฟไลน์: {offlineCount}
+              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+              ทำงานสะสมวันนี้: {submissions.filter(s => {
+                const subDate = s.submission_date?.split('T')[0];
+                const today = new Date().toLocaleDateString('en-CA');
+                return subDate === today;
+              }).length} งาน
             </span>
           </div>
         </div>
       </div>
 
-      {/* Unified Isometric Office Sandbox Map */}
-      <div className="relative w-full max-w-3xl mx-auto h-[480px] rounded-2xl overflow-hidden border border-slate-200/80 shadow-md bg-slate-100">
-        {/* Generated Isometric Office Background */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center transition-all duration-500"
-          style={{ backgroundImage: "url('/isometric_tech_office.png')" }}
-        />
-        {/* Soft shadow overlay */}
-        <div className="absolute inset-0 bg-slate-900/5 pointer-events-none" />
+      {/* 2D Orthogonal Pixel Office Map Viewer Container */}
+      <div className="w-full h-[330px] border-4 border-slate-700 bg-slate-900 rounded-2xl relative overflow-hidden select-none">
+        
+        {/* ROOM 1: MAIN WORKSPACE (Left Side 55% Width) */}
+        <div className="absolute left-0 top-0 w-[55%] h-[82%] pixel-wood-floor border-r border-[#181824] border-dashed">
+          {/* Wall Shelves at the top */}
+          <div className="absolute left-[8%] top-[2%]"><BookcaseSVG /></div>
+          <div className="absolute left-[36%] top-[2%]"><BookcaseSVG /></div>
+          {/* Plant Pots & Cardboard boxes */}
+          <div className="absolute left-[3%] top-[12%]"><PlantSVG /></div>
+          <div className="absolute left-[24%] top-[2%] flex gap-1 bg-amber-800/10 p-1 rounded">
+            <div className="w-3.5 h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
+            <div className="w-3.5 h-3.5 bg-amber-700/80 rounded border border-amber-900/60 shadow-xs" />
+          </div>
 
-        {/* Dynamic coordinate placement of technicians */}
-        {techPositions.map((tech) => {
-          // Dynamic scaling based on Y coordinate to simulate 3D Depth
-          const depthScale = 0.8 + (tech.y / 100) * 0.45;
-          const isWalkingNow = tech.isWalking;
-          const walkingAngle = tech.angle;
-          const faceRight = tech.tx > tech.x;
+          {/* DESKS (4 Stations layout matching the mockup) */}
+          {/* Desk 1 (top-left) */}
+          <div className="absolute left-[10%] top-[22%]"><DeskSVG /></div>
+          <div className="absolute left-[16%] top-[34%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          {/* Desk 2 (top-right) */}
+          <div className="absolute left-[38%] top-[22%]"><DeskSVG /></div>
+          <div className="absolute left-[44%] top-[34%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          {/* Desk 3 (bottom-left) */}
+          <div className="absolute left-[10%] top-[55%]"><DeskSVG /></div>
+          <div className="absolute left-[16%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+          {/* Desk 4 (bottom-right) */}
+          <div className="absolute left-[38%] top-[55%]"><DeskSVG /></div>
+          <div className="absolute left-[44%] top-[67%] w-3 h-3 bg-amber-800/60 rounded-full border border-amber-950" /> {/* Stool */}
+        </div>
+
+        {/* ROOM 2: KITCHEN BREAKROOM (Right Top 45% Width, 40% Height) */}
+        <div className="absolute right-0 top-0 w-[45%] h-[40%] pixel-kitchen-tiles border-b border-[#181824]">
+          {/* Vending machine */}
+          <div className="absolute left-[12%] top-[4%]"><VendingMachineSVG /></div>
+          {/* Water dispenser */}
+          <div className="absolute left-[40%] top-[4%]"><WaterCoolerSVG /></div>
+          {/* Sink Counter Cabinet */}
+          <div className="absolute right-[24%] top-[4%] flex items-end">
+            <div className="w-8 h-10 bg-slate-300 border-t-2 border-slate-400 border-x border-b border-slate-500 rounded-xs flex flex-col justify-between p-0.5">
+              <div className="w-4 h-2 bg-slate-500 rounded-full mx-auto" /> {/* Sink Basin */}
+              <div className="w-7 h-1 bg-slate-600 rounded-full" />
+            </div>
+          </div>
+          {/* Refrigerator */}
+          <div className="absolute right-[4%] top-[4%]"><FridgeSVG /></div>
+          {/* Wall Clock */}
+          <div className="absolute left-[62%] top-[6%] w-4 h-4 bg-white border border-slate-400 rounded-full flex items-center justify-center">
+            <div className="w-2.5 h-0.5 bg-slate-800 absolute transform rotate-45 origin-center" />
+          </div>
+        </div>
+
+        {/* ROOM 3: LOUNGE AREA (Right Bottom 45% Width, 42% Height) */}
+        <div className="absolute right-0 top-[40%] w-[45%] h-[42%] pixel-lounge-carpet">
+          {/* Couple of couches facing each other */}
+          <div className="absolute left-[14%] top-[45%]"><CouchSVG dir="left" /></div>
+          <div className="absolute right-[14%] top-[45%]"><CouchSVG dir="right" /></div>
+          {/* Coffee table with open laptop */}
+          <div className="absolute left-[34%] top-[48%]"><LoungeTableSVG /></div>
+          {/* Shelves and Plant pots on the sides */}
+          <div className="absolute left-[4%] top-[10%]"><PlantSVG /></div>
+          <div className="absolute right-[4%] top-[10%]"><PlantSVG /></div>
+          {/* Painting on the wall */}
+          <div className="absolute left-[38%] top-[4%] w-14 h-8 bg-sky-200 border-2 border-amber-800 rounded-sm shadow-sm flex items-center justify-center overflow-hidden">
+            <div className="w-full h-3 bg-emerald-500 mt-5 transform rotate-6 scale-110" />
+            <div className="w-4 h-4 bg-yellow-100 rounded-full absolute top-1 right-2" />
+          </div>
+        </div>
+
+        {/* Separating Walls overlay */}
+        <div className="absolute left-[54.5%] top-0 bottom-[18%] w-2.5 bg-[#181824] z-10 border-l border-r border-[#2d2d3d]" />
+        <div className="absolute left-[54.5%] top-[39.5%] right-0 h-2 bg-[#181824] z-10 border-t border-b border-[#2d2d3d]" />
+        
+        {/* Door openings / Gaps to make map walkable (Visual overlay) */}
+        {/* We can just let characters walk beneath the wall overlaps */}
+
+        {/* SIDEWALK & ON-SITE ROAD (Bottom 18% Width, for On-site live vehicle drive animation) */}
+        <div className="absolute left-0 right-0 bottom-0 h-[18%] bg-[#475569] border-t-4 border-[#1e293b] flex items-center justify-center overflow-hidden">
+          {/* Road center line */}
+          <div className="w-full h-0.5 border-t border-dashed border-white/60" />
+          
+          {/* Sidewalk border curb */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-[#cbd5e1] border-b border-[#94a3b8]" />
+        </div>
+
+        {/* ── RENDERING THE ANIMATED LIVE CHARACTERS ───────────────────────── */}
+        {sourceTechs.map((tech) => {
+          const pos = techPositions[tech.username] || { x: 74, y: 30, dir: 'front', isWalking: false };
+          const isTyping = tech.status === 'normal' || tech.status === 'late';
+          const preset = getTechColorPreset(tech.name || tech.username);
 
           return (
-            <div 
-              key={tech.username} 
-              className="absolute -translate-x-1/2 -translate-y-[85%] flex flex-col items-center z-10 transition-all duration-100 ease-linear cursor-pointer group"
-              style={{ 
-                top: `${tech.y}%`, 
-                left: `${tech.x}%`,
-                zIndex: Math.floor(tech.y * 10)
+            <div
+              key={tech.username}
+              className="absolute tech-character-transition z-20 flex flex-col items-center cursor-pointer group"
+              style={{
+                left: `${pos.x}%`,
+                top: `${pos.y}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: Math.floor(pos.y * 10) + 100 // Dynamic 2.5D z-sorting!
               }}
             >
-              {/* Interactive Speech Bubbles (RPG/Habbo Style) */}
-              {tech.chatBubble && (
-                <div className="absolute bottom-[110%] mb-1 flex flex-col items-center transition-all duration-300 animate-bounce z-40">
-                  <div className="bg-white text-slate-800 text-[9px] font-extrabold px-3 py-1.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.15)] border border-slate-100 max-w-[130px] text-center Prompt leading-relaxed break-words">
-                    {tech.chatBubble}
-                  </div>
-                  {/* Speech bubble pointer */}
-                  <div className="w-2.5 h-2.5 bg-white border-r border-b border-slate-100 rotate-45 -mt-1.5" />
+              {/* Submission bubble / Task notifications */}
+              {tech.hasRecentSub && (
+                <div className="absolute -top-6 bg-pink-500 text-white font-extrabold text-[8px] px-1.5 py-0.5 rounded-md shadow-md animate-bounce z-40 whitespace-nowrap">
+                  🎉 ส่งงานแล้ว!
+                </div>
+              )}
+              {tech.pendingCount > 0 && !tech.hasRecentSub && (
+                <div className="absolute -top-6 bg-indigo-600 text-white font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-md z-40">
+                  {tech.pendingCount}
                 </div>
               )}
 
-              {/* Status / Task Info Badge on Hover */}
-              <div className="absolute bottom-[105%] hidden group-hover:flex flex-col items-center z-30 transition-all duration-200">
-                <div className="bg-slate-900/95 text-white text-[9px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap Prompt leading-snug">
-                  <p>{tech.name}</p>
-                  <p className="text-slate-300 font-semibold text-[8px] mt-0.5">
-                    สถานะ: {
-                      tech.status === 'onsite' ? `🚗 ลงพื้นที่ (${tech.province || 'ตจว.'})` :
-                      tech.status === 'sick_leave' ? '🤒 ลาป่วย' :
-                      tech.status === 'personal_leave' ? '🚗 ลากิจ' :
-                      tech.status === 'normal' || tech.status === 'late' ? `💻 ในออฟฟิศ (เข้า ${tech.checkInTime || '—'})` :
-                      '🏠 ออฟไลน์'
-                    }
-                  </p>
+              {/* Zzz floating sleep bubbles for offline techs */}
+              {tech.status === 'offline' && (
+                <div className="absolute -top-5 left-1 z-30">
+                  <span className="absolute text-[8px] font-black text-indigo-400 animate-zzz-1">Z</span>
+                  <span className="absolute text-[10px] font-black text-indigo-400 animate-zzz-2" style={{ left: '4px', top: '-4px' }}>Z</span>
+                  <span className="absolute text-[11px] font-black text-indigo-400 animate-zzz-3" style={{ left: '8px', top: '-8px' }}>Z</span>
                 </div>
-                <div className="w-1.5 h-1.5 bg-slate-900/95 rotate-45 -mt-1" />
-              </div>
+              )}
 
-              {/* Character sprite visual wrapper with depth scaling and walking sway */}
-              <div 
-                className="relative transition-transform duration-100"
-                style={{ 
-                  transform: `
-                    scale(${depthScale}) 
-                    rotate(${isWalkingNow ? Math.sin(walkingAngle) * 8 : 0}deg) 
-                    translateY(${isWalkingNow ? Math.abs(Math.sin(walkingAngle)) * -3 : 0}px)
-                    scaleX(${faceRight ? 1 : -1})
-                  ` 
-                }}
-              >
-                {/* 1. Working Office State sprite */}
-                {(tech.status === 'normal' || tech.status === 'late') && (
-                  <div className="relative">
-                    {/* Active work/task badge */}
-                    {tech.hasRecentSub && (
-                      <span className="absolute -top-3.5 -right-2 bg-pink-500 text-white font-extrabold text-[7px] px-1 py-0.25 rounded-md shadow-md animate-bounce z-20">
-                        🎉 ส่งงาน
-                      </span>
-                    )}
-                    {tech.pendingCount > 0 && !tech.hasRecentSub && (
-                      <span className="absolute -top-3.5 -right-2 bg-indigo-600 text-white font-extrabold text-[7px] w-4 h-4 rounded-full flex items-center justify-center shadow-md z-20">
-                        {tech.pendingCount}
-                      </span>
-                    )}
-                    
-                    {/* Retro 2D Character sprite sitting/typing */}
-                    <svg className="w-11 h-11 drop-shadow-md" viewBox="0 0 40 40" fill="none">
-                      {/* Character body */}
-                      <path d="M12 22 C12 18, 28 18, 28 22 L28 32 L12 32 Z" fill="#6366f1" />
-                      {/* Head */}
-                      <circle cx="20" cy="14" r="5" fill="#fed7aa" />
-                      {/* Hair */}
-                      <path d="M15 14 C15 10, 25 10, 25 14 C25 12, 15 12, 15 14" fill="#78350f" stroke="#78350f" strokeWidth="2" />
-                      {/* Eyes */}
-                      <circle cx="18" cy="14" r="0.8" fill="#1e293b" />
-                      <circle cx="22" cy="14" r="0.8" fill="#1e293b" />
-                      {/* Typing hands (animates if standing/sitting idle) */}
-                      {!isWalkingNow && (
-                        <>
-                          <circle cx="16" cy="24" r="1.2" fill="#fed7aa" className="animate-ping" />
-                          <circle cx="24" cy="24" r="1.2" fill="#fed7aa" className="animate-ping" />
-                        </>
-                      )}
-                    </svg>
+              {/* Check if technician is driving on-site */}
+              {tech.status === 'onsite' ? (
+                // Little driving truck!
+                <div className="flex items-center gap-1 drop-shadow-md">
+                  <svg className="w-12 h-6" viewBox="0 0 48 24" fill="none">
+                    <rect x="2" y="8" width="28" height="10" rx="1" fill="#3b82f6" />
+                    <rect x="28" y="10" width="12" height="8" rx="1" fill="#3b82f6" />
+                    <path d="M40 18 L44 18 L42 12 L38 12 Z" fill="#3b82f6" />
+                    <path d="M36 11.5 L40 11.5 L38.5 13 L36 13 Z" fill="#e2e8f0" />
+                    {/* ladder */}
+                    <line x1="4" y1="5" x2="26" y2="5" stroke="#94a3b8" strokeWidth="2" />
+                    <line x1="8" y1="5" x2="8" y2="8" stroke="#94a3b8" strokeWidth="1" />
+                    <line x1="16" y1="5" x2="16" y2="8" stroke="#94a3b8" strokeWidth="1" />
+                    {/* wheels */}
+                    <circle cx="10" cy="18" r="4" fill="#1e293b" />
+                    <circle cx="10" cy="18" r="2" fill="#ffffff" className="animate-wheel" />
+                    <circle cx="32" cy="18" r="4" fill="#1e293b" />
+                    <circle cx="32" cy="18" r="2" fill="#ffffff" className="animate-wheel" />
+                  </svg>
+                  <div className="bg-white/95 px-1.5 py-0.5 rounded border border-indigo-200 text-[8px] font-black text-indigo-700 Prompt whitespace-nowrap shadow-sm">
+                    ช่าง {tech.displayName} ({tech.province || 'เดินทาง'})
                   </div>
-                )}
-
-                {/* 2. Onsite sprite (Shows a tiny walking courier or tools carrier) */}
-                {tech.status === 'onsite' && (
-                  <div className="relative animate-bounce-pixel">
-                    <svg className="w-10 h-10 drop-shadow-md" viewBox="0 0 40 40" fill="none">
-                      {/* Red coat / onsite uniform */}
-                      <path d="M12 22 C12 18, 28 18, 28 22 L28 32 L12 32 Z" fill="#ef4444" />
-                      {/* Head */}
-                      <circle cx="20" cy="14" r="5" fill="#fed7aa" />
-                      {/* Cap/Hat */}
-                      <path d="M14 11 L26 11 L28 13 L12 13 Z" fill="#b91c1c" />
-                      <rect x="14" y="9" width="12" height="3" rx="0.5" fill="#b91c1c" />
-                      {/* Toolbox carried */}
-                      <rect x="22" y="24" width="8" height="6" fill="#475569" />
-                      <rect x="24" y="22" width="4" height="2" fill="#94a3b8" />
-                    </svg>
-                  </div>
-                )}
-
-                {/* 3. Leave Sprite (Beach Lounger relaxation) */}
-                {(tech.status === 'sick_leave' || tech.status === 'personal_leave') && (
-                  <div className="relative">
-                    <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
-                      {/* Beach chair */}
-                      <line x1="8" y1="30" x2="26" y2="16" stroke="#fbbf24" strokeWidth="2.5" />
-                      {/* Resting Body */}
-                      <circle cx="21" cy="17" r="4.5" fill="#fed7aa" />
-                      <path d="M12 26 C12 24, 22 24, 22 26" stroke="#10b981" strokeWidth="3" />
-                    </svg>
-                  </div>
-                )}
-
-                {/* 4. Offline (Walks to exit and sleeps if needed) */}
-                {tech.status === 'offline' && (
-                  <div className="relative">
-                    <span className="absolute -top-3.5 left-1 text-[8px] font-black text-slate-400/80 animate-zzz-1">Z</span>
-                    <span className="absolute -top-2.5 left-3 text-[10px] font-black text-slate-400/80 animate-zzz-2">Z</span>
-                    
-                    <svg className="w-10 h-10 drop-shadow-sm" viewBox="0 0 40 40" fill="none">
-                      <circle cx="20" cy="15" r="5" fill="#fed7aa" />
-                      <path d="M15 15 C15 11, 25 11, 25 15" fill="#475569" stroke="#475569" strokeWidth="1.5" />
-                      <path d="M12 23 C12 19, 28 19, 28 23 L28 32 L12 32 Z" fill="#94a3b8" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-
-              {/* Badge text showing technician displayName */}
-              <span className="text-[7.5px] font-black text-slate-700 bg-white/95 px-1.5 py-0.5 rounded-md shadow-md border border-slate-200/50 mt-1 max-w-[65px] truncate Prompt text-center z-10 scale-[0.9]">
-                {tech.displayName}
-              </span>
+                </div>
+              ) : (
+                // Human sprite walking/sitting
+                <div className="flex flex-col items-center">
+                  <CharacterSVG
+                    hairStyle={preset.hair}
+                    shirtColor={preset.shirt}
+                    isWalking={pos.isWalking}
+                    isTyping={isTyping && !pos.isWalking}
+                    dir={pos.dir}
+                  />
+                  {/* Name tag */}
+                  <span className="text-[8px] font-black text-slate-800 bg-white/95 px-1 py-0.25 rounded border border-slate-200 shadow-xs mt-0.5 max-w-[60px] truncate Prompt text-center z-30">
+                    {tech.displayName}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}
+
       </div>
     </div>
   );
